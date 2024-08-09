@@ -1,7 +1,24 @@
 use std::collections::HashMap;
+use std::ops::Deref;
+#[derive(Debug, Clone)]
+pub struct Token<'a>{
+    string:&'a str,
+    line:usize
+}
+
+impl <'a>Into<&'a str> for Token<'a>{
+    fn into(self)->&'a str{
+       return self.string; 
+    }
+}
+impl PartialEq<&str> for Token<'_>{
+    fn eq(&self, other:&&str) ->bool{
+        return self.string == *other;
+    }
+}
 #[derive(Clone,Debug)]
 pub enum Type{
-    BoolT,IntegerT,FloatT,StringT, MatrixT, StructT{name:String, components:Vec<Type>}, PointerT{ptr_type:Box<Type>},
+    BoolT,IntegerT,FloatT,StringT, MatrixT, StructT{name:String, components:Vec<(String,Type)>}, PointerT{ptr_type:Box<Type>},
 }
 #[derive(Clone,Debug)]
 pub enum AstNode{
@@ -17,6 +34,15 @@ pub enum AstNode{
     Sub{left:Box<AstNode>, right:Box<AstNode>},
     Mult{left:Box<AstNode>, right:Box<AstNode>},
     Div{left:Box<AstNode>, right:Box<AstNode>},
+    Equals{left:Box<AstNode>, right:Box<AstNode>},
+    GreaterThan{left:Box<AstNode>, right:Box<AstNode>},
+    LessThan{left:Box<AstNode>, right:Box<AstNode>},
+    GreaterOrEq{left:Box<AstNode>, right:Box<AstNode>},
+    LessThanOrEq{left:Box<AstNode>, right:Box<AstNode>},
+    Not{value:Box<AstNode>},
+    If{condition:Box<AstNode>,thing_to_do:Box<AstNode>, Else:Box<AstNode>,},
+    Loop{condition:Box<AstNode>, body:Box<AstNode>,},
+    ForLoop{variable:Box<AstNode>, condition:Box<AstNode>, post_op:Box<AstNode>, body:Box<AstNode>,},
 }
 #[derive(Debug)]
 pub struct Function{
@@ -33,10 +59,11 @@ pub struct Program{
 }
 #[derive(Debug,Clone,Copy)]
 pub enum GlobalTypes<'a>{
-    StructDef{text:&'a [&'a str]},
-    FunctionDef{text:&'a [&'a str]},
-    GlobalDef{text:&'a [&'a str]},
+    StructDef{text:&'a [Token<'a>]},
+    FunctionDef{text:&'a [Token<'a>]},
+    GlobalDef{text:&'a [Token<'a>]},
 }
+
 pub fn split_by<'a>(string:&'a str, value:char)->Vec<&'a str>{
     let mut out:Vec<&'a str> = vec![];
     let mut last = 0;
@@ -56,20 +83,34 @@ pub fn split_by<'a>(string:&'a str, value:char)->Vec<&'a str>{
     }
     return out;
 }
-pub fn tokenize<'a>(program:&'a str)->Vec<&'a str>{
-    let mut out:Vec<&'a str>= program.split_whitespace().collect();
-    out = out.iter().map(|i| split_by(i,'(')).flatten().collect();
-    out = out.iter().map(|i| split_by(i,')')).flatten().collect();
-    out = out.iter().map(|i| split_by(i,':')).flatten().collect();
-    out = out.iter().map(|i| split_by(i,'+')).flatten().collect();
-    out = out.iter().map(|i| split_by(i,'-')).flatten().collect();
-    out = out.iter().map(|i| split_by(i,'=')).flatten().collect();
-    out = out.iter().map(|i| split_by(i,'/')).flatten().collect();
-    out = out.iter().map(|i| split_by(i,'[')).flatten().collect();
-    out = out.iter().map(|i| split_by(i,']')).flatten().collect();
+
+pub fn token_split_by<'a>(token:&Token<'a>, value:char)->Vec<Token<'a>>{
+    split_by(token.string, value).into_iter().map(|i| Token{string:i, line:token.line}).collect()
+}
+
+pub fn tokenize<'a>(program:&'a str)->Vec<Token<'a>>{
+    let lines:Vec<&'a str> = program.split("\n").collect();
+    let mut out:Vec<Token<'a>> = vec![];
+    for i in 0..lines.len(){
+        let tokens:Vec<&'a str> = lines[i].split_whitespace().collect();;
+        for j in tokens{
+            out.push(Token{string:j, line:i+1});
+        } 
+    }
+    //let mut out:Vec<&'a str>= program.split_whitespace().collect();
+    out = out.iter().map(|i| token_split_by(i,'(')).flatten().collect();
+    out = out.iter().map(|i| token_split_by(i,')')).flatten().collect();
+    out = out.iter().map(|i| token_split_by(i,':')).flatten().collect();
+    out = out.iter().map(|i| token_split_by(i,'+')).flatten().collect();
+    out = out.iter().map(|i| token_split_by(i,'-')).flatten().collect();
+    out = out.iter().map(|i| token_split_by(i,'=')).flatten().collect();
+    out = out.iter().map(|i| token_split_by(i,'/')).flatten().collect();
+    out = out.iter().map(|i| token_split_by(i,'[')).flatten().collect();
+    out = out.iter().map(|i| token_split_by(i,']')).flatten().collect();
     return out;
 }
-pub fn extract_global<'a>(tokens:&'a[&'a str],idx:&mut usize)->Option<GlobalTypes<'a>>{
+
+pub fn extract_global<'a>(tokens:&'a[Token],idx:&mut usize)->Option<GlobalTypes<'a>>{
     let start = *idx;
     if tokens[*idx] != "(" {
         return None;
@@ -103,7 +144,8 @@ pub fn extract_global<'a>(tokens:&'a[&'a str],idx:&mut usize)->Option<GlobalType
     }
     return None;
  }
-pub fn extract_globals<'a>(tokens:&'a[&'a str])->Result<Vec<GlobalTypes<'a>>,String>{
+
+pub fn extract_globals<'a>(tokens:&'a[Token<'a>])->Result<Vec<GlobalTypes<'a>>,String>{
     let mut out = vec![];
     let mut idx = 0;
     while let Some(p) = extract_global(&tokens, &mut idx){
@@ -111,25 +153,40 @@ pub fn extract_globals<'a>(tokens:&'a[&'a str])->Result<Vec<GlobalTypes<'a>>,Str
     }
     return Ok(out);
 }
-pub fn parse_type(text:&[&str], types:&HashMap<String,Type>)->Option<(String,Type)>{
+
+pub fn parse_type(text:&[Token], types:&HashMap<String,Type>)->Option<(String,Type)>{
     if *text.get(0)? != "("{
-        println!("error expect parenthesis");
+        println!("error expected parenthesis, line: {}", text.get(0)?.line());
         return None;
     } 
     if *text.get(1)? != "struct"{
-        println("expected struct declaration");
+        println!("expected struct declaration");
         
     }
-    
-    return None;
+    let name = String::from(text.get(2)?.string);
+    let out_types = vec![];
+    let mut idx = 0;
+    while idx<text.len(){
+        let ident_name = text[idx];
+        if text[idx+1] != ":"{
+            return None;
+        }
+        let type_name = text[idx+2]; 
+        out_types.push((ident_name,types.get(type_name)?));
+        idx += 3; 
+    }
+    return Some((name.clone(),Type::StructT{name, components:out_types}));
 }
-pub fn parse_global(text:&[&str], types:&HashMap<String,Type>)->Option<(String,Type)>{
+
+pub fn parse_global(text:&[Token], types:&HashMap<String,Type>)->Option<(String,Type)>{
     None
 }
-pub fn parse_function(text:&[&str], types:&HashMap<String,Type>, global_variables:&HashMap<String, (Type,usize)>)->Option<(String,Function)>{
+
+pub fn parse_function(text:&[Token], types:&HashMap<String,Type>, global_variables:&HashMap<String, (Type,usize)>)->Option<(String,Function)>{
     println!("{:#?}",text);
     None
 }
+
 pub fn program_to_ast(program:&str)->Option<Program>{
     let tokens = tokenize(program);
     let globals_result = extract_globals(&tokens);
@@ -189,12 +246,9 @@ pub fn program_to_ast(program:&str)->Option<Program>{
     }
     return Some(Program{types,functions, static_variables:global_variables});
 }
+		
 const PROGRAM:&str = "(fn main {}->void(print (+ 10 (* 2 15)))))";
-fn main() {
-    let tokens = tokenize(PROGRAM);
-    for i in &tokens{
-        println!("<{}>",i);
-    }
+fn main() { 
     let prg = program_to_ast(PROGRAM);
     println!("{:#?}",prg);
 }
