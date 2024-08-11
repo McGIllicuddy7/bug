@@ -1,3 +1,5 @@
+use std::io::Cursor;
+
 pub use crate::types::*;
 
 #[derive(Debug,Clone,Copy)]
@@ -362,7 +364,7 @@ pub fn parse_type(text:&[Token], types:&HashMap<String,Type>)->Option<(String,Ty
 }
 
 pub fn parse_expression(text:&[Token], cursor:&mut usize, types:&HashMap<String,Type>, scope:&mut Scope, function_table:&HashMap<String, Function>)->Option<AstNode>{
-    println!("{}",text[*cursor].string);
+    println!("{} {}",text[*cursor].string, text[*cursor+1].string);
     if text[*cursor] == "("{
         if function_table.contains_key(text[*cursor+1].string){
             let mut args = vec![];
@@ -460,7 +462,7 @@ pub fn parse_expression(text:&[Token], cursor:&mut usize, types:&HashMap<String,
             while *cursor<last_idx{
                 args.push(parse_expression(text, cursor, types, scope, function_table)?);
             }
-            *cursor+=1;
+            *cursor += 1;
             return Some(AstNode::LessThan { left: Box::new(args[0].clone()), right:Box::new(args[1].clone()) });
         } else if text[*cursor+1] == ">"{
             let mut args = vec![];
@@ -469,7 +471,7 @@ pub fn parse_expression(text:&[Token], cursor:&mut usize, types:&HashMap<String,
             while *cursor<last_idx{
                 args.push(parse_expression(text, cursor, types, scope, function_table)?);
             }
-            *cursor+=1;
+            *cursor += 1;
             return Some(AstNode::GreaterThan {left: Box::new(args[0].clone()), right:Box::new(args[1].clone()) });
         } else if text[*cursor+1] == "&&"{
             let mut args = vec![];
@@ -518,11 +520,15 @@ pub fn parse_expression(text:&[Token], cursor:&mut usize, types:&HashMap<String,
             scope.push_scope();
             let to_do = parse_expression(text, cursor, types, scope, function_table)?;
             scope.pop_scope();
-            if text[*cursor] == "else"{
+            if text[*cursor+1] == "else"{
+                *cursor +=2;
+                scope.push_scope();
                 let to_do_else = parse_expression(text, cursor, types, scope, function_table)?;
-                *cursor+=1;
+                scope.pop_scope();
+                *cursor += 2;
                 return Some(AstNode::If { condition:Box::new(condition), thing_to_do: Box::new(to_do), r#else: Some(Box::new(to_do_else))});
             }
+            *cursor +=1;
             return Some(AstNode::If { condition:Box::new(condition), thing_to_do: Box::new(to_do), r#else: None});
         }
         else if text[*cursor+1] == "return"{
@@ -600,9 +606,11 @@ pub fn parse_expression(text:&[Token], cursor:&mut usize, types:&HashMap<String,
         }
         return Some(base_out);
     } else if text[*cursor] == "true"{
+        *cursor += 1;
         return Some(AstNode::BoolLiteral { value:true });
     }
     else if text[*cursor] == "false"{
+        *cursor += 1;
         return Some(AstNode::BoolLiteral { value:false });
     }
     println!("returned none on {:#?}", text[*cursor]);
