@@ -1,5 +1,7 @@
 use core::str;
 use std::collections::HashMap;
+use std::hash::Hash;
+use std::io::Cursor;
 use std::slice;
 #[derive(Debug, Clone)]
 pub struct Token<'a>{
@@ -32,8 +34,8 @@ pub enum AstNode{
     IntLiteral{value:i64}, 
     FloatLiteral{value:f64}, 
     StructLiteral{nodes:Vec<AstNode>},
-    MatrixLiteral{nodes:Vec<AstNode>},
-    VariableUse{name:String},
+    ArrayLiteral{nodes:Vec<AstNode>},
+    VariableUse{name:String, index:usize,vtype:Type, is_arg:bool},
     FunctionCall{function_name:String, args:Vec<AstNode>},
     Assignment{left:Box<AstNode>, right:Box<AstNode>},
     VariableDeclaration{name:String, var_type:Type, value_assigned:Option<Box<AstNode>>},
@@ -45,12 +47,16 @@ pub enum AstNode{
     GreaterThan{left:Box<AstNode>, right:Box<AstNode>},
     LessThan{left:Box<AstNode>, right:Box<AstNode>},
     GreaterOrEq{left:Box<AstNode>, right:Box<AstNode>},
-    LessThanOrEq{left:Box<AstNode>, right:Box<AstNode>},
+    LessOrEq{left:Box<AstNode>, right:Box<AstNode>},
     Not{value:Box<AstNode>},
-    If{condition:Box<AstNode>,thing_to_do:Box<AstNode>, r#else:Box<AstNode>,},
+    And{left:Box<AstNode>, right:Box<AstNode>},
+    Or{left:Box<AstNode>, right:Box<AstNode>},
+    If{condition:Box<AstNode>,thing_to_do:Box<AstNode>, r#else:Option<Box<AstNode>>,},
     Loop{condition:Box<AstNode>, body:Box<AstNode>,},
     ForLoop{variable:Box<AstNode>, condition:Box<AstNode>, post_op:Box<AstNode>, body:Box<AstNode>,},
     Return{body:Box<AstNode>},
+    Deref{thing_to_deref:Box<AstNode>},
+    TakeRef{thing_to_ref:Box<AstNode>},
 }
 
 #[derive(Debug)]
@@ -61,7 +67,46 @@ pub struct Function{
     arg_names:Vec<String>,
     program:Vec<AstNode>,
 }
-
+#[derive(Debug)]
+pub struct Scope{
+    pub scope:Vec<HashMap<String, (Type,usize, bool)>>, 
+    pub count:usize,
+}
+impl Scope{
+    pub fn new(statics:&HashMap<String,(Type,usize)>)->Self{
+        let mut  base = HashMap::new();
+        let mut count = 0;
+        for r in statics{
+            base.insert(r.0.clone(), (r.1.0.clone(), count, false));
+            count +=1;
+        }
+        Self{scope:vec![base],count}
+    }   
+    pub fn push_scope(&mut self){
+        self.scope.push(HashMap::new());
+    } 
+    pub fn pop_scope(&mut self){
+        self.scope.pop();
+    }
+    pub fn declare_variable(&mut self, vtype:Type, name:String){
+        let cur = &mut self.scope[0];
+        cur.insert(name,(vtype, self.count,false));
+        self.count +=1;
+    }
+    pub fn declare_variable_arg(&mut self, vtype:Type, name:String){
+        let cur = &mut self.scope[0];
+        cur.insert(name,(vtype, self.count,false));
+        self.count +=1;
+    }
+    pub fn variable_idx(&mut self, name:String)->Option<(Type,usize,bool)>{
+        for i in &self.scope{
+            if i.contains_key(&name){
+                return Some(i.get(&name)?.clone());
+            }
+        }
+        return None;
+    }
+}
 #[derive(Debug)]
 pub struct Program{
     types:HashMap<String, Type>, 
@@ -76,16 +121,39 @@ pub enum GlobalTypes<'a>{
     FunctionDef{text:&'a [Token<'a>]},
     GlobalDef{text:&'a [Token<'a>]},
 }
+
 pub fn calc_close_paren(tokens:&[Token<'_>], base_idx:usize)->Option<usize>{
-    let mut idx = base_idx;
+    let mut idx = base_idx+1;
     let mut paren_count = 1;
     if tokens[base_idx] != "("{
+        println!("base wasn't a paren");
         return None;
     }
     while idx<tokens.len(){
         if tokens[idx] == "("{
             paren_count += 1;
         } else if tokens[idx] == ")"{
+            paren_count -= 1;
+        }
+        if paren_count == 0{
+            return Some(idx);
+        }
+        idx +=1;
+    }
+    println!("failed to find next paren");
+    return None;
+}
+
+pub fn calc_close_block(tokens:&[Token<'_>], base_idx:usize)->Option<usize>{
+    let mut idx = base_idx;
+    let mut paren_count = 1;
+    if tokens[base_idx] != "["{
+        return None;
+    }
+    while idx<tokens.len(){
+        if tokens[idx] == "["{
+            paren_count += 1;
+        } else if tokens[idx] == "]"{
             paren_count -= 1;
         }
         if paren_count == 0{
@@ -169,17 +237,16 @@ pub fn collect_tokens<'a>(tokens:&[Token<'a>])->Vec<Token<'a>>{
     }
     return out;
 }
-
-fn handle_numbers<'a>(tokens:&[Token<'a>])->Vec<Token<'a>>{
-    fn is_numbers(s:&str)->bool{
-        for r in s.chars(){
-            if r == '0' ||r == '1' ||r== '2' ||r== '3' ||r== '4' ||r== '5' ||r== '6' || r== '7' || r=='8' || r == '9' || r == '.'{
-                continue;
-            }
-            return false;
+fn is_numbers(s:&str)->bool{
+    for r in s.chars(){
+        if r == '0' ||r == '1' ||r== '2' ||r== '3' ||r== '4' ||r== '5' ||r== '6' || r== '7' || r=='8' || r == '9' || r == '.'{
+            continue;
         }
-        true
+        return false;
     }
+    true
+}
+fn handle_numbers<'a>(tokens:&[Token<'a>])->Vec<Token<'a>>{
     let mut out = vec![];
     for i in tokens{
         if i.string.contains("."){
@@ -287,17 +354,14 @@ pub fn extract_global<'a>(tokens:&'a[Token],idx:&mut usize)->Option<GlobalTypes<
     let span = &tokens[start..*idx];
     *idx +=1;
     if span[1] == "struct"{
-        println!("found struct");
         let out = GlobalTypes::StructDef { text:span };
         return Some(out);
     } 
     if span[1] == "let"{
-        println!("found let");
         let out = GlobalTypes::GlobalDef  { text:span };
         return Some(out);
     } 
     if span[1] == "fn"{
-        println!("found fn");
         let out = GlobalTypes::FunctionDef { text:span };
         return Some(out);
     }
@@ -327,7 +391,16 @@ fn parse_declared_type(tokens:&[Token], idx:&mut usize, types:&HashMap<String, T
     if current.string == "["{
         if tokens.get(base+1)?.string == "]"{
             *idx += 2;
-            return Some(parse_declared_type(tokens, idx, types)).flatten().map(|i| Type::PointerT { ptr_type:Box::new(i) });
+            return Some(parse_declared_type(tokens, idx, types)).flatten().map(|i| Type::VecT { ptr_type:Box::new(i) });
+        }  else if tokens.get(base+2)?.string == "]"{
+            if let Ok(count) = tokens[base+1].string.parse::<usize>(){
+                return Some(parse_declared_type(tokens, idx, types)).flatten().map(|i| Type::ArrayT { size:count,array_type:Box::new(i) });
+            } else{
+                return None;
+            }
+        }
+        else{
+            return None;
         }
     }
     println!("error unknown type:{:#?}", tokens[base].string);
@@ -364,10 +437,173 @@ pub fn parse_type(text:&[Token], types:&HashMap<String,Type>)->Option<(String,Ty
     }
     return Some((name.clone(),Type::StructT{name, components:out_types.clone()}));
 }
-pub fn parse_expression(text:&[Token], cursor:&mut usize, types:&HashMap<String,Type>, global_variables:&HashMap<String, (Type,usize)>, function_table:&HashMap<String, Function>)->Option<AstNode>{
 
+pub fn parse_expression(text:&[Token], cursor:&mut usize, types:&HashMap<String,Type>, scope:&mut Scope, function_table:&HashMap<String, Function>)->Option<AstNode>{
+    if text[*cursor] == "("{
+        if function_table.contains_key(text[*cursor+1].string){
+            let mut args = vec![];
+            let last_idx = calc_close_paren(text, *cursor)?;
+            while *cursor<last_idx{
+                args.push(parse_expression(text, cursor, types, scope, function_table)?);
+            }
+            *cursor+=1;
+            return Some(AstNode::FunctionCall { function_name: text[*cursor].string.to_owned(), args:  args});
+        } else if text[*cursor+1] == "+"{
+            let mut args = vec![];
+            let last_idx = calc_close_paren(text, *cursor)?;
+            while *cursor<last_idx{
+                args.push(parse_expression(text, cursor, types, scope, function_table)?);
+            }
+            *cursor+=1;
+            return Some(AstNode::Add { left: Box::new(args[0].clone()), right:Box::new(args[1].clone()) });
+        } else if text[*cursor+1] == "-"{
+            let mut args = vec![];
+            let last_idx = calc_close_paren(text, *cursor)?;
+            while *cursor<last_idx{
+                args.push(parse_expression(text, cursor, types, scope, function_table)?);
+            }
+            *cursor+=1;
+            return Some(AstNode::Sub{ left: Box::new(args[0].clone()), right:Box::new(args[1].clone()) });
+        } else if text[*cursor+1] == "*"{
+            let mut args = vec![];
+            let last_idx = calc_close_paren(text, *cursor)?;
+            while *cursor<last_idx{
+                args.push(parse_expression(text, cursor, types, scope, function_table)?);
+            }
+            *cursor+=1;
+            if args.len() == 1{
+                return Some(AstNode::Deref { thing_to_deref: Box::new(args[0].clone())});
+            } else{
+                return Some(AstNode::Mult { left: Box::new(args[0].clone()), right:Box::new(args[1].clone()) });
+            }
+        } else if text[*cursor+1] == "/"{
+            let mut args = vec![];
+            let last_idx = calc_close_paren(text, *cursor)?;
+            while *cursor<last_idx{
+                args.push(parse_expression(text, cursor, types, scope, function_table)?);
+            }
+            *cursor+=1;
+            return Some(AstNode::Div { left: Box::new(args[0].clone()), right:Box::new(args[1].clone()) });
+        } else if text[*cursor+1] == "=="{
+            let mut args = vec![];
+            let last_idx = calc_close_paren(text, *cursor)?;
+            while *cursor<last_idx{
+                args.push(parse_expression(text, cursor, types, scope, function_table)?);
+            }
+            *cursor+=1;
+            return Some(AstNode::Equals { left: Box::new(args[0].clone()), right:Box::new(args[1].clone()) });
+        } else if text[*cursor+1] == "<="{
+            let mut args = vec![];
+            let last_idx = calc_close_paren(text, *cursor)?;
+            while *cursor<last_idx{
+                args.push(parse_expression(text, cursor, types, scope, function_table)?);
+            }
+            *cursor+=1;
+            return Some(AstNode::LessOrEq { left: Box::new(args[0].clone()), right:Box::new(args[1].clone()) });
+        } else if text[*cursor+1] == ">="{
+            let mut args = vec![];
+            let last_idx = calc_close_paren(text, *cursor)?;
+            while *cursor<last_idx{
+                args.push(parse_expression(text, cursor, types, scope, function_table)?);
+            }
+            *cursor+=1;
+            return Some(AstNode::GreaterOrEq { left: Box::new(args[0].clone()), right:Box::new(args[1].clone()) });
+        } else if text[*cursor+1] == "<"{
+            let mut args = vec![];
+            let last_idx = calc_close_paren(text, *cursor)?;
+            while *cursor<last_idx{
+                args.push(parse_expression(text, cursor, types, scope, function_table)?);
+            }
+            *cursor+=1;
+            return Some(AstNode::LessThan { left: Box::new(args[0].clone()), right:Box::new(args[1].clone()) });
+        } else if text[*cursor+1] == ">"{
+            let mut args = vec![];
+            let last_idx = calc_close_paren(text, *cursor)?;
+            while *cursor<last_idx{
+                args.push(parse_expression(text, cursor, types, scope, function_table)?);
+            }
+            *cursor+=1;
+            return Some(AstNode::GreaterThan {left: Box::new(args[0].clone()), right:Box::new(args[1].clone()) });
+        } else if text[*cursor+1] == "&&"{
+            let mut args = vec![];
+            let last_idx = calc_close_paren(text, *cursor)?;
+            while *cursor<last_idx{
+                args.push(parse_expression(text, cursor, types, scope, function_table)?);
+            }
+            *cursor+=1;
+            return Some(AstNode::And{left: Box::new(args[0].clone()), right:Box::new(args[1].clone()) });
+        } else if text[*cursor+1] == "||"{
+            let mut args = vec![];
+            let last_idx = calc_close_paren(text, *cursor)?;
+            while *cursor<last_idx{
+                args.push(parse_expression(text, cursor, types, scope, function_table)?);
+            }
+            *cursor+=1;
+            return Some(AstNode::Or{left: Box::new(args[0].clone()), right:Box::new(args[1].clone()) });
+        } else if text[*cursor+1] == "="{
+            let mut args = vec![];
+            let last_idx = calc_close_paren(text, *cursor)?;
+            while *cursor<last_idx{
+                args.push(parse_expression(text, cursor, types, scope, function_table)?);
+            }
+            *cursor+=1;
+            return Some(AstNode::Assignment{left: Box::new(args[0].clone()), right:Box::new(args[1].clone()) });
+        }
+        else if text[*cursor+1] == "let"{
+            let name = text[*cursor+1].string.to_owned();
+            let var_type = parse_declared_type(text, cursor, types)?;
+            *cursor +=1;
+            scope.declare_variable(var_type.clone(), name.clone());
+            if text[*cursor] != "="{
+                return  Some(AstNode::VariableDeclaration { name , var_type,value_assigned:None });
+            } 
+            let next = parse_expression(text, cursor, types, scope, function_table)?;
+            return Some(AstNode::VariableDeclaration { name , var_type, value_assigned: Some(Box::new(next)) });
+        }
+        else if text[*cursor+1] == "if"{
+            *cursor+=2;
+            let condition=  parse_expression(text, cursor, types, scope, function_table)?;
+            scope.push_scope();
+            let to_do = parse_expression(text, cursor, types, scope, function_table)?;
+            scope.pop_scope();
+            if text[*cursor] == "else"{
+                let to_do_else = parse_expression(text, cursor, types, scope, function_table)?;
+                *cursor+=1;
+                return Some(AstNode::If { condition:Box::new(condition), thing_to_do: Box::new(to_do), r#else: Some(Box::new(to_do_else))});
+            }
+            return Some(AstNode::If { condition:Box::new(condition), thing_to_do: Box::new(to_do), r#else: None});
+        }
+        else{
+            let mut out = vec![];
+            let last_idx = calc_close_paren(text, *cursor)?;
+            *cursor+=1;
+            while *cursor<last_idx{
+                out.push(parse_expression(text, cursor, types, scope, function_table)?);
+                *cursor+=1;
+        }
+        return Some(AstNode::StructLiteral { nodes: out });}
+    } else if text[*cursor] == "["{
+        let mut out = vec![];
+        let last_idx = calc_close_block(text, *cursor)?;
+        while *cursor<last_idx{
+            out.push(parse_expression(text, cursor, types, scope, function_table)?);
+        }
+        return Some(AstNode::ArrayLiteral { nodes: out });
+    } else if is_numbers(text[*cursor].string){
+        if text[*cursor].string.contains('.'){
+            return Some(AstNode::FloatLiteral { value: text[*cursor].string.parse::<f64>().unwrap() });
+        } else{
+            return Some(AstNode::IntLiteral { value: text[*cursor].string.parse::<i64>().unwrap() });
+        }
+    } else if text[*cursor].string.chars().collect::<Vec<char>>()[0] == '"'{
+        return Some(AstNode::StringLiteral { value: text[*cursor].string.to_owned() });
+    } else if let Some(v) = scope.variable_idx(text[*cursor].string.to_owned()){
+        return Some(AstNode::VariableUse { name:text[*cursor].string.to_owned(), index:v.1, vtype:v.0 , is_arg:v.2});
+    }
+    println!("returned none on {:#?}", text[*cursor]);
     return None;
 }
+
 pub fn parse_global(text:&[Token], types:&HashMap<String,Type>)->Option<(String,Type,AstNode)>{
     let mut idx = 0;
     if text[idx] != "("{
@@ -388,16 +624,53 @@ pub fn parse_global(text:&[Token], types:&HashMap<String,Type>)->Option<(String,
     }
     idx +=1;
     let vtype = parse_declared_type(text, &mut idx, types)?;
-    let global_variables = HashMap::new();
+    let mut scope = Scope::new(&HashMap::new());
     let function_table = HashMap::new();
-    let node = parse_expression(text, &mut idx, types, &global_variables, &function_table);
+    idx += 1;
+    let node = parse_expression(text, &mut idx, types, &mut scope, &function_table);
+    if node.is_none(){
+        println!("failed to parse global variable assignment");
+    }
     return Some((String::from(name), vtype, node?));
 }
 
 
-pub fn parse_function(text:&[Token], types:&HashMap<String,Type>, global_variables:&HashMap<String, (Type,usize)>, function_table:&HashMap<String, Function>)->Option<(String,Function)>{
-    println!("<{:#?}>",text);
-    Some((text[0].string.to_owned(),Function{name:text[0].string.to_owned(), return_type:Type::VoidT, args:vec![], arg_names:vec![], program:vec![]}))
+pub fn parse_function(text:&[Token], types:&HashMap<String,Type>, globals:&HashMap<String, (Type,usize)>, function_table:&HashMap<String, Function>)->Option<(String,Function)>{
+    
+    let fn_end = text.len();
+    let mut args = vec![];
+    let mut arg_names = vec![];
+    let mut nodes = vec![];
+    let mut cursor = 2_usize;
+    let name = text[2].string.to_owned();
+    cursor+=1;
+    if text[cursor] != "("{
+        println!("error expected paren");
+    }
+    let args_end = calc_close_paren(text, cursor)?;
+    cursor+=1;
+    while cursor<args_end{
+        let name = text[cursor].to_owned();
+        cursor +=1;
+        if text[cursor] != ":"{
+            println!("error expected :");
+        }
+        cursor+=1;
+        let vtype = parse_declared_type(text, &mut cursor, types)?;
+        arg_names.push(name.string.to_owned());
+        args.push(vtype);
+    }
+    cursor +=1;
+    if text[cursor] != "->"{
+        println!("error requires -> for return type of function");
+    }
+    cursor+=1;
+    let return_type = parse_declared_type(text, &mut cursor, types)?;
+    let mut scope = Scope::new(globals);
+    while cursor<fn_end{
+        nodes.push(parse_expression(text, &mut cursor, types,&mut  scope, function_table)?);
+    }
+    return Some((name.clone(),Function{name, return_type:return_type, args:args, arg_names:arg_names, program:nodes}));
 }
 
 pub fn program_to_ast(program:&str)->Option<Program>{
@@ -410,7 +683,7 @@ pub fn program_to_ast(program:&str)->Option<Program>{
         return None;
     }
     let globals = globals_result.expect("is ok by previous call");
-    println!("globals:{:#?}",globals);
+    //println!("globals:{:#?}",globals);
     let mut types:HashMap<String,Type> = HashMap::new();
     types.insert(String::from("bool"), Type::BoolT);
     types.insert(String::from("int"),Type::IntegerT );
@@ -418,7 +691,7 @@ pub fn program_to_ast(program:&str)->Option<Program>{
     types.insert(String::from("matrix"), Type::MatrixT);
     types.insert(String::from("string"), Type::StringT);
     types.insert(String::from("void"), Type::VoidT);
-    let mut global_variables:HashMap<String,(Type,usize)> = HashMap::new();
+    let mut scope:HashMap<String,(Type,usize)> = HashMap::new();
     let mut functions:HashMap<String,Function> =HashMap::new();
     for i in &globals{
         match i {
@@ -440,11 +713,11 @@ pub fn program_to_ast(program:&str)->Option<Program>{
             GlobalTypes::StructDef{text:_} =>{}
             GlobalTypes::GlobalDef{text}=>{
                 let tmp = parse_global(*text,&types)?;
-                if global_variables.contains_key(&tmp.0){
+                if scope.contains_key(&tmp.0){
                     println!("error {} redeclared", tmp.0);
                     return None;
                 }
-                global_variables.insert(tmp.0,(tmp.1,global_count));
+                scope.insert(tmp.0,(tmp.1,global_count));
                 global_count+= 1; 
             }
             GlobalTypes::FunctionDef { text:_}=>{}
@@ -454,7 +727,7 @@ pub fn program_to_ast(program:&str)->Option<Program>{
         match i {
             GlobalTypes::StructDef{text:_} =>{}
             GlobalTypes::FunctionDef{text}=>{
-                let tmp = parse_function(*text,&types, &global_variables, &functions)?;
+                let tmp = parse_function(*text,&types, &scope, &functions)?;
                 if functions.contains_key(&tmp.0){
                     println!("error {} redeclared", tmp.0);
                     return None;
@@ -464,11 +737,12 @@ pub fn program_to_ast(program:&str)->Option<Program>{
             GlobalTypes::GlobalDef { text:_}=>{}
         }
     }
-    return Some(Program{types,functions, static_variables:global_variables});
+    return Some(Program{types,functions, static_variables:scope});
 }
 		
-const PROGRAM:&str = "(struct test a:int b:int c:int) (let test0:test = (0 0 0)) (let s:string = \"hello world\")(fn test(foo:int)->float((= test0.a 10 )(return (100.0))))";
+
 fn main() { 
-    let prg = program_to_ast(PROGRAM);
+    let tprg = std::fs::read_to_string("test.risp").expect("testing expect");
+    let prg = program_to_ast(&tprg);
     println!("{:#?}",prg);
 }
