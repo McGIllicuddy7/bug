@@ -1,0 +1,18 @@
+(struct test a:int b:int c:int)
+(let test0:test = (0 0 0))
+(let s:string = "hello world")
+(fn test(foo:int)->float
+    (
+        (= test0.a 10 )
+        (let a:int = 0)
+        (if (&& (a>10) (test0.a >10))(return 10.0))
+        (return 100.0)
+    )
+)
+
+(fn main(args:[]string)->int
+    (
+        (test 0)
+        (return 0)
+    )
+)
