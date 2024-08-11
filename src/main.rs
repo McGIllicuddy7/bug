@@ -1,7 +1,6 @@
 use core::str;
 use std::collections::HashMap;
-use std::hash::Hash;
-use std::io::Cursor;
+use std::ops::Not;
 use std::slice;
 #[derive(Debug, Clone)]
 pub struct Token<'a>{
@@ -24,6 +23,134 @@ impl PartialEq<&str> for Token<'_>{
 pub enum Type{
     BoolT,IntegerT,FloatT,StringT, MatrixT,StructT{name:String, components:Vec<(String,Type)>}, PointerT{ptr_type:Box<Type>},
     ArrayT{size:usize, array_type:Box<Type>},VoidT, VecT{ptr_type:Box<Type>},
+}
+pub fn is_compatible_type(a:&Type, b:&Type)->bool{
+    match a{
+        Type::BoolT=>{
+            match b{
+                Type::BoolT=>{
+                    return true;
+                }
+                _=>{
+                    return false;
+                }
+            }
+        }
+        Type::IntegerT=>{
+            match b{
+                Type::FloatT=>{
+                    return true;
+                }
+                Type::IntegerT=>{
+                    return true;
+                }
+                _=>{
+                    return false;
+                }
+            }
+        }
+        Type::FloatT=>{
+            match b{
+                Type::FloatT=>{
+                    return true;
+                }
+                Type::IntegerT=>{
+                    return true;
+                }
+                _=>{
+                    return false;
+                }
+            }
+        }
+        Type::StringT=>{
+            match b{
+                Type::StringT=>{
+                    return true;
+                }
+                _=>{
+                    return false;
+                }
+            }
+        }
+        Type::StructT { name, components }=>{
+            let aname = name;
+            let acomponents = components;
+            match b {
+                Type::StructT { name, components }=>{
+                    if name == "" || aname == ""{
+                        if acomponents.len() != components.len(){
+                            return false;
+                        }
+                        for i in 0..acomponents.len(){
+                            if !is_compatible_type(&acomponents[i].1, &components[i].1){
+                                return false;
+                            }
+                        }
+                        return true;
+                    } else{
+                        return aname == name;
+                    }
+                }
+                _=>{
+                    return false;
+                }
+            }
+        }
+        Type::MatrixT=>{
+            match b{
+                Type::MatrixT=>{
+                    return true;
+                }
+                _=>{
+                    return false;
+                }
+            }
+        }
+        Type::PointerT { ptr_type }=>{
+            let at = ptr_type;
+            match b{
+                Type::PointerT { ptr_type }=>{
+                    return is_compatible_type(&at, &ptr_type);
+                }
+                _=>{
+                    return false;
+                }
+            }
+        }
+        Type::ArrayT { array_type , size}=>{
+            let at = array_type;
+            let asize = size;
+            match b{
+                Type::ArrayT { array_type ,size}=>{
+                    return is_compatible_type(&at, &array_type) && asize == size;
+                }
+                _=>{
+                    return false;
+                }
+            }
+        }
+        Type::VoidT=>{
+            match b{
+                Type::VoidT {}=>{
+                    return true;
+                }
+                _=>{
+                    return false;
+                }
+            }
+        }
+        Type::VecT { ptr_type}=>{
+            let at = ptr_type;
+            match b{
+                Type::VecT {ptr_type }=>{
+                    return is_compatible_type(&at, ptr_type);
+                }
+                _=>{
+                    return false;
+                }
+            }
+        }
+    }
 }
 
 #[derive(Clone,Debug)]
@@ -57,8 +184,147 @@ pub enum AstNode{
     Return{body:Box<AstNode>},
     Deref{thing_to_deref:Box<AstNode>},
     TakeRef{thing_to_ref:Box<AstNode>},
+    FieldUsage{base:Box<AstNode>, field_name:String},
 }
 
+impl AstNode{
+    pub fn get_type(&self, function_table:&HashMap<String, Function>, types:&HashMap<String, Type>)->Option<Type>{
+        match self{
+            Self::VoidLiteral {  }=>{
+                Some(Type::VoidT)
+            }
+            Self::BoolLiteral {value:_ }=>{
+                Some(Type::BoolT)
+            }
+            Self::StringLiteral { value:_ }=>{
+                Some(Type::StringT)
+            }
+            Self::IntLiteral { value:_ }=>{
+                Some(Type::IntegerT)
+            }
+            Self::FloatLiteral { value:_ }=>{
+                Some(Type::FloatT)
+            }
+            Self::StructLiteral { nodes }=>{
+                let mut out_types = vec![];
+                for i in nodes{
+                    out_types.push((("").to_owned(), i.get_type(function_table, types)?));
+                }
+                return Some(Type::StructT{name:"".to_owned(), components:out_types});
+            }
+            Self::ArrayLiteral { nodes }=>{
+                let mut out_types = vec![];
+                for i in nodes{
+                    out_types.push((("").to_owned(), i.get_type(function_table,types)?));
+                }
+                return Some(Type::StructT{name:"".to_owned(), components:out_types});
+            }
+            Self::VariableUse { name, index, vtype, is_arg }=>{
+                return Some(vtype.clone());
+            }
+            Self::FunctionCall { function_name, args }=>{
+                return Some(function_table.get(function_name)?.return_type.clone());
+            }
+            Self::Assignment { left, right }=>{
+                return Some(Type::VoidT);
+            }
+            Self::VariableDeclaration { name, var_type, value_assigned }=>{
+                return Some(Type::VoidT);
+            }
+            Self::Add { left, right }=>{
+                if is_compatible_type(&left.get_type(function_table,types)?,& right.get_type(function_table,types)?){
+                    return left.get_type(function_table,types);
+                }
+                return None;
+            }
+            Self::Sub { left, right }=>{
+                if is_compatible_type(&left.get_type(function_table,types)?,& right.get_type(function_table,types)?){
+                    return left.get_type(function_table,types);
+                }
+                return None;
+            }
+            Self::Mult { left, right }=>{
+                if is_compatible_type(&left.get_type(function_table,types)?,& right.get_type(function_table,types)?){
+                    return left.get_type(function_table,types);
+                }
+                return None;
+            }
+            Self::Div{ left, right }=>{
+                if is_compatible_type(&left.get_type(function_table,types)?,& right.get_type(function_table,types)?){
+                    return left.get_type(function_table,types);
+                }
+                return None;
+            }
+            Self::Equals { left, right }=>{
+                return Some(Type::BoolT);
+            }
+            Self::LessThan { left, right }=>{
+                return Some(Type::BoolT);
+            }
+            Self::GreaterThan { left, right }=>{
+                return Some(Type::BoolT);
+            }
+            Self::GreaterOrEq { left, right }=>{
+                return Some(Type::BoolT);
+            }
+            Self::LessOrEq { left, right }=>{
+                return Some(Type::BoolT);
+            }
+            Self::Not { value }=>{
+                return Some(Type::BoolT);
+            }
+            Self::And{ left, right }=>{
+                return Some(Type::BoolT);
+            }
+            Self::Or{ left, right }=>{
+                return Some(Type::BoolT);
+            }
+            Self:: If { condition, thing_to_do, r#else }=>{
+                return Some(Type::VoidT);
+            }
+            Self:: Loop { condition, body }=>{
+                return Some(Type::VoidT);
+            }
+            Self::ForLoop { variable, condition, post_op, body }=>{
+                return Some(Type::VoidT);
+            }
+            Self::Return{body}=>{
+                return Some(Type::VoidT);
+            }
+            Self::Deref { thing_to_deref }=>{
+                match (*thing_to_deref).as_ref() {
+                    Self::VariableUse { name, index, vtype, is_arg }=>{
+                        match vtype{
+                            Type::PointerT { ptr_type }=>{
+                                return Some(ptr_type.as_ref().clone());
+                            }
+                            _ =>{
+                                return None;
+                            }
+                        }
+                    }
+                    _=>{
+                        return None;
+                    }
+                }
+            }
+            Self::TakeRef { thing_to_ref  }=>{
+                match (*thing_to_ref).as_ref(){
+                    Self::VariableUse { name, index, vtype, is_arg }=>{
+                        return Some(Type::PointerT { ptr_type: Box::new(vtype.clone()) });
+                    }
+                    _=>{
+                        return None;
+                    }
+                }
+            }
+            Self::FieldUsage{base, field_name}=>{
+                return None;
+            }
+        }
+
+    }
+}
 #[derive(Debug)]
 pub struct Function{
     name:String, 
@@ -227,6 +493,42 @@ pub fn collect_tokens<'a>(tokens:&[Token<'a>])->Vec<Token<'a>>{
                     }
                 }
                 out.push(token);
+            } else if tokens[count] == "<" && tokens[count+1] == "="{
+                let mut token = Token{string:tokens[count].string, line:tokens[count].line};
+                unsafe { 
+                    let strr = token.string.as_ref() as &[u8];
+                    let ptr = strr.as_ptr();
+                    let len = strr.len()+tokens[count+1].string.len();
+                    let ptr0 = tokens[count+1].string.as_ptr();
+                    if ptr as usize +len-1== ptr0 as usize{
+                        let new_str = slice::from_raw_parts(ptr,len);
+                        let new_string = str::from_utf8(new_str);
+                        if let Ok(s) = new_string{
+                            token.string = s;
+                            count += 1;
+                        }
+
+                    }
+                }
+                out.push(token);
+            } else if tokens[count] == ">" && tokens[count+1] == "="{
+                let mut token = Token{string:tokens[count].string, line:tokens[count].line};
+                unsafe { 
+                    let strr = token.string.as_ref() as &[u8];
+                    let ptr = strr.as_ptr();
+                    let len = strr.len()+tokens[count+1].string.len();
+                    let ptr0 = tokens[count+1].string.as_ptr();
+                    if ptr as usize +len-1== ptr0 as usize{
+                        let new_str = slice::from_raw_parts(ptr,len);
+                        let new_string = str::from_utf8(new_str);
+                        if let Ok(s) = new_string{
+                            token.string = s;
+                            count += 1;
+                        }
+
+                    }
+                }
+                out.push(token);
             }else{
                 out.push(tokens[count].clone());
             }
@@ -322,6 +624,7 @@ pub fn tokenize<'a>(program:&'a str)->Vec<Token<'a>>{
     out = collect_tokens(&out);
     out = handle_numbers(&out);
     out = compress_quotes(&out).expect("quoutes should work\n");
+    println!("{:#?}",out);
     return out;
 }
 
@@ -439,18 +742,20 @@ pub fn parse_type(text:&[Token], types:&HashMap<String,Type>)->Option<(String,Ty
 }
 
 pub fn parse_expression(text:&[Token], cursor:&mut usize, types:&HashMap<String,Type>, scope:&mut Scope, function_table:&HashMap<String, Function>)->Option<AstNode>{
+    println!("{}",text[*cursor].string);
     if text[*cursor] == "("{
         if function_table.contains_key(text[*cursor+1].string){
             let mut args = vec![];
             let last_idx = calc_close_paren(text, *cursor)?;
+            *cursor += 2;
             while *cursor<last_idx{
                 args.push(parse_expression(text, cursor, types, scope, function_table)?);
             }
-            *cursor+=1;
-            return Some(AstNode::FunctionCall { function_name: text[*cursor].string.to_owned(), args:  args});
+            return Some(AstNode::FunctionCall { function_name: text[*cursor+1].string.to_owned(), args:  args});
         } else if text[*cursor+1] == "+"{
             let mut args = vec![];
             let last_idx = calc_close_paren(text, *cursor)?;
+            *cursor += 2;
             while *cursor<last_idx{
                 args.push(parse_expression(text, cursor, types, scope, function_table)?);
             }
@@ -459,6 +764,7 @@ pub fn parse_expression(text:&[Token], cursor:&mut usize, types:&HashMap<String,
         } else if text[*cursor+1] == "-"{
             let mut args = vec![];
             let last_idx = calc_close_paren(text, *cursor)?;
+            *cursor += 2;
             while *cursor<last_idx{
                 args.push(parse_expression(text, cursor, types, scope, function_table)?);
             }
@@ -467,6 +773,7 @@ pub fn parse_expression(text:&[Token], cursor:&mut usize, types:&HashMap<String,
         } else if text[*cursor+1] == "*"{
             let mut args = vec![];
             let last_idx = calc_close_paren(text, *cursor)?;
+            *cursor += 2;
             while *cursor<last_idx{
                 args.push(parse_expression(text, cursor, types, scope, function_table)?);
             }
@@ -479,6 +786,7 @@ pub fn parse_expression(text:&[Token], cursor:&mut usize, types:&HashMap<String,
         } else if text[*cursor+1] == "/"{
             let mut args = vec![];
             let last_idx = calc_close_paren(text, *cursor)?;
+            *cursor += 2;
             while *cursor<last_idx{
                 args.push(parse_expression(text, cursor, types, scope, function_table)?);
             }
@@ -487,6 +795,7 @@ pub fn parse_expression(text:&[Token], cursor:&mut usize, types:&HashMap<String,
         } else if text[*cursor+1] == "=="{
             let mut args = vec![];
             let last_idx = calc_close_paren(text, *cursor)?;
+            *cursor += 2;
             while *cursor<last_idx{
                 args.push(parse_expression(text, cursor, types, scope, function_table)?);
             }
@@ -495,6 +804,7 @@ pub fn parse_expression(text:&[Token], cursor:&mut usize, types:&HashMap<String,
         } else if text[*cursor+1] == "<="{
             let mut args = vec![];
             let last_idx = calc_close_paren(text, *cursor)?;
+            *cursor += 2;
             while *cursor<last_idx{
                 args.push(parse_expression(text, cursor, types, scope, function_table)?);
             }
@@ -503,6 +813,7 @@ pub fn parse_expression(text:&[Token], cursor:&mut usize, types:&HashMap<String,
         } else if text[*cursor+1] == ">="{
             let mut args = vec![];
             let last_idx = calc_close_paren(text, *cursor)?;
+            *cursor += 2;
             while *cursor<last_idx{
                 args.push(parse_expression(text, cursor, types, scope, function_table)?);
             }
@@ -511,6 +822,7 @@ pub fn parse_expression(text:&[Token], cursor:&mut usize, types:&HashMap<String,
         } else if text[*cursor+1] == "<"{
             let mut args = vec![];
             let last_idx = calc_close_paren(text, *cursor)?;
+            *cursor += 2;
             while *cursor<last_idx{
                 args.push(parse_expression(text, cursor, types, scope, function_table)?);
             }
@@ -519,6 +831,7 @@ pub fn parse_expression(text:&[Token], cursor:&mut usize, types:&HashMap<String,
         } else if text[*cursor+1] == ">"{
             let mut args = vec![];
             let last_idx = calc_close_paren(text, *cursor)?;
+            *cursor += 2;
             while *cursor<last_idx{
                 args.push(parse_expression(text, cursor, types, scope, function_table)?);
             }
@@ -527,6 +840,7 @@ pub fn parse_expression(text:&[Token], cursor:&mut usize, types:&HashMap<String,
         } else if text[*cursor+1] == "&&"{
             let mut args = vec![];
             let last_idx = calc_close_paren(text, *cursor)?;
+            *cursor += 2;
             while *cursor<last_idx{
                 args.push(parse_expression(text, cursor, types, scope, function_table)?);
             }
@@ -535,6 +849,7 @@ pub fn parse_expression(text:&[Token], cursor:&mut usize, types:&HashMap<String,
         } else if text[*cursor+1] == "||"{
             let mut args = vec![];
             let last_idx = calc_close_paren(text, *cursor)?;
+            *cursor += 2;
             while *cursor<last_idx{
                 args.push(parse_expression(text, cursor, types, scope, function_table)?);
             }
@@ -543,20 +858,23 @@ pub fn parse_expression(text:&[Token], cursor:&mut usize, types:&HashMap<String,
         } else if text[*cursor+1] == "="{
             let mut args = vec![];
             let last_idx = calc_close_paren(text, *cursor)?;
+            *cursor += 2;
             while *cursor<last_idx{
                 args.push(parse_expression(text, cursor, types, scope, function_table)?);
             }
-            *cursor+=1;
             return Some(AstNode::Assignment{left: Box::new(args[0].clone()), right:Box::new(args[1].clone()) });
         }
         else if text[*cursor+1] == "let"{
-            let name = text[*cursor+1].string.to_owned();
+            let name = text[*cursor+2].string.to_owned();
+            *cursor += 4;
             let var_type = parse_declared_type(text, cursor, types)?;
-            *cursor +=1;
+            println!("{}", text[*cursor+1].string);
+            println!("name:{name}");
             scope.declare_variable(var_type.clone(), name.clone());
             if text[*cursor] != "="{
                 return  Some(AstNode::VariableDeclaration { name , var_type,value_assigned:None });
-            } 
+            }
+            *cursor +=1;
             let next = parse_expression(text, cursor, types, scope, function_table)?;
             return Some(AstNode::VariableDeclaration { name , var_type, value_assigned: Some(Box::new(next)) });
         }
@@ -573,6 +891,12 @@ pub fn parse_expression(text:&[Token], cursor:&mut usize, types:&HashMap<String,
             }
             return Some(AstNode::If { condition:Box::new(condition), thing_to_do: Box::new(to_do), r#else: None});
         }
+        else if text[*cursor+1] == "return"{
+            *cursor+=2;
+            let ret_value=  parse_expression(text, cursor, types, scope, function_table)?;
+            *cursor += 1;
+            return Some(AstNode::Return { body:Box::new(ret_value) });
+        }
         else{
             let mut out = vec![];
             let last_idx = calc_close_paren(text, *cursor)?;
@@ -582,7 +906,8 @@ pub fn parse_expression(text:&[Token], cursor:&mut usize, types:&HashMap<String,
                 *cursor+=1;
         }
         return Some(AstNode::StructLiteral { nodes: out });}
-    } else if text[*cursor] == "["{
+    } 
+    else if text[*cursor] == "["{
         let mut out = vec![];
         let last_idx = calc_close_block(text, *cursor)?;
         while *cursor<last_idx{
@@ -590,15 +915,24 @@ pub fn parse_expression(text:&[Token], cursor:&mut usize, types:&HashMap<String,
         }
         return Some(AstNode::ArrayLiteral { nodes: out });
     } else if is_numbers(text[*cursor].string){
-        if text[*cursor].string.contains('.'){
-            return Some(AstNode::FloatLiteral { value: text[*cursor].string.parse::<f64>().unwrap() });
+        *cursor +=1;
+        if text[*cursor-1].string.contains('.'){
+            return Some(AstNode::FloatLiteral { value: text[*cursor-1].string.parse::<f64>().expect("should work\n") });
         } else{
-            return Some(AstNode::IntLiteral { value: text[*cursor].string.parse::<i64>().unwrap() });
+            return Some(AstNode::IntLiteral { value: text[*cursor-1].string.parse::<i64>().unwrap() });
         }
     } else if text[*cursor].string.chars().collect::<Vec<char>>()[0] == '"'{
         return Some(AstNode::StringLiteral { value: text[*cursor].string.to_owned() });
     } else if let Some(v) = scope.variable_idx(text[*cursor].string.to_owned()){
-        return Some(AstNode::VariableUse { name:text[*cursor].string.to_owned(), index:v.1, vtype:v.0 , is_arg:v.2});
+        *cursor += 1;
+        let base_out = AstNode::VariableUse { name:text[*cursor-1].string.to_owned(), index:v.1, vtype:v.0 , is_arg:v.2};
+        if text[*cursor] == "."{
+            *cursor +=1;
+            let field_name = text[*cursor].string.to_owned();
+            *cursor +=1;
+            return Some(AstNode::FieldUsage { base: Box::new(base_out), field_name });
+        }
+        return Some(base_out);
     }
     println!("returned none on {:#?}", text[*cursor]);
     return None;
@@ -636,8 +970,7 @@ pub fn parse_global(text:&[Token], types:&HashMap<String,Type>)->Option<(String,
 
 
 pub fn parse_function(text:&[Token], types:&HashMap<String,Type>, globals:&HashMap<String, (Type,usize)>, function_table:&HashMap<String, Function>)->Option<(String,Function)>{
-    
-    let fn_end = text.len();
+    let fn_end = text.len()-2;
     let mut args = vec![];
     let mut arg_names = vec![];
     let mut nodes = vec![];
@@ -667,10 +1000,22 @@ pub fn parse_function(text:&[Token], types:&HashMap<String,Type>, globals:&HashM
     cursor+=1;
     let return_type = parse_declared_type(text, &mut cursor, types)?;
     let mut scope = Scope::new(globals);
+    for i in 0..args.len(){
+        scope.declare_variable_arg(args[i].clone(), arg_names[i].clone());
+    }
     while cursor<fn_end{
         nodes.push(parse_expression(text, &mut cursor, types,&mut  scope, function_table)?);
     }
-    return Some((name.clone(),Function{name, return_type:return_type, args:args, arg_names:arg_names, program:nodes}));
+    let mut out = vec![];
+    match &nodes[0]{
+        AstNode::StructLiteral { nodes }=>{
+            out = nodes.to_vec();
+        }
+        _  =>{
+
+        }
+    }
+    return Some((name.clone(),Function{name, return_type:return_type, args:args, arg_names:arg_names, program:out}));
 }
 
 pub fn program_to_ast(program:&str)->Option<Program>{
@@ -743,6 +1088,6 @@ pub fn program_to_ast(program:&str)->Option<Program>{
 
 fn main() { 
     let tprg = std::fs::read_to_string("test.risp").expect("testing expect");
-    let prg = program_to_ast(&tprg);
+    let prg = program_to_ast(&tprg).expect("testing expect");
     println!("{:#?}",prg);
 }
