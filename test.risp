@@ -4,6 +4,7 @@ let test0:int = 0;
 
 
 fn foo(bar:int)->float{
+    let baz:int = 0;
     return 1.0+1.0+1.0;
 }
 

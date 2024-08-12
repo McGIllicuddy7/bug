@@ -927,11 +927,12 @@ fn calc_expr_end(text: &[Token], end: usize, cursor: usize) -> Option<usize> {
         return Some(end);
     }
     let mut indx = cursor;
-    while indx < end {
-        if text[indx] == ";" {
+    while indx <= end {
+        if text[indx].string == ";" {
             return Some(indx);
         }
         indx += 1;
+        println!("{}", text[indx].string);
     }
     return None;
 }
@@ -950,18 +951,15 @@ pub fn parse_scope(
         );
         return None;
     }
-    //println!("scope:{:#?}", text);
     *cursor += 1;
-    let mut end = *cursor + calc_close_scope(text, *cursor)?;
-    if end>text.len(){
-        end = text.len();
-    }
+    let mut end =text.len()-1;
     let mut out = vec![];
-    //println!("scope parsing start:{}, end{}", cursor, end);
+    let mut iter_count = 1;
     while *cursor < end {
-        let expr_end = calc_expr_end(text, end, *cursor)?;
+        let expr_end = calc_expr_end(text, end, *cursor).expect("expression must end");
         if expr_end <= *cursor {
-            break;
+            *cursor +=1;
+            continue;
         }
         out.push(parse_expression(
             text,
@@ -971,6 +969,7 @@ pub fn parse_scope(
             scope,
             function_table,
         ).expect("expression must be valid"));
+        iter_count +=1;
     }
     *cursor += 1;
     return Some(out);
