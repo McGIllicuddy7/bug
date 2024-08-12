@@ -392,7 +392,7 @@ pub fn extract_global<'a>(tokens: &'a [Token], idx: &mut usize) -> Option<Global
     if start >= tokens.len() {
         return None;
     }
-    if tokens[0] != "let" {
+    if tokens[start] != "let" {
         let mut parens_count = 0;
         let mut hit_paren = false;
         while parens_count > 0 || !hit_paren {
@@ -421,6 +421,7 @@ pub fn extract_global<'a>(tokens: &'a [Token], idx: &mut usize) -> Option<Global
         }
     }
     let span = &tokens[start..*idx];
+    println!{"span:{:#?}",span};
     if span[0] == "struct" {
         let out = GlobalTypes::StructDef { text: span };
         *idx = *idx + 1;
@@ -428,7 +429,7 @@ pub fn extract_global<'a>(tokens: &'a [Token], idx: &mut usize) -> Option<Global
     }
     if span[0] == "let" {
         let out = GlobalTypes::GlobalDef { text: span };
-        *idx += 2;
+        *idx += 1;
         return Some(out);
     }
     if span[0] == "fn" {
@@ -549,7 +550,7 @@ pub fn parse_expression(
     function_table: &HashMap<String, Function>,
 ) -> Option<AstNode> {
     let start = *cursor;
-    println!("called span:{:#?}", &text[*cursor..last]);
+    //println!("called span:{:#?}", &text[*cursor..last]);
     let mut out = None;
     if is_numbers(text[*cursor].string) {
         println!("is numbers cursor: {} last:{}", cursor, last);
@@ -567,13 +568,6 @@ pub fn parse_expression(
                 .expect("should be numbers");
             *cursor += 1;
             out = Some(AstNode::IntLiteral { value: fout });
-        }
-        if *cursor == last {
-            return out;
-        }
-        if text[*cursor] == ";" {
-            *cursor += 1;
-            return out;
         }
     } else if text[*cursor] == "{" {
         let mut vout = vec![];
@@ -692,6 +686,13 @@ pub fn parse_expression(
             )?),
         });
         *cursor += 1;
+        if *cursor >=last{
+            return out;
+        }
+        if text[*cursor+1] == "}"{
+            *cursor +=1;
+            return out;
+        }
     } else if text[*cursor] == "=" {
         *cursor += 1;
         out = Some(AstNode::Assignment {
@@ -731,8 +732,7 @@ pub fn parse_expression(
     } else if text[*cursor] == "if" {
         println!("hit if");
         *cursor += 1;
-        let cond_end = calc_close_paren(text, *cursor).expect("failed to parse paren");
-        *cursor += 1;
+        let cond_end = calc_close_paren(text, *cursor).expect("failed to parse paren")-1;
         if text[*cursor] != "(" {
             println!(
                 "error expected ( line {} instead found {}",
@@ -744,7 +744,8 @@ pub fn parse_expression(
             .expect("expression should work");
         *cursor += 2;
         let new_scope = parse_scope(text, cursor, types, scope, function_table).expect("bruh");
-        let else_scope = if *cursor < last {
+        *cursor += 2;
+        let else_scope = if *cursor < last && false{
             println!("else block{:#?}", &text[*cursor..last]);
             if text[*cursor] == "else" {
                 Some(
@@ -762,7 +763,8 @@ pub fn parse_expression(
             condition: Box::new(cond),
             thing_to_do: new_scope,
             r#else: else_scope,
-        })
+        });
+        return out;
     } else {
         if function_table.contains_key(text[*cursor].string) {
         } else if let Some(v) = scope.variable_idx(text[*cursor].string.to_owned()) {
@@ -783,8 +785,13 @@ pub fn parse_expression(
         return None;
     }
     if *cursor < last {
-        println!("{}, {}, {:#?}", *cursor, last, text[*cursor]);
+        //println!("{}, {}, {:#?}", *cursor, last, text[*cursor]);
         if text[*cursor] == ";" {
+            *cursor += 1;
+            return out;
+        }
+        if text[*cursor] == "}"{
+            *cursor += 1;
             return out;
         }
         let mut next = parse_expression(text, cursor, last, types, scope, function_table)
@@ -945,12 +952,15 @@ pub fn parse_scope(
     }
     //println!("scope:{:#?}", text);
     *cursor += 1;
-    let end = *cursor + calc_close_scope(text, *cursor)?;
+    let mut end = *cursor + calc_close_scope(text, *cursor)?;
+    if end>text.len(){
+        end = text.len();
+    }
     let mut out = vec![];
-    println!("scope parsing start:{}, end{}", cursor, end);
+    //println!("scope parsing start:{}, end{}", cursor, end);
     while *cursor < end {
         let expr_end = calc_expr_end(text, end, *cursor)?;
-        if expr_end == *cursor {
+        if expr_end <= *cursor {
             break;
         }
         out.push(parse_expression(
@@ -960,7 +970,7 @@ pub fn parse_scope(
             types,
             scope,
             function_table,
-        )?);
+        ).expect("expression must be valid"));
     }
     *cursor += 1;
     return Some(out);
@@ -1111,6 +1121,7 @@ pub fn program_to_ast(program: &str) -> Option<Program> {
                     println!("error {} redeclared", tmp.0);
                     return None;
                 }
+                println!("{:#?}", tmp.1);
                 functions.insert(tmp.0, tmp.1);
             }
             GlobalTypes::GlobalDef { text: _ } => {}
