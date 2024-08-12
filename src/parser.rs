@@ -32,10 +32,13 @@ pub fn calc_close_paren(tokens: &[Token<'_>], base_idx: usize) -> Option<usize> 
 pub fn calc_close_scope(tokens: &[Token<'_>], base_idx: usize) -> Option<usize> {
     let mut idx = base_idx;
     let mut paren_count = 0;
+    let mut hit_paren = false;
     while idx < tokens.len() {
+        println!("calc close scope:{:#?}", tokens[idx]);
         if tokens[idx] == "{" {
             paren_count += 1;
-        } else if tokens[idx] == "}" {
+            hit_paren = true;
+        } else if tokens[idx] == "}" && hit_paren {
             paren_count -= 1;
         }
         if paren_count < 1 {
@@ -43,7 +46,7 @@ pub fn calc_close_scope(tokens: &[Token<'_>], base_idx: usize) -> Option<usize> 
         }
         idx += 1;
     }
-    println!("failed to find next paren");
+    println!("failed to find next scope end");
     return None;
 }
 
@@ -407,6 +410,7 @@ pub fn extract_global<'a>(tokens: &'a [Token], idx: &mut usize) -> Option<Global
             if tokens[*idx] == "}" {
                 parens_count -= 1;
                 if parens_count < 1 {
+                    *idx +=1;
                     break;
                 }
             }
@@ -434,10 +438,10 @@ pub fn extract_global<'a>(tokens: &'a [Token], idx: &mut usize) -> Option<Global
     }
     if span[0] == "fn" {
         let out = GlobalTypes::FunctionDef { text: span };
-        *idx = *idx + 1;
         return Some(out);
     }
     println!("returned none 2 span :{:#?}", span);
+    assert!(false);
     return None;
 }
 
@@ -511,7 +515,7 @@ pub fn parse_type(text: &[Token], types: &HashMap<String, Type>) -> Option<(Stri
 
     let mut out_types = vec![];
     let mut idx = 3;
-    while idx < text.len() {
+    while idx < text.len()-1 {
         let ident_name = &text[idx];
         if text[idx + 1] != ":" {
             println!(
@@ -744,7 +748,7 @@ pub fn parse_expression(
             .expect("expression should work");
         *cursor += 2;
         let new_scope = parse_scope(text, cursor, types, scope, function_table).expect("bruh");
-        *cursor += 2;
+        *cursor += 1;
         let else_scope = if *cursor < last && false{
             println!("else block{:#?}", &text[*cursor..last]);
             if text[*cursor] == "else" {
@@ -951,8 +955,7 @@ pub fn parse_scope(
         );
         return None;
     }
-    *cursor += 1;
-    let mut end =text.len()-1;
+    let end = calc_close_scope(text, *cursor).expect("scope must end");
     let mut out = vec![];
     let mut iter_count = 1;
     while *cursor < end {
@@ -1081,6 +1084,7 @@ pub fn program_to_ast(program: &str) -> Option<Program> {
     types.insert(String::from("void"), Type::VoidT);
     let mut scope: HashMap<String, (Type, usize)> = HashMap::new();
     let mut functions: HashMap<String, Function> = HashMap::new();
+    println!("{:#?}",globals);
     for i in &globals {
         match i {
             GlobalTypes::StructDef { text } => {
