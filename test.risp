@@ -9,9 +9,8 @@ fn foo(bar:int)->float{
 
 
 fn main(args:[]string)->int{
-       let t:int = 0;
-       test(0);
-       if (t<1) {return 0;}
-       else if(t>1){return t};
+       if (0<1) {return 0;}
+       else{ if(0>1){return t;}}
+       let a:int = 0;
 }
  
