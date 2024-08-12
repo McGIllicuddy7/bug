@@ -463,6 +463,9 @@ pub fn parse_expression(text:&[Token], cursor:&mut usize, last:usize,types:&Hash
         return None;
     }
     if *cursor<last-1{
+        if(text[*cursor+1] == ";"){
+            return out;
+        }
         let mut next = parse_expression(text, cursor, last, types, scope, function_table)?;
         let mut outv = out?;
         if next.get_priority()>outv.get_priority(){
@@ -587,7 +590,10 @@ pub fn parse_scope(text:&[Token], cursor:&mut usize, types:&HashMap<String,Type>
         return None;
     }
     println!("scope:{:#?}", text);
-    let end = *cursor+calc_close_scope(text,*cursor)?;
+    let mut end = *cursor+calc_close_scope(text,*cursor)?;
+    if (end>text.len()){
+        end = text.len();
+    }
     let mut out = vec![];
     *cursor += 1;
     println!("scope parsing start:{}, end{}", cursor, end);
