@@ -30,6 +30,7 @@ pub fn calc_close_paren(tokens:&[Token<'_>], base_idx:usize)->Option<usize>{
     println!("failed to find next paren");
     return None;
 }
+
 pub fn calc_close_scope(tokens:&[Token<'_>], base_idx:usize)->Option<usize>{
     let mut idx = base_idx+1;
     let mut paren_count = 0;
@@ -177,6 +178,7 @@ pub fn collect_tokens<'a>(tokens:&[Token<'a>])->Vec<Token<'a>>{
     }
     return out;
 }
+
 fn is_numbers(s:&str)->bool{
     for r in s.chars(){
         if r == '0' ||r == '1' ||r== '2' ||r== '3' ||r== '4' ||r== '5' ||r== '6' || r== '7' || r=='8' || r == '9' || r == '.'{
@@ -186,6 +188,7 @@ fn is_numbers(s:&str)->bool{
     }
     true
 }
+
 fn handle_numbers<'a>(tokens:&[Token<'a>])->Vec<Token<'a>>{
     let mut out = vec![];
     for i in tokens{
@@ -204,6 +207,7 @@ fn handle_numbers<'a>(tokens:&[Token<'a>])->Vec<Token<'a>>{
     }
     return out;
 }
+
 fn compress_quotes<'a>(tokens:&[Token<'a>])->Option<Vec<Token<'a>>>{
     fn str_compress<'a>(tokens:&[Token<'a>], cursor:&mut usize)->Option<Token<'a>>{
         let start = tokens[*cursor].clone();
@@ -238,6 +242,7 @@ fn compress_quotes<'a>(tokens:&[Token<'a>])->Option<Vec<Token<'a>>>{
     }
     return Some(out);
 }
+
 pub fn tokenize<'a>(program:&'a str)->Vec<Token<'a>>{
     let lines:Vec<&'a str> = program.split("\n").collect();
     let mut out:Vec<Token<'a>> = vec![];
@@ -334,6 +339,7 @@ pub fn extract_globals<'a>(tokens:&'a[Token<'a>])->Result<Vec<GlobalTypes<'a>>,S
     }
     return Ok(out);
 }
+
 fn parse_declared_type(tokens:&[Token], idx:&mut usize, types:&HashMap<String, Type>)->Option<Type>{
     let base = *idx;
     let current = &tokens[base];
@@ -363,6 +369,7 @@ fn parse_declared_type(tokens:&[Token], idx:&mut usize, types:&HashMap<String, T
     println!("error unknown type:{}, line:{}", tokens[base].string, tokens[base].line);
     return None;
 }
+
 pub fn parse_type(text:&[Token], types:&HashMap<String,Type>)->Option<(String,Type)>{
     if text.len()<3{
         println!("error requires at least three tokens to declare struct");
@@ -393,6 +400,7 @@ pub fn parse_type(text:&[Token], types:&HashMap<String,Type>)->Option<(String,Ty
 }
 
 pub fn parse_expression(text:&[Token], cursor:&mut usize, last:usize,types:&HashMap<String,Type>, scope:&mut Scope, function_table:&HashMap<String, Function>)->Option<AstNode>{
+    let start = *cursor;
     println!("called span:{:#?}", &text[*cursor..]);
     let mut out = None;
     if is_numbers(text[*cursor].string){
@@ -407,7 +415,6 @@ pub fn parse_expression(text:&[Token], cursor:&mut usize, last:usize,types:&Hash
             out = Some(AstNode::IntLiteral { value:fout });
         }
         if text[*cursor] == ";"{
-            *cursor+=1;
             return out;
         }
     }
@@ -489,11 +496,10 @@ pub fn parse_expression(text:&[Token], cursor:&mut usize, last:usize,types:&Hash
         println!("error unknown token {}", text[*cursor].string);
         return None;
     }
-    println!("{}, {}", *cursor, last);
-    if *cursor<last-1{
-        *cursor += 1;
-        let mut next = parse_expression(text, cursor, last, types, scope, function_table)?;
-        let mut outv = out?;
+    if *cursor<last{ 
+        println!("{}, {}, {:#?}", *cursor, last,text[*cursor]);
+        let mut next = parse_expression(text, cursor, last, types, scope, function_table).expect("should return");
+        let mut outv = out?; 
         if next.get_priority()>outv.get_priority(){
             match &mut next{
                 AstNode::Assignment { left, right }=>{
@@ -545,6 +551,7 @@ pub fn parse_expression(text:&[Token], cursor:&mut usize, last:usize,types:&Hash
                     return Some(next);
                 }
             _=>{
+                    println!("returned none unexpected next token type:{:#?}", next);
                     return None;
             }
         }
@@ -598,16 +605,21 @@ pub fn parse_expression(text:&[Token], cursor:&mut usize, last:usize,types:&Hash
                         *right = Box::new(next);
                         return Some(outv);
                     }
-                _=>{
+                _=>{ 
+                        println!("returned none unexpected token type:{:#?},line:{}, next token type:{:#?}",outv,text[start].line, next);
                         return None;
                 }
             }
         }
     } else{
+        if out.is_none(){
+            println!("returned none, for some reason");
+        }
         return out;
     }
 
 }
+
 fn calc_expr_end(text:&[Token], end:usize,cursor:usize)->Option<usize>{
     if cursor == text.len(){
         return Some(cursor);
@@ -618,12 +630,13 @@ fn calc_expr_end(text:&[Token], end:usize,cursor:usize)->Option<usize>{
     let mut indx = cursor;
     while indx <end{
         if text[indx] == ";"{
-            return Some(indx-1);
+            return Some(indx);
         }
         indx+=1;
     }
     return None;
 }
+
 pub fn parse_scope(text:&[Token], cursor:&mut usize, types:&HashMap<String,Type>, scope:&mut Scope, function_table:&HashMap<String,Function>)->Option<Vec<AstNode>>{
     if text[*cursor] != "{"{
         return None;
@@ -642,6 +655,7 @@ pub fn parse_scope(text:&[Token], cursor:&mut usize, types:&HashMap<String,Type>
     }
     return Some(out);
 }
+
 pub fn parse_global(text:&[Token], types:&HashMap<String,Type>)->Option<(String,Type,AstNode)>{
     let mut idx = 0;
     if text[idx] != "let"{
