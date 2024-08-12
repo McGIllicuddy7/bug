@@ -1,7 +1,5 @@
 
 
-use std::{io::Cursor, sync::atomic::AtomicBool};
-
 pub use crate::types::*;
 
 #[derive(Debug,Clone,Copy)]
@@ -257,6 +255,7 @@ pub fn tokenize<'a>(program:&'a str)->Vec<Token<'a>>{
     out = out.iter().map(|i| token_split_by(i,'-')).flatten().collect();
     out = out.iter().map(|i| token_split_by(i,'=')).flatten().collect();
     out = out.iter().map(|i| token_split_by(i,'/')).flatten().collect();
+    out = out.iter().map(|i| token_split_by(i,'*')).flatten().collect();
     out = out.iter().map(|i| token_split_by(i,'[')).flatten().collect();
     out = out.iter().map(|i| token_split_by(i,']')).flatten().collect();
     out = out.iter().map(|i| token_split_by(i,'<')).flatten().collect();
@@ -407,6 +406,10 @@ pub fn parse_expression(text:&[Token], cursor:&mut usize, last:usize,types:&Hash
             *cursor += 1;
             out = Some(AstNode::IntLiteral { value:fout });
         }
+        if text[*cursor] == ";"{
+            *cursor+=1;
+            return out;
+        }
     }
     else if text[*cursor] == "{"{
         let mut vout = vec![];
@@ -435,7 +438,21 @@ pub fn parse_expression(text:&[Token], cursor:&mut usize, last:usize,types:&Hash
         *cursor+=1;
         out = Some(AstNode::StructLiteral { nodes: vout });
     } else if text[*cursor] == "let"{
-        todo!();
+        let name = text[*cursor+1].string.to_owned();
+        *cursor +=3;
+        let vtype = parse_declared_type(text, cursor, types)?;
+        scope.declare_variable(vtype, name.clone());
+        let mut tmp_out =  parse_expression(text, cursor, last, types, scope, function_table)?;
+        match &mut tmp_out{
+            AstNode::Assignment { left, right }=>{
+                let v = scope.variable_idx(name.clone())?;
+                *left = Box::new(AstNode::VariableUse { name, index:v.1, vtype: v.0, is_arg: v.2 });
+            } 
+            _=>{
+
+            }
+        }
+        out = Some(tmp_out);
     } else if text[*cursor] == "+"{
         *cursor += 1;
         out = Some(AstNode::Add { left:Box::new(AstNode::VoidLiteral), right: Box::new(AstNode::VoidLiteral) })
@@ -457,15 +474,24 @@ pub fn parse_expression(text:&[Token], cursor:&mut usize, last:usize,types:&Hash
     } else if text[*cursor] == "return"{
         *cursor += 1;
         out = Some(AstNode::Return { body:  Box::new(parse_expression(text, cursor, last, types, scope, function_table)?)})
+    } else if text[*cursor] == "="{
+        *cursor += 1;
+        out = Some(AstNode::Assignment { left:Box::new(AstNode::VoidLiteral), right: Box::new(AstNode::VoidLiteral) })
+    } else {
+        if function_table.contains_key(text[*cursor].string){
+
+        } else if let Some(v) = scope.variable_idx(text[*cursor].string.to_owned()){
+            out = Some(AstNode::VariableUse { name:text[*cursor].string.to_owned(), index: v.1, vtype: v.0, is_arg: v.2 });
+            *cursor += 1;
+        }
     }
     if out.is_none(){
         println!("error unknown token {}", text[*cursor].string);
         return None;
     }
+    println!("{}, {}", *cursor, last);
     if *cursor<last-1{
-        if(text[*cursor+1] == ";"){
-            return out;
-        }
+        *cursor += 1;
         let mut next = parse_expression(text, cursor, last, types, scope, function_table)?;
         let mut outv = out?;
         if next.get_priority()>outv.get_priority(){
@@ -523,7 +549,6 @@ pub fn parse_expression(text:&[Token], cursor:&mut usize, last:usize,types:&Hash
             }
         }
         } else{
-            if outv.get_priority()>=next.get_priority(){
                 match &mut outv{
                     AstNode::Assignment { left:_, right }=>{
                         *right = Box::new(next);
@@ -577,28 +602,43 @@ pub fn parse_expression(text:&[Token], cursor:&mut usize, last:usize,types:&Hash
                         return None;
                 }
             }
-            }
         }
     } else{
         return out;
     }
-    println!("returned none on {:#?}", text[*cursor]);
+
+}
+fn calc_expr_end(text:&[Token], end:usize,cursor:usize)->Option<usize>{
+    if cursor == text.len(){
+        return Some(cursor);
+    }
+    if text[cursor] == "while" || text[cursor] == "for" || text[cursor] == "if"{
+        return Some(end);
+    } 
+    let mut indx = cursor;
+    while indx <end{
+        if text[indx] == ";"{
+            return Some(indx-1);
+        }
+        indx+=1;
+    }
     return None;
 }
 pub fn parse_scope(text:&[Token], cursor:&mut usize, types:&HashMap<String,Type>, scope:&mut Scope, function_table:&HashMap<String,Function>)->Option<Vec<AstNode>>{
     if text[*cursor] != "{"{
         return None;
     }
-    println!("scope:{:#?}", text);
-    let mut end = *cursor+calc_close_scope(text,*cursor)?;
-    if (end>text.len()){
-        end = text.len();
-    }
+    //println!("scope:{:#?}", text);
+    let end = *cursor+calc_close_scope(text,*cursor)?;
     let mut out = vec![];
     *cursor += 1;
     println!("scope parsing start:{}, end{}", cursor, end);
     while *cursor<end{
-        out.push(parse_expression(text, cursor, end,types, scope, function_table)?);
+        let expr_end = calc_expr_end(text,end, *cursor)?;
+        if expr_end == *cursor{
+            break;
+        }
+        out.push(parse_expression(text, cursor, expr_end,types, scope, function_table)?);
     }
     return Some(out);
 }
@@ -625,13 +665,13 @@ pub fn parse_global(text:&[Token], types:&HashMap<String,Type>)->Option<(String,
         println!("failed to parse global variable assignment");
     }
     let n = node?;
-    println!("{:#?}",n);
+    //println!("{:#?}",n);
     return Some((String::from(name), vtype, n));
 }
 
 
 pub fn parse_function(text:&[Token], types:&HashMap<String,Type>, globals:&HashMap<String, (Type,usize)>, function_table:&HashMap<String, Function>)->Option<(String,Function)>{
-    println!("function text:{:#?}", text);
+   // println!("function text:{:#?}", text);
     let mut args = vec![];
     let mut arg_names = vec![];
     let mut cursor = 1_usize;
@@ -640,8 +680,8 @@ pub fn parse_function(text:&[Token], types:&HashMap<String,Type>, globals:&HashM
     let args_end = calc_close_paren(text, cursor)?;
     cursor +=1;
     while cursor<args_end{
-        cursor += 1;
         let name = text[cursor].to_owned();
+        cursor += 1;
         if text[cursor] != ":"{
             println!("error expected : line:{}", text[cursor].line);
             return None;

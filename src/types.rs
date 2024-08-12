@@ -359,16 +359,16 @@ impl AstNode{
                 return 0;
             }
             Self::Add { left, right }=>{
-                return 2;
+                return 4;
             }
             Self::Sub { left, right }=>{
-                return 2;
+                return 4;
             }
             Self::Mult { left, right }=>{
-                return 3;
+                return 5;
             }
             Self::Div{ left, right }=>{
-                return 3;
+                return 5;
             }
             Self::Equals { left, right }=>{
                 return 6;
