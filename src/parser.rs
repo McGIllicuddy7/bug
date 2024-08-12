@@ -1,4 +1,6 @@
-use std::io::Cursor;
+
+
+use std::{io::Cursor, sync::atomic::AtomicBool};
 
 pub use crate::types::*;
 
@@ -20,6 +22,23 @@ pub fn calc_close_paren(tokens:&[Token<'_>], base_idx:usize)->Option<usize>{
         if tokens[idx] == "("{
             paren_count += 1;
         } else if tokens[idx] == ")"{
+            paren_count -= 1;
+        }
+        if paren_count == 0{
+            return Some(idx);
+        }
+        idx +=1;
+    }
+    println!("failed to find next paren");
+    return None;
+}
+pub fn calc_close_scope(tokens:&[Token<'_>], base_idx:usize)->Option<usize>{
+    let mut idx = base_idx+1;
+    let mut paren_count = 0;
+    while idx<tokens.len(){
+        if tokens[idx] == "{"{
+            paren_count += 1;
+        } else if tokens[idx] == "}"{
             paren_count -= 1;
         }
         if paren_count == 0{
@@ -233,6 +252,7 @@ pub fn tokenize<'a>(program:&'a str)->Vec<Token<'a>>{
     out = out.iter().map(|i| token_split_by(i,'(')).flatten().collect();
     out = out.iter().map(|i| token_split_by(i,')')).flatten().collect();
     out = out.iter().map(|i| token_split_by(i,':')).flatten().collect();
+    out = out.iter().map(|i| token_split_by(i,';')).flatten().collect();
     out = out.iter().map(|i| token_split_by(i,'+')).flatten().collect();
     out = out.iter().map(|i| token_split_by(i,'-')).flatten().collect();
     out = out.iter().map(|i| token_split_by(i,'=')).flatten().collect();
@@ -243,10 +263,13 @@ pub fn tokenize<'a>(program:&'a str)->Vec<Token<'a>>{
     out = out.iter().map(|i| token_split_by(i,'>')).flatten().collect();
     out = out.iter().map(|i| token_split_by(i,'"')).flatten().collect();
     out = out.iter().map(|i| token_split_by(i,'!')).flatten().collect();
+    out = out.iter().map(|i| token_split_by(i,'{')).flatten().collect();
+    out = out.iter().map(|i| token_split_by(i,'}')).flatten().collect();
+    out = out.iter().map(|i| token_split_by(i,',')).flatten().collect();    
+    out = out.iter().map(|i| token_split_by(i,'^')).flatten().collect();
     out = collect_tokens(&out);
     out = handle_numbers(&out);
     out = compress_quotes(&out).expect("quoutes should work\n");
-    println!("{:#?}",out);
     return out;
 }
 
@@ -255,46 +278,56 @@ pub fn extract_global<'a>(tokens:&'a[Token],idx:&mut usize)->Option<GlobalTypes<
     if start>=tokens.len(){
         return None;
     }
-    if tokens[*idx] != "(" {
-        return None;
-    } 
-    let mut parens_count = 1;
-    while parens_count>0{
-        *idx += 1;
-        if *idx>=tokens.len(){
-            return None;
+    if tokens[0] != "let"{
+        let mut parens_count = 0;
+        let mut hit_paren = false;
+        while parens_count>0 || !hit_paren{
+            *idx += 1;
+            if *idx>=tokens.len(){
+                return None;
+            }
+            if tokens[*idx] == "{"{
+                hit_paren = true;
+                parens_count+= 1;
+            } 
+            if tokens[*idx] == "}"{
+                parens_count -= 1;
+                if parens_count<1{
+                    break;
+                }
+            }
+            if *idx>tokens.len(){
+                println!("returned none 1");
+                return None;
+            }
         }
-        if tokens[*idx] == "("{
-            parens_count+= 1;
-        } 
-        if tokens[*idx] == ")"{
-            parens_count -= 1;
-        }
-        if *idx>tokens.len(){
-            println!("returned none 1");
-            return None;
+    } else {
+        while tokens[*idx] != ";"{
+            *idx += 1;
         }
     }
-
     let span = &tokens[start..*idx];
-    *idx +=1;
-    if span[1] == "struct"{
+    if span[0] == "struct"{
         let out = GlobalTypes::StructDef { text:span };
+        *idx = *idx+1;
         return Some(out);
     } 
-    if span[1] == "let"{
+    if span[0] == "let"{
         let out = GlobalTypes::GlobalDef  { text:span };
+        *idx +=2;
         return Some(out);
     } 
-    if span[1] == "fn"{
+    if span[0] == "fn"{
         let out = GlobalTypes::FunctionDef { text:span };
+        *idx = *idx+1;
         return Some(out);
     }
-    println!("returned none 2");
+    println!("returned none 2 span :{:#?}", span);
     return None;
  }
 
 pub fn extract_globals<'a>(tokens:&'a[Token<'a>])->Result<Vec<GlobalTypes<'a>>,String>{
+    //println!("tokens:{:#?}", tokens);
     let mut out = vec![];
     let mut idx = 0;
     while let Some(p) = extract_global(&tokens, &mut idx){
@@ -309,7 +342,7 @@ fn parse_declared_type(tokens:&[Token], idx:&mut usize, types:&HashMap<String, T
         *idx += 1;
         return Some(st.clone());
     }
-    if current.string == "*"{
+    if current.string == "^"{
         *idx +=1;
         return Some(parse_declared_type(tokens, idx, types)).flatten().map(|i| Type::PointerT { ptr_type:Box::new(i) });
     }
@@ -328,22 +361,19 @@ fn parse_declared_type(tokens:&[Token], idx:&mut usize, types:&HashMap<String, T
             return None;
         }
     }
-    println!("error unknown type:{:#?}", tokens[base].string);
+    println!("error unknown type:{}, line:{}", tokens[base].string, tokens[base].line);
     return None;
 }
 pub fn parse_type(text:&[Token], types:&HashMap<String,Type>)->Option<(String,Type)>{
     if text.len()<3{
-        println!("error requires more than three tokens to declare struct");
+        println!("error requires at least three tokens to declare struct");
     }
-    if *text.get(0)? != "("{
-        println!("error expected parenthesis, line: {}", text.get(0)?.line);
-        return None;
-    } 
-    if *text.get(1)? != "struct"{
+    if *text.get(0)? != "struct"{
         println!("expected struct declaration line{}", text.get(1)?.line);
         
     }
-    let name = String::from(text.get(2)?.string);
+    let name = String::from(text.get(1)?.string);
+
     let mut out_types = vec![];
     let mut idx = 3;
     while idx<text.len(){
@@ -363,267 +393,211 @@ pub fn parse_type(text:&[Token], types:&HashMap<String,Type>)->Option<(String,Ty
     return Some((name.clone(),Type::StructT{name, components:out_types.clone()}));
 }
 
-pub fn parse_expression(text:&[Token], cursor:&mut usize, types:&HashMap<String,Type>, scope:&mut Scope, function_table:&HashMap<String, Function>)->Option<AstNode>{
-    println!("{} {}",text[*cursor].string, text[*cursor+1].string);
-    if text[*cursor] == "("{
-        if function_table.contains_key(text[*cursor+1].string){
-            let mut args = vec![];
-            let last_idx = calc_close_paren(text, *cursor)?;
-            *cursor += 2;
-            while *cursor<last_idx{
-                args.push(parse_expression(text, cursor, types, scope, function_table)?);
-            }
-            return Some(AstNode::FunctionCall { function_name: text[*cursor+1].string.to_owned(), args:  args});
-        } else if text[*cursor+1] == "+"{
-            let mut args = vec![];
-            let last_idx = calc_close_paren(text, *cursor)?;
-            *cursor += 2;
-            while *cursor<last_idx{
-                args.push(parse_expression(text, cursor, types, scope, function_table)?);
-            }
-            *cursor+=1;
-            return Some(AstNode::Add { left: Box::new(args[0].clone()), right:Box::new(args[1].clone()) });
-        } else if text[*cursor+1] == "-"{
-            let mut args = vec![];
-            let last_idx = calc_close_paren(text, *cursor)?;
-            *cursor += 2;
-            while *cursor<last_idx{
-                args.push(parse_expression(text, cursor, types, scope, function_table)?);
-            }
-            *cursor+=1;
-            return Some(AstNode::Sub{ left: Box::new(args[0].clone()), right:Box::new(args[1].clone()) });
-        } else if text[*cursor+1] == "*"{
-            let mut args = vec![];
-            let last_idx = calc_close_paren(text, *cursor)?;
-            *cursor += 2;
-            while *cursor<last_idx{
-                args.push(parse_expression(text, cursor, types, scope, function_table)?);
-            }
-            *cursor+=1;
-            if args.len() == 1{
-                return Some(AstNode::Deref { thing_to_deref: Box::new(args[0].clone())});
-            } else{
-                return Some(AstNode::Mult { left: Box::new(args[0].clone()), right:Box::new(args[1].clone()) });
-            }
-        }  else if text[*cursor+1] == "&"{
-            let mut args = vec![];
-            let last_idx = calc_close_paren(text, *cursor)?;
-            *cursor += 2;
-            while *cursor<last_idx{
-                args.push(parse_expression(text, cursor, types, scope, function_table)?);
-            }
-            *cursor+=1;
-            if args.len() == 1{
-                return Some(AstNode::TakeRef { thing_to_ref: Box::new(args[0].clone())});
-            } else{
-                return Some(AstNode::Mult { left: Box::new(args[0].clone()), right:Box::new(args[1].clone()) });
-            }
-        }
-        else if text[*cursor+1] == "/"{
-            let mut args = vec![];
-            let last_idx = calc_close_paren(text, *cursor)?;
-            *cursor += 2;
-            while *cursor<last_idx{
-                args.push(parse_expression(text, cursor, types, scope, function_table)?);
-            }
-            *cursor+=1;
-            return Some(AstNode::Div { left: Box::new(args[0].clone()), right:Box::new(args[1].clone()) });
-        } else if text[*cursor+1] == "=="{
-            let mut args = vec![];
-            let last_idx = calc_close_paren(text, *cursor)?;
-            *cursor += 2;
-            while *cursor<last_idx{
-                args.push(parse_expression(text, cursor, types, scope, function_table)?);
-            }
-            *cursor+=1;
-            return Some(AstNode::Equals { left: Box::new(args[0].clone()), right:Box::new(args[1].clone()) });
-        } else if text[*cursor+1] == "<="{
-            let mut args = vec![];
-            let last_idx = calc_close_paren(text, *cursor)?;
-            *cursor += 2;
-            while *cursor<last_idx{
-                args.push(parse_expression(text, cursor, types, scope, function_table)?);
-            }
-            *cursor+=1;
-            return Some(AstNode::LessOrEq { left: Box::new(args[0].clone()), right:Box::new(args[1].clone()) });
-        } else if text[*cursor+1] == ">="{
-            let mut args = vec![];
-            let last_idx = calc_close_paren(text, *cursor)?;
-            *cursor += 2;
-            while *cursor<last_idx{
-                args.push(parse_expression(text, cursor, types, scope, function_table)?);
-            }
-            *cursor+=1;
-            return Some(AstNode::GreaterOrEq { left: Box::new(args[0].clone()), right:Box::new(args[1].clone()) });
-        } else if text[*cursor+1] == "<"{
-            let mut args = vec![];
-            let last_idx = calc_close_paren(text, *cursor)?;
-            *cursor += 2;
-            while *cursor<last_idx{
-                args.push(parse_expression(text, cursor, types, scope, function_table)?);
-            }
+pub fn parse_expression(text:&[Token], cursor:&mut usize, last:usize,types:&HashMap<String,Type>, scope:&mut Scope, function_table:&HashMap<String, Function>)->Option<AstNode>{
+    println!("called span:{:#?}", &text[*cursor..]);
+    let mut out = None;
+    if is_numbers(text[*cursor].string){
+        println!("is numbers cursor: {} last:{}", cursor, last);
+        if text[*cursor].string.contains('.'){
+            let fout = text[*cursor].string.parse::<f64>().expect("should be numbers");
             *cursor += 1;
-            return Some(AstNode::LessThan { left: Box::new(args[0].clone()), right:Box::new(args[1].clone()) });
-        } else if text[*cursor+1] == ">"{
-            let mut args = vec![];
-            let last_idx = calc_close_paren(text, *cursor)?;
-            *cursor += 2;
-            while *cursor<last_idx{
-                args.push(parse_expression(text, cursor, types, scope, function_table)?);
-            }
-            *cursor += 1;
-            return Some(AstNode::GreaterThan {left: Box::new(args[0].clone()), right:Box::new(args[1].clone()) });
-        } else if text[*cursor+1] == "&&"{
-            let mut args = vec![];
-            let last_idx = calc_close_paren(text, *cursor)?;
-            *cursor += 2;
-            while *cursor<last_idx{
-                args.push(parse_expression(text, cursor, types, scope, function_table)?);
-            }
-            *cursor+=1;
-            return Some(AstNode::And{left: Box::new(args[0].clone()), right:Box::new(args[1].clone()) });
-        } else if text[*cursor+1] == "||"{
-            let mut args = vec![];
-            let last_idx = calc_close_paren(text, *cursor)?;
-            *cursor += 2;
-            while *cursor<last_idx{
-                args.push(parse_expression(text, cursor, types, scope, function_table)?);
-            }
-            *cursor+=1;
-            return Some(AstNode::Or{left: Box::new(args[0].clone()), right:Box::new(args[1].clone()) });
-        } else if text[*cursor+1] == "="{
-            let mut args = vec![];
-            let last_idx = calc_close_paren(text, *cursor)?;
-            *cursor += 2;
-            while *cursor<last_idx{
-                args.push(parse_expression(text, cursor, types, scope, function_table)?);
-            }
-            return Some(AstNode::Assignment{left: Box::new(args[0].clone()), right:Box::new(args[1].clone()) });
-        }
-        else if text[*cursor+1] == "let"{
-            let name = text[*cursor+2].string.to_owned();
-            *cursor += 4;
-            let var_type = parse_declared_type(text, cursor, types)?;
-            println!("{}", text[*cursor+1].string);
-            println!("name:{name}");
-            scope.declare_variable(var_type.clone(), name.clone());
-            if text[*cursor] != "="{
-                return  Some(AstNode::VariableDeclaration { name , var_type,value_assigned:None });
-            }
-            *cursor +=1;
-            let next = parse_expression(text, cursor, types, scope, function_table)?;
-            return Some(AstNode::VariableDeclaration { name , var_type, value_assigned: Some(Box::new(next)) });
-        }
-        else if text[*cursor+1] == "if"{
-            *cursor+=2;
-            let condition=  parse_expression(text, cursor, types, scope, function_table)?;
-            scope.push_scope();
-            let to_do = parse_expression(text, cursor, types, scope, function_table)?;
-            scope.pop_scope();
-            if text[*cursor+1] == "else"{
-                *cursor +=2;
-                scope.push_scope();
-                let to_do_else = parse_expression(text, cursor, types, scope, function_table)?;
-                scope.pop_scope();
-                *cursor += 2;
-                return Some(AstNode::If { condition:Box::new(condition), thing_to_do: Box::new(to_do), r#else: Some(Box::new(to_do_else))});
-            }
-            *cursor +=1;
-            return Some(AstNode::If { condition:Box::new(condition), thing_to_do: Box::new(to_do), r#else: None});
-        }
-        else if text[*cursor+1] == "return"{
-            *cursor+=2;
-            let ret_value=  parse_expression(text, cursor, types, scope, function_table)?;
-            *cursor += 1;
-            return Some(AstNode::Return { body:Box::new(ret_value) });
-        }
-        else if text[*cursor+1] == "!"{
-            *cursor+=2;
-            let ret_value=  parse_expression(text, cursor, types, scope, function_table)?;
-            *cursor += 1;
-            return Some(AstNode::Not { value:Box::new(ret_value) });
-        }
-        else if text[*cursor+1] == "while"{
-            *cursor +=2;
-            let condition = parse_expression(text, cursor, types, scope, function_table)?;
-            *cursor +=1;
-            scope.push_scope();
-            let to_do = parse_expression(text, cursor, types, scope, function_table)?;
-            scope.pop_scope();
-            *cursor += 1;
-            return Some(AstNode::Loop { condition:Box::new(condition), body:Box::new(to_do) })
-        }
-        else if text[*cursor+1] == "for"{
-            scope.push_scope();
-            *cursor +=2;
-            let variable = parse_expression(text, cursor, types, scope, function_table)?;
-            *cursor+=1;
-            let condition = parse_expression(text, cursor, types, scope, function_table)?;
-            *cursor +=1;
-            let post_op = parse_expression(text, cursor, types, scope, function_table)?;
-            *cursor +=1;
-            scope.push_scope();
-            let to_do = parse_expression(text, cursor, types, scope, function_table)?;
-            scope.pop_scope();
-            scope.pop_scope();
-            *cursor += 1;
-            return Some(AstNode::ForLoop {variable:Box::new(variable), condition:Box::new(condition), body:Box::new(to_do) ,post_op:Box::new(post_op)});
-        }
-        else{
-            let mut out = vec![];
-            let last_idx = calc_close_paren(text, *cursor)?;
-            *cursor+=1;
-            while *cursor<last_idx{
-                out.push(parse_expression(text, cursor, types, scope, function_table)?);
-                *cursor+=1;
-        }
-        return Some(AstNode::StructLiteral { nodes: out });}
-    } 
-    else if text[*cursor] == "["{
-        let mut out = vec![];
-        let last_idx = calc_close_block(text, *cursor)?;
-        while *cursor<last_idx{
-            out.push(parse_expression(text, cursor, types, scope, function_table)?);
-        }
-        return Some(AstNode::ArrayLiteral { nodes: out });
-    } else if is_numbers(text[*cursor].string){
-        *cursor +=1;
-        if text[*cursor-1].string.contains('.'){
-            return Some(AstNode::FloatLiteral { value: text[*cursor-1].string.parse::<f64>().expect("should work\n") });
+            out = Some(AstNode::FloatLiteral { value:fout });
         } else{
-            return Some(AstNode::IntLiteral { value: text[*cursor-1].string.parse::<i64>().unwrap() });
+            let fout = text[*cursor].string.parse::<i64>().expect("should be numbers");
+            *cursor += 1;
+            out = Some(AstNode::IntLiteral { value:fout });
         }
-    } else if text[*cursor].string.chars().collect::<Vec<char>>()[0] == '"'{
-        return Some(AstNode::StringLiteral { value: text[*cursor].string.to_owned() });
-    } else if let Some(v) = scope.variable_idx(text[*cursor].string.to_owned()){
-        *cursor += 1;
-        let base_out = AstNode::VariableUse { name:text[*cursor-1].string.to_owned(), index:v.1, vtype:v.0 , is_arg:v.2};
-        if text[*cursor] == "."{
-            *cursor +=1;
-            let field_name = text[*cursor].string.to_owned();
-            *cursor +=1;
-            return Some(AstNode::FieldUsage { base: Box::new(base_out), field_name });
-        }
-        return Some(base_out);
-    } else if text[*cursor] == "true"{
-        *cursor += 1;
-        return Some(AstNode::BoolLiteral { value:true });
     }
-    else if text[*cursor] == "false"{
+    else if text[*cursor] == "{"{
+        let mut vout = vec![];
         *cursor += 1;
-        return Some(AstNode::BoolLiteral { value:false });
+        while text[*cursor] != "}" &&*cursor<last-1{
+
+            if text[*cursor] == ","{
+                *cursor += 1;
+                if *cursor>=last{
+                    break;
+                }
+                continue;
+            }
+            let mut next_indx = *cursor;
+            while text[next_indx] != "," && text[next_indx] != "}" &&next_indx<last{
+                next_indx += 1;
+                if next_indx>=last{
+                    break;
+                }
+            }
+            next_indx-=1;
+            println!("last:{}, next_indx:{} cursor:{}", last, next_indx, cursor);
+            let next = parse_expression(text, cursor, next_indx,types, scope, function_table);
+            vout.push(next?);
+        }
+        *cursor+=1;
+        out = Some(AstNode::StructLiteral { nodes: vout });
+    } else if text[*cursor] == "let"{
+        todo!();
+    } else if text[*cursor] == "+"{
+        *cursor += 1;
+        out = Some(AstNode::Add { left:Box::new(AstNode::VoidLiteral), right: Box::new(AstNode::VoidLiteral) })
+    } else if text[*cursor] == "-"{
+        *cursor += 1;
+        out = Some(AstNode::Sub { left:Box::new(AstNode::VoidLiteral), right: Box::new(AstNode::VoidLiteral) })
+    } else if text[*cursor] == "*"{
+        *cursor += 1;
+        out = Some(AstNode::Mult { left:Box::new(AstNode::VoidLiteral), right: Box::new(AstNode::VoidLiteral) })
+    } else if text[*cursor] == "/"{
+        *cursor += 1;
+        out = Some(AstNode::Div { left:Box::new(AstNode::VoidLiteral), right: Box::new(AstNode::VoidLiteral) })
+    } else if text[*cursor] == "&"{
+        *cursor += 1;
+        out = Some(AstNode::TakeRef { thing_to_ref: Box::new(parse_expression(text, cursor, last, types, scope, function_table)?) })
+    } else if text[*cursor] == "^"{
+        *cursor += 1;
+        out = Some(AstNode::Deref { thing_to_deref: Box::new(parse_expression(text, cursor, last, types, scope, function_table)?) })
+    } else if text[*cursor] == "return"{
+        *cursor += 1;
+        out = Some(AstNode::Return { body:  Box::new(parse_expression(text, cursor, last, types, scope, function_table)?)})
+    }
+    if out.is_none(){
+        println!("error unknown token {}", text[*cursor].string);
+        return None;
+    }
+    if *cursor<last-1{
+        let mut next = parse_expression(text, cursor, last, types, scope, function_table)?;
+        let mut outv = out?;
+        if next.get_priority()>outv.get_priority(){
+            match &mut next{
+                AstNode::Assignment { left, right }=>{
+                    *left = Box::new(outv);
+                    return Some(next);
+                } 
+                AstNode::Add { left, right }=>{
+                     *left = Box::new(outv);
+                     return Some(next);
+                }
+                AstNode::Sub { left, right }=>{
+                    *left = Box::new(outv);
+                    return Some(next);
+                }
+                AstNode::Mult{ left, right }=>{
+                    *left = Box::new(outv);
+                    return Some(next);
+                }
+                AstNode::Div { left, right }=>{
+                    *left = Box::new(outv);
+                    return Some(next);
+                }
+                AstNode::Equals { left, right }=>{
+                    *left = Box::new(outv);
+                    return Some(next);
+                }
+                AstNode::LessThan { left, right }=>{
+                    *left = Box::new(outv);
+                    return Some(next);
+                }
+                AstNode::GreaterThan { left, right }=>{
+                    *left = Box::new(outv);
+                    return Some(next);
+                }
+                AstNode::GreaterOrEq { left, right }=>{
+                    *left = Box::new(outv);
+                    return Some(next);
+                }
+                AstNode::LessOrEq { left, right }=>{
+                    *left = Box::new(outv);
+                    return Some(next);
+                }
+                AstNode::And { left, right }=>{
+                    *left = Box::new(outv);
+                    return Some(next);
+                }
+                AstNode::Or{ left, right }=>{
+                    *left = Box::new(outv);
+                    return Some(next);
+                }
+            _=>{
+                    return None;
+            }
+        }
+        } else{
+            if outv.get_priority()>=next.get_priority(){
+                match &mut outv{
+                    AstNode::Assignment { left:_, right }=>{
+                        *right = Box::new(next);
+                        return Some(outv);
+                    } 
+                    AstNode::Add { left:_, right }=>{
+                         *right = Box::new(next);
+                         return Some(outv);
+                    }
+                    AstNode::Sub { left:_, right }=>{
+                        *right= Box::new(next);
+                        return Some(outv);
+                    }
+                    AstNode::Mult{ left:_, right }=>{
+                        *right= Box::new(next);
+                        return Some(outv);
+                    }
+                    AstNode::Div { left:_, right }=>{
+                        *right = Box::new(next);
+                        return Some(outv);
+                    }
+                    AstNode::Equals { left:_, right }=>{
+                        *right = Box::new(next);
+                        return Some(outv);
+                    }
+                    AstNode::LessThan { left:_, right }=>{
+                        *right = Box::new(next);
+                        return Some(outv);
+                    }
+                    AstNode::GreaterThan { left:_, right }=>{
+                        *right = Box::new(next);
+                        return Some(outv);
+                    }
+                    AstNode::GreaterOrEq { left:_, right }=>{
+                        *right = Box::new(next);
+                        return Some(outv);
+                    }
+                    AstNode::LessOrEq { left:_, right }=>{
+                        *right = Box::new(next);
+                        return Some(outv);
+                    }
+                    AstNode::And { left:_, right }=>{
+                        *right = Box::new(next);
+                        return Some(outv);
+                    }
+                    AstNode::Or{ left:_, right }=>{
+                        *right = Box::new(next);
+                        return Some(outv);
+                    }
+                _=>{
+                        return None;
+                }
+            }
+            }
+        }
+    } else{
+        return out;
     }
     println!("returned none on {:#?}", text[*cursor]);
     return None;
 }
-
-pub fn parse_global(text:&[Token], types:&HashMap<String,Type>)->Option<(String,Type,AstNode)>{
-    let mut idx = 0;
-    if text[idx] != "("{
-        println!("error expected ( line:{}",text[idx].line);
+pub fn parse_scope(text:&[Token], cursor:&mut usize, types:&HashMap<String,Type>, scope:&mut Scope, function_table:&HashMap<String,Function>)->Option<Vec<AstNode>>{
+    if text[*cursor] != "{"{
         return None;
     }
-    idx +=1;
+    println!("scope:{:#?}", text);
+    let end = *cursor+calc_close_scope(text,*cursor)?;
+    let mut out = vec![];
+    *cursor += 1;
+    println!("scope parsing start:{}, end{}", cursor, end);
+    while *cursor<end{
+        out.push(parse_expression(text, cursor, end,types, scope, function_table)?);
+    }
+    return Some(out);
+}
+pub fn parse_global(text:&[Token], types:&HashMap<String,Type>)->Option<(String,Type,AstNode)>{
+    let mut idx = 0;
     if text[idx] != "let"{
         println!("error expected let: line:{}", text[idx].line);
         return None;
@@ -637,35 +611,34 @@ pub fn parse_global(text:&[Token], types:&HashMap<String,Type>)->Option<(String,
     }
     idx +=1;
     let vtype = parse_declared_type(text, &mut idx, types)?;
+    idx += 1;
     let mut scope = Scope::new(&HashMap::new());
     let function_table = HashMap::new();
-    idx += 1;
-    let node = parse_expression(text, &mut idx, types, &mut scope, &function_table);
+    let node = parse_expression(text, &mut idx,text.len(), types, &mut scope, &function_table);
     if node.is_none(){
         println!("failed to parse global variable assignment");
     }
-    return Some((String::from(name), vtype, node?));
+    let n = node?;
+    println!("{:#?}",n);
+    return Some((String::from(name), vtype, n));
 }
 
 
 pub fn parse_function(text:&[Token], types:&HashMap<String,Type>, globals:&HashMap<String, (Type,usize)>, function_table:&HashMap<String, Function>)->Option<(String,Function)>{
-    let fn_end = text.len()-2;
+    println!("function text:{:#?}", text);
     let mut args = vec![];
     let mut arg_names = vec![];
-    let mut nodes = vec![];
-    let mut cursor = 2_usize;
-    let name = text[2].string.to_owned();
-    cursor+=1;
-    if text[cursor] != "("{
-        println!("error expected paren");
-    }
+    let mut cursor = 1_usize;
+    let name = text[1].string.to_owned();
+    cursor +=1;
     let args_end = calc_close_paren(text, cursor)?;
-    cursor+=1;
+    cursor +=1;
     while cursor<args_end{
+        cursor += 1;
         let name = text[cursor].to_owned();
-        cursor +=1;
         if text[cursor] != ":"{
-            println!("error expected :");
+            println!("error expected : line:{}", text[cursor].line);
+            return None;
         }
         cursor+=1;
         let vtype = parse_declared_type(text, &mut cursor, types)?;
@@ -682,18 +655,7 @@ pub fn parse_function(text:&[Token], types:&HashMap<String,Type>, globals:&HashM
     for i in 0..args.len(){
         scope.declare_variable_arg(args[i].clone(), arg_names[i].clone());
     }
-    while cursor<fn_end{
-        nodes.push(parse_expression(text, &mut cursor, types,&mut  scope, function_table)?);
-    }
-    let mut out = vec![];
-    match &nodes[0]{
-        AstNode::StructLiteral { nodes }=>{
-            out = nodes.to_vec();
-        }
-        _  =>{
-
-        }
-    }
+    let out = parse_scope(text, &mut cursor, types, &mut scope, function_table)?;
     return Some((name.clone(),Function{name, return_type:return_type, args:args, arg_names:arg_names, program:out}));
 }
 

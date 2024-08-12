@@ -154,6 +154,7 @@ pub fn is_compatible_type(a:&Type, b:&Type)->bool{
 
 #[derive(Clone,Debug)]
 pub enum AstNode{
+    VoidLiteral,
     BoolLiteral{value:bool},
     StringLiteral{value:String}, 
     IntLiteral{value:i64}, 
@@ -188,6 +189,9 @@ pub enum AstNode{
 impl AstNode{
     pub fn get_type(&self, function_table:&HashMap<String, Function>, types:&HashMap<String, Type>)->Option<Type>{
         match self{
+            Self::VoidLiteral{}=>{
+                Some(Type::VoidT)
+            }
             Self::BoolLiteral {value:_ }=>{
                 Some(Type::BoolT)
             }
@@ -318,6 +322,100 @@ impl AstNode{
             }
         }
 
+    }
+    pub fn get_priority(&self)->usize{
+        match self{
+            Self::VoidLiteral{}=>{
+                return 0;
+            }
+            Self::BoolLiteral {value:_ }=>{
+               return 0;
+            }
+            Self::StringLiteral { value:_ }=>{
+                return 0;
+            }
+            Self::IntLiteral { value:_ }=>{
+                return 0;
+            }
+            Self::FloatLiteral { value:_ }=>{
+               return 0;
+            }
+            Self::StructLiteral { nodes }=>{
+                return 0;
+            }
+            Self::ArrayLiteral { nodes }=>{
+                return 0;
+            }
+            Self::VariableUse { name, index, vtype, is_arg }=>{
+                return 0;
+            }
+            Self::FunctionCall { function_name, args }=>{
+                return 0;
+            }
+            Self::Assignment { left, right }=>{
+                return 8;
+            }
+            Self::VariableDeclaration { name, var_type, value_assigned }=>{
+                return 0;
+            }
+            Self::Add { left, right }=>{
+                return 2;
+            }
+            Self::Sub { left, right }=>{
+                return 2;
+            }
+            Self::Mult { left, right }=>{
+                return 3;
+            }
+            Self::Div{ left, right }=>{
+                return 3;
+            }
+            Self::Equals { left, right }=>{
+                return 6;
+            }
+            Self::LessThan { left, right }=>{
+                return 6;
+            }
+            Self::GreaterThan { left, right }=>{
+                return 6;
+            }
+            Self::GreaterOrEq { left, right }=>{
+                return 6;
+            }
+            Self::LessOrEq { left, right }=>{
+                return 6;
+            }
+            Self::Not { value }=>{
+                return 0;
+            }
+            Self::And{ left, right }=>{
+                return 7;
+            }
+            Self::Or{ left, right }=>{
+                return 7;
+            }
+            Self:: If { condition, thing_to_do, r#else }=>{
+                return 0;
+            }
+            Self:: Loop { condition, body }=>{
+                return 0;
+            }
+            Self::ForLoop { variable, condition, post_op, body }=>{
+                return 0;
+            }
+            Self::Return{body}=>{
+                return 8;
+            }
+            Self::Deref { thing_to_deref }=>{
+                return 0;
+            }
+            Self::TakeRef { thing_to_ref  }=>{
+                return 0;
+            }
+            Self::FieldUsage{base, field_name}=>{
+                return 0;
+            }
+        }
     }
 }
 #[derive(Debug)]
