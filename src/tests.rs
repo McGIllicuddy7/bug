@@ -1,5 +1,7 @@
 use crate::*;
+#[allow(unused)]
 const PRG1: &str = "{hello world}";
+#[allow(unused)]
 const PRG2: &str = "{{hello world}}";
 #[test]
 fn test_end_scope() {

@@ -49,7 +49,7 @@ pub fn calc_close_scope(tokens: &[Token<'_>], base_idx: usize) -> Option<usize> 
     println!("failed to find next scope end");
     return None;
 }
-
+#[allow(unused)]
 pub fn calc_close_block(tokens: &[Token<'_>], base_idx: usize) -> Option<usize> {
     let mut idx = base_idx;
     let mut paren_count = 1;
@@ -557,7 +557,6 @@ pub fn parse_expression(
     //println!("called span:{:#?}", &text[*cursor..last]);
     let mut out = None;
     if is_numbers(text[*cursor].string) {
-        println!("is numbers cursor: {} last:{}", cursor, last);
         if text[*cursor].string.contains('.') {
             let fout = text[*cursor]
                 .string
@@ -757,7 +756,6 @@ pub fn parse_expression(
                         .expect("parsing scope should work"),
                 )
             } else {
-                println!("other token was:{:#?}", text[*cursor]);
                 None
             }
         } else {
@@ -957,7 +955,6 @@ pub fn parse_scope(
     }
     let end = calc_close_scope(text, *cursor).expect("scope must end");
     let mut out = vec![];
-    let mut iter_count = 1;
     while *cursor < end {
         let expr_end = calc_expr_end(text, end, *cursor).expect("expression must end");
         if expr_end <= *cursor {
@@ -972,7 +969,6 @@ pub fn parse_scope(
             scope,
             function_table,
         ).expect("expression must be valid"));
-        iter_count +=1;
     }
     *cursor += 1;
     return Some(out);

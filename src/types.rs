@@ -158,6 +158,7 @@ pub fn is_compatible_type(a: &Type, b: &Type) -> bool {
     }
 }
 
+#[allow(unused)]
 #[derive(Clone, Debug)]
 pub enum AstNode {
     VoidLiteral,
@@ -498,16 +499,16 @@ impl AstNode {
                 return 0;
             }
             Self::Add { left, right } => {
-                return 4;
+                return 5;
             }
             Self::Sub { left, right } => {
-                return 4;
+                return 5;
             }
             Self::Mult { left, right } => {
-                return 5;
+                return 4;
             }
             Self::Div { left, right } => {
-                return 5;
+                return 4;
             }
             Self::Equals { left, right } => {
                 return 6;
