@@ -544,7 +544,91 @@ pub fn parse_type(text: &[Token], types: &HashMap<String, Type>) -> Option<(Stri
         },
     ));
 }
+fn get_arms(expr:&mut AstNode)->(Option<&mut AstNode>, Option<&mut AstNode>){
+    match expr{
+        AstNode::Assignment { left, right } => {
+            return (Some(left), Some(right));
+        }
+        AstNode::Add { left, right } => {
+            return (Some(left), Some(right));
+        }
+        AstNode::Sub { left, right } => {
+            return (Some(left), Some(right));
+        }
+        AstNode::Mult { left, right } => {
+            return (Some(left), Some(right));
+        }
+        AstNode::Div { left, right } => {
+            return (Some(left), Some(right));
+        }
+        AstNode::Equals { left, right } => {
+            return (Some(left), Some(right));
+        }
+        AstNode::LessThan { left, right } => {
+            return (Some(left), Some(right));
+        }
+        AstNode::GreaterThan { left, right } => {
+            return (Some(left), Some(right));
+        }
+        AstNode::GreaterOrEq { left, right } => {
+            return (Some(left), Some(right));
+        }
+        AstNode::LessOrEq { left, right } => {
+            return (Some(left), Some(right));
+        }
+        AstNode::And { left, right } => {
+            return (Some(left), Some(right));
+        }
+        AstNode::Or { left, right} => {
+            return (Some(left), Some(right));
+        }
+        _ => {
+            return (None, None);
+        }
+    }
+}
+fn place_expr(_text:&[Token],_start:usize,left:AstNode, right:AstNode)->Option<AstNode>{
+    let mut left = left;
+    let mut right = right;
+    if left.get_priority()>right.get_priority(){
+        println!("\nhit\n");
+        let mut current = &mut left ;
+        while get_arms(current).1.expect("616").get_priority()>right.get_priority(){
+            match current{
+                AstNode::VoidLiteral=>{
+                    break;
+                }
+                _=>{
 
+                }
+            }
+            if get_arms(get_arms(current).1?).1.is_none(){
+                break;
+            }
+            current = get_arms(current).1.expect("629");
+        }
+        *get_arms(current).1.expect("631") = right; 
+        return Some(left);
+    } else{
+        let mut current = &mut right ;
+        while get_arms(current).0.expect("616").get_priority()>left.get_priority(){
+            match current{
+                AstNode::VoidLiteral=>{
+                    break;
+                }
+                _=>{
+
+                }
+            }
+            if get_arms(get_arms(current).0?).0.is_none(){
+                break;
+            }
+            current = get_arms(current).0.expect("629");
+        }
+        *get_arms(current).0.expect("631") = left; 
+        return Some(right);
+    }
+}
 pub fn parse_expression(
     text: &[Token],
     cursor: &mut usize,
@@ -796,123 +880,9 @@ pub fn parse_expression(
             *cursor += 1;
             return out;
         }
-        let mut next = parse_expression(text, cursor, last, types, scope, function_table)
-            .expect("should return");
-        let mut outv = out?;
-        if next.get_priority() > outv.get_priority() {
-            match &mut next {
-                AstNode::Assignment { left, right: _ } => {
-                    *left = Box::new(outv);
-                    return Some(next);
-                }
-                AstNode::Add { left, right: _ } => {
-                    *left = Box::new(outv);
-                    return Some(next);
-                }
-                AstNode::Sub { left, right: _ } => {
-                    *left = Box::new(outv);
-                    return Some(next);
-                }
-                AstNode::Mult { left, right: _ } => {
-                    *left = Box::new(outv);
-                    return Some(next);
-                }
-                AstNode::Div { left, right: _ } => {
-                    *left = Box::new(outv);
-                    return Some(next);
-                }
-                AstNode::Equals { left, right: _ } => {
-                    *left = Box::new(outv);
-                    return Some(next);
-                }
-                AstNode::LessThan { left, right: _ } => {
-                    *left = Box::new(outv);
-                    return Some(next);
-                }
-                AstNode::GreaterThan { left, right: _ } => {
-                    *left = Box::new(outv);
-                    return Some(next);
-                }
-                AstNode::GreaterOrEq { left, right: _ } => {
-                    *left = Box::new(outv);
-                    return Some(next);
-                }
-                AstNode::LessOrEq { left, right: _ } => {
-                    *left = Box::new(outv);
-                    return Some(next);
-                }
-                AstNode::And { left, right: _ } => {
-                    *left = Box::new(outv);
-                    return Some(next);
-                }
-                AstNode::Or { left, right: _ } => {
-                    *left = Box::new(outv);
-                    return Some(next);
-                }
-                _ => {
-                    println!("returned none unexpected next token type:{:#?}", next);
-                    return None;
-                }
-            }
-        } else {
-            match &mut outv {
-                AstNode::Assignment { left: _, right } => {
-                    *right = Box::new(next);
-                    return Some(outv);
-                }
-                AstNode::Add { left: _, right } => {
-                    *right = Box::new(next);
-                    return Some(outv);
-                }
-                AstNode::Sub { left: _, right } => {
-                    *right = Box::new(next);
-                    return Some(outv);
-                }
-                AstNode::Mult { left: _, right } => {
-                    *right = Box::new(next);
-                    return Some(outv);
-                }
-                AstNode::Div { left: _, right } => {
-                    *right = Box::new(next);
-                    return Some(outv);
-                }
-                AstNode::Equals { left: _, right } => {
-                    *right = Box::new(next);
-                    return Some(outv);
-                }
-                AstNode::LessThan { left: _, right } => {
-                    *right = Box::new(next);
-                    return Some(outv);
-                }
-                AstNode::GreaterThan { left: _, right } => {
-                    *right = Box::new(next);
-                    return Some(outv);
-                }
-                AstNode::GreaterOrEq { left: _, right } => {
-                    *right = Box::new(next);
-                    return Some(outv);
-                }
-                AstNode::LessOrEq { left: _, right } => {
-                    *right = Box::new(next);
-                    return Some(outv);
-                }
-                AstNode::And { left: _, right } => {
-                    *right = Box::new(next);
-                    return Some(outv);
-                }
-                AstNode::Or { left: _, right } => {
-                    *right = Box::new(next);
-                    return Some(outv);
-                }
-                _ => {
-                    println!(
-                        "returned none unexpected token type:{:#?},line:{}, next token type:{:#?}",
-                        outv, text[start].line, next
-                    );
-                    return None;
-                }
-            }
-        }
+        println!("{:#?}", text[*cursor]);
+        let right = parse_expression(text, cursor, last, types, scope, function_table)?;
+        return place_expr(text, start,out?, right);
     } else {
         if out.is_none() {
             println!("returned none, for some reason");

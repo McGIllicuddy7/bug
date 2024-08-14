@@ -2,21 +2,9 @@ struct test {a:int b:int c:int};
 
 let test0:test = {0,0,0};
 
-fn foo(bar:int)->float{
-    let baz:int = 0;
-    return 4.0*3.0+1.0;
-}
 
 
 fn main(args:[]string)->int{
-       let a:int = 0;
-       if(a>10){
-        a = 3;
-        if(a<3){
-            return a;
-        }
-        return 0;
-       }
-       return a;
+    return 1.0*2.0+3.0*4.0;
 }
  
