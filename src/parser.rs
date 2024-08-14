@@ -374,6 +374,11 @@ pub fn tokenize<'a>(program: &'a str) -> Vec<Token<'a>> {
         .map(|i| token_split_by(i, '^'))
         .flatten()
         .collect();
+    out = out
+    .iter()
+    .map(|i| token_split_by(i, '&'))
+    .flatten()
+    .collect();
     out = collect_tokens(&out);
     out = handle_numbers(&out);
     out = compress_quotes(&out).expect("quoutes should work\n");
