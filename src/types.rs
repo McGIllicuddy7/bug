@@ -556,10 +556,10 @@ impl AstNode {
                 return 8;
             }
             Self::Deref { thing_to_deref:_ } => {
-                return 0;
+                return 1;
             }
             Self::TakeRef { thing_to_ref:_ } => {
-                return 0;
+                return 1;
             }
             Self::FieldUsage { base:_, field_name:_ } => {
                 return 0;

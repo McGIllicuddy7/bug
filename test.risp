@@ -13,6 +13,7 @@ fn main(args:[]string)->int{
     } else if (0 > 1){
         b=a;
     }
+    b = 0;
     return i_love_toast(0,0,0);
 }
  
