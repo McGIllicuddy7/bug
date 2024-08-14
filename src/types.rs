@@ -309,26 +309,26 @@ impl AstNode {
                 });
             }
             Self::VariableUse {
-                name:_,
-                index:_,
+                name: _,
+                index: _,
                 vtype,
-                is_arg:_,
+                is_arg: _,
             } => {
                 return Some(vtype.clone());
             }
             Self::FunctionCall {
                 function_name,
-                args:_,
+                args: _,
             } => {
                 return Some(function_table.get(function_name)?.return_type.clone());
             }
-            Self::Assignment { left:_ ,right:_ } => {
+            Self::Assignment { left: _, right: _ } => {
                 return Some(Type::VoidT);
             }
             Self::VariableDeclaration {
-                name:_,
-                var_type:_,
-                value_assigned:_,
+                name: _,
+                var_type: _,
+                value_assigned: _,
             } => {
                 return Some(Type::VoidT);
             }
@@ -368,57 +368,60 @@ impl AstNode {
                 }
                 return None;
             }
-            Self::Equals { left:_, right:_ } => {
+            Self::Equals { left: _, right: _ } => {
                 return Some(Type::BoolT);
             }
-            Self::LessThan { left:_, right:_ } => {
+            Self::LessThan { left: _, right: _ } => {
                 return Some(Type::BoolT);
             }
-            Self::GreaterThan { left:_, right:_ } => {
+            Self::GreaterThan { left: _, right: _ } => {
                 return Some(Type::BoolT);
             }
-            Self::GreaterOrEq { left:_, right:_ }=> {
+            Self::GreaterOrEq { left: _, right: _ } => {
                 return Some(Type::BoolT);
             }
-            Self::LessOrEq { left:_, right:_ } => {
+            Self::LessOrEq { left: _, right: _ } => {
                 return Some(Type::BoolT);
             }
-            Self::Not { value:_ } => {
+            Self::Not { value: _ } => {
                 return Some(Type::BoolT);
             }
-            Self::And { left:_, right:_ } => {
+            Self::And { left: _, right: _ } => {
                 return Some(Type::BoolT);
             }
-            Self::Or { left:_, right:_ } => {
+            Self::Or { left: _, right: _ } => {
                 return Some(Type::BoolT);
             }
             Self::If {
-                condition:_,
-                thing_to_do:_,
-                r#else:_,
+                condition: _,
+                thing_to_do: _,
+                r#else: _,
             } => {
                 return Some(Type::VoidT);
             }
-            Self::Loop { condition:_, body:_ } => {
+            Self::Loop {
+                condition: _,
+                body: _,
+            } => {
                 return Some(Type::VoidT);
             }
             Self::ForLoop {
-                variable:_,
-                condition:_,
-                post_op:_,
-                body:_,
+                variable: _,
+                condition: _,
+                post_op: _,
+                body: _,
             } => {
                 return Some(Type::VoidT);
             }
-            Self::Return { body:_ } => {
+            Self::Return { body: _ } => {
                 return Some(Type::VoidT);
             }
             Self::Deref { thing_to_deref } => match (*thing_to_deref).as_ref() {
                 Self::VariableUse {
-                    name:_,
-                    index:_,
+                    name: _,
+                    index: _,
                     vtype,
-                    is_arg:_,
+                    is_arg: _,
                 } => match vtype {
                     Type::PointerT { ptr_type } => {
                         return Some(ptr_type.as_ref().clone());
@@ -433,10 +436,10 @@ impl AstNode {
             },
             Self::TakeRef { thing_to_ref } => match (*thing_to_ref).as_ref() {
                 Self::VariableUse {
-                    name:_,
-                    index:_,
+                    name: _,
+                    index: _,
                     vtype,
-                    is_arg:_,
+                    is_arg: _,
                 } => {
                     return Some(Type::PointerT {
                         ptr_type: Box::new(vtype.clone()),
@@ -446,7 +449,10 @@ impl AstNode {
                     return None;
                 }
             },
-            Self::FieldUsage { base:_, field_name:_ } => {
+            Self::FieldUsage {
+                base: _,
+                field_name: _,
+            } => {
                 return None;
             }
         }
@@ -468,100 +474,106 @@ impl AstNode {
             Self::FloatLiteral { value: _ } => {
                 return 0;
             }
-            Self::StructLiteral { nodes:_ } => {
+            Self::StructLiteral { nodes: _ } => {
                 return 0;
             }
-            Self::ArrayLiteral { nodes:_ } => {
+            Self::ArrayLiteral { nodes: _ } => {
                 return 0;
             }
             Self::VariableUse {
-                name:_,
-                index:_,
-                vtype:_,
-                is_arg:_,
+                name: _,
+                index: _,
+                vtype: _,
+                is_arg: _,
             } => {
                 return 0;
             }
             Self::FunctionCall {
-                function_name:_,
-                args:_,
+                function_name: _,
+                args: _,
             } => {
                 return 0;
             }
-            Self::Assignment { left:_, right :_} => {
+            Self::Assignment { left: _, right: _ } => {
                 return 8;
             }
             Self::VariableDeclaration {
-                name:_,
-                var_type:_,
-                value_assigned:_,
+                name: _,
+                var_type: _,
+                value_assigned: _,
             } => {
                 return 0;
             }
-            Self::Add { left:_, right:_ }=> {
+            Self::Add { left: _, right: _ } => {
                 return 5;
             }
-            Self::Sub { left:_, right:_ } => {
+            Self::Sub { left: _, right: _ } => {
                 return 5;
             }
-            Self::Mult { left:_, right:_ } => {
+            Self::Mult { left: _, right: _ } => {
                 return 3;
             }
-            Self::Div { left:_, right:_ } => {
+            Self::Div { left: _, right: _ } => {
                 return 3;
             }
-            Self::Equals { left:_, right:_ } => {
+            Self::Equals { left: _, right: _ } => {
                 return 6;
             }
-            Self::LessThan { left:_, right:_ } => {
+            Self::LessThan { left: _, right: _ } => {
                 return 6;
             }
-            Self::GreaterThan { left:_, right:_ } => {
+            Self::GreaterThan { left: _, right: _ } => {
                 return 6;
             }
-            Self::GreaterOrEq { left:_, right:_ } => {
+            Self::GreaterOrEq { left: _, right: _ } => {
                 return 6;
             }
-            Self::LessOrEq { left:_, right:_ } => {
+            Self::LessOrEq { left: _, right: _ } => {
                 return 6;
             }
-            Self::Not { value:_ } => {
+            Self::Not { value: _ } => {
                 return 0;
             }
-            Self::And{ left:_, right:_ } => {
+            Self::And { left: _, right: _ } => {
                 return 7;
             }
-            Self::Or { left:_, right:_ } => {
+            Self::Or { left: _, right: _ } => {
                 return 7;
             }
             Self::If {
-                condition:_,
-                thing_to_do:_,
-                r#else:_,
+                condition: _,
+                thing_to_do: _,
+                r#else: _,
             } => {
                 return 0;
             }
-            Self::Loop { condition:_, body:_ } => {
+            Self::Loop {
+                condition: _,
+                body: _,
+            } => {
                 return 0;
             }
             Self::ForLoop {
-                variable:_,
-                condition:_,
-                post_op:_,
-                body:_,
+                variable: _,
+                condition: _,
+                post_op: _,
+                body: _,
             } => {
                 return 0;
             }
-            Self::Return { body:_ } => {
+            Self::Return { body: _ } => {
                 return 8;
             }
-            Self::Deref { thing_to_deref:_ } => {
+            Self::Deref { thing_to_deref: _ } => {
                 return 1;
             }
-            Self::TakeRef { thing_to_ref:_ } => {
+            Self::TakeRef { thing_to_ref: _ } => {
                 return 1;
             }
-            Self::FieldUsage { base:_, field_name:_ } => {
+            Self::FieldUsage {
+                base: _,
+                field_name: _,
+            } => {
                 return 0;
             }
         }
