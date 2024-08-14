@@ -1,3 +1,5 @@
+
+
 pub use crate::types::*;
 
 #[derive(Debug, Clone, Copy)]
@@ -599,6 +601,26 @@ fn place_expr(_text:&[Token],_start:usize,left:AstNode, right:AstNode)->Option<A
         return Some(right);
     }
 }
+pub fn parse_list(text:&[Token], list_start:usize, list_end:usize, types:&HashMap<String,Type>, scope:&mut Scope, function_table:&HashMap<String,Function>)->Option<Vec<AstNode>>{
+    fn calc_next_end(text:&[Token], start:usize, list_end:usize)->usize{
+        let mut idx = start;
+        while idx<list_end{
+            if text[idx] == ","{
+                return idx;
+            }
+            idx += 1;
+        }
+        return idx;
+    }
+    let mut out = vec![];
+    let mut cursor = list_start;
+    while cursor<list_end{
+        let end = calc_next_end(text, cursor ,list_end);
+        out.push(parse_expression(text, &mut cursor, end, types, scope, function_table)?);
+        cursor = end+1;
+    }
+    return Some(out);
+}
 pub fn parse_expression(
     text: &[Token],
     cursor: &mut usize,
@@ -832,6 +854,13 @@ pub fn parse_expression(
         return out;
     } else {
         if function_table.contains_key(text[*cursor].string) {
+            let name = text[*cursor].string.to_owned();
+            *cursor+=1;
+            let args_end = calc_close_paren(text, *cursor)?;
+            *cursor +=1;
+            let args = parse_list(text, *cursor, args_end, types, scope, function_table)?;
+            out = Some(AstNode::FunctionCall { function_name: name, args:args });
+            *cursor = args_end+1;
         } else if let Some(v) = scope.variable_idx(text[*cursor].string.to_owned()) {
             out = Some(AstNode::VariableUse {
                 name: text[*cursor].string.to_owned(),
@@ -884,6 +913,7 @@ pub fn parse_scope(
     scope: &mut Scope,
     function_table: &HashMap<String, Function>,
 ) -> Option<Vec<AstNode>> {
+    let start = *cursor;
     if text[*cursor] != "{" {
         println!(
             "error expected curly brace line{}, instead found {}",
@@ -909,7 +939,10 @@ pub fn parse_scope(
             break;
         }
         */
-        let expr_end = calc_expr_end(text, end, *cursor).expect("expression must end");
+        let mut expr_end = calc_expr_end(text, end, *cursor).expect("expression must end");
+        if *cursor == start{
+            expr_end += 1;
+        }
         if expr_end <= *cursor {
             *cursor +=1;
             continue;
@@ -961,7 +994,7 @@ pub fn parse_global(
         println!("failed to parse global variable assignment");
     }
     let n = node?;
-    //println!("{:#?}",n);
+    println!("{:#?}",n);
     return Some((String::from(name), vtype, n));
 }
 
@@ -1014,6 +1047,49 @@ pub fn parse_function(
     ));
 }
 
+pub fn parse_function_stub(
+    text: &[Token],
+    types: &HashMap<String, Type>,
+    _globals: &HashMap<String, (Type, usize)>,
+    _function_table: &HashMap<String, Function>,
+) -> Option<(String, Function)> {
+    // println!("function text:{:#?}", text);
+    let mut args = vec![];
+    let mut arg_names = vec![];
+    let mut cursor = 1_usize;
+    let name = text[1].string.to_owned();
+    cursor += 1;
+    let args_end = calc_close_paren(text, cursor)?;
+    cursor += 1;
+    while cursor < args_end {
+        let name = text[cursor].to_owned();
+        cursor += 1;
+        if text[cursor] != ":" {
+            println!("error expected : line:{}", text[cursor].line);
+            return None;
+        }
+        cursor += 1;
+        let vtype = parse_declared_type(text, &mut cursor, types)?;
+        arg_names.push(name.string.to_owned());
+        args.push(vtype);
+    }
+    cursor += 1;
+    if text[cursor] != "->" {
+        println!("error requires -> for return type of function");
+    }
+    cursor += 1;
+    let return_type = parse_declared_type(text, &mut cursor, types)?;
+    return Some((
+        name.clone(),
+        Function {
+            name,
+            return_type: return_type,
+            args: args,
+            arg_names: arg_names,
+            program: vec![],
+        },
+    ));
+}
 pub fn program_to_ast(program: &str) -> Option<Program> {
     let tokens = tokenize(program);
     //println!("{:#?}", tokens);
@@ -1068,11 +1144,22 @@ pub fn program_to_ast(program: &str) -> Option<Program> {
         match i {
             GlobalTypes::StructDef { text: _ } => {}
             GlobalTypes::FunctionDef { text } => {
-                let tmp = parse_function(*text, &types, &scope, &functions)?;
+                let tmp = parse_function_stub(*text, &types, &scope, &functions)?;
                 if functions.contains_key(&tmp.0) {
                     println!("error {} redeclared", tmp.0);
                     return None;
                 }
+                println!("{:#?}", tmp.1);
+                functions.insert(tmp.0, tmp.1);
+            }
+            GlobalTypes::GlobalDef { text: _ } => {}
+        }
+    }
+    for i in &globals {
+        match i {
+            GlobalTypes::StructDef { text: _ } => {}
+            GlobalTypes::FunctionDef { text } => {
+                let tmp = parse_function(*text, &types, &scope, &functions)?;
                 println!("{:#?}", tmp.1);
                 functions.insert(tmp.0, tmp.1);
             }

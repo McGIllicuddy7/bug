@@ -5,7 +5,7 @@ let test0:test = {0,0,0};
 
 
 fn main(args:[]string)->int{
-    let a:float = 1.0+2.0;
+    let a:float = 1.0+1.0;
     let b:float = 1.0*2.0;
     if (a==b){
         a=b;
@@ -13,8 +13,12 @@ fn main(args:[]string)->int{
     } else if (0 > 1){
         b=a;
     }
-    return a;
+    return i_love_toast(0);
 }
  
- fn i_love_toast()->void{
+ fn i_love_toast(a:int)->int{
+    let i_love:int = 3;
+    i_love = 0;
+    let you:int = 5;
+    return i_love+you*3;
  }
