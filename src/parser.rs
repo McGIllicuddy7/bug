@@ -1,5 +1,3 @@
-
-
 pub use crate::types::*;
 
 #[derive(Debug, Clone, Copy)]
@@ -116,11 +114,12 @@ pub fn collect_tokens<'a>(tokens: &[Token<'a>]) -> Vec<Token<'a>> {
                     let strr = token.string.as_ref() as &[u8];
                     let ptr = strr.as_ptr();
                     let len = strr.len() + tokens[count + 1].string.len();
-                        let new_str = slice::from_raw_parts(ptr, len);
-                        let new_string = str::from_utf8(new_str);
-                        if let Ok(s) = new_string {
-                            token.string = s;
-                        }
+                    let new_str = slice::from_raw_parts(ptr, len);
+                    let new_string = str::from_utf8(new_str);
+                    if let Ok(s) = new_string {
+                        token.string = s;
+                        count += 1;
+                    }
                 }
                 out.push(token);
             } else if tokens[count] == "-" && tokens[count + 1] == ">" {
@@ -132,12 +131,12 @@ pub fn collect_tokens<'a>(tokens: &[Token<'a>]) -> Vec<Token<'a>> {
                     let strr = token.string.as_ref() as &[u8];
                     let ptr = strr.as_ptr();
                     let len = strr.len() + tokens[count + 1].string.len();
-                        let new_str = slice::from_raw_parts(ptr, len);
-                        let new_string = str::from_utf8(new_str);
-                        if let Ok(s) = new_string {
-                            token.string = s;
-                            count += 1;
-                        }
+                    let new_str = slice::from_raw_parts(ptr, len);
+                    let new_string = str::from_utf8(new_str);
+                    if let Ok(s) = new_string {
+                        token.string = s;
+                        count += 1;
+                    }
                 }
                 out.push(token);
             } else if tokens[count] == "<" && tokens[count + 1] == "=" {
@@ -149,12 +148,12 @@ pub fn collect_tokens<'a>(tokens: &[Token<'a>]) -> Vec<Token<'a>> {
                     let strr = token.string.as_ref() as &[u8];
                     let ptr = strr.as_ptr();
                     let len = strr.len() + tokens[count + 1].string.len();
-                        let new_str = slice::from_raw_parts(ptr, len);
-                        let new_string = str::from_utf8(new_str);
-                        if let Ok(s) = new_string {
-                            token.string = s;
-                            count += 1;
-                        }
+                    let new_str = slice::from_raw_parts(ptr, len);
+                    let new_string = str::from_utf8(new_str);
+                    if let Ok(s) = new_string {
+                        token.string = s;
+                        count += 1;
+                    }
                 }
                 out.push(token);
             } else if tokens[count] == ">" && tokens[count + 1] == "=" {
@@ -166,11 +165,11 @@ pub fn collect_tokens<'a>(tokens: &[Token<'a>]) -> Vec<Token<'a>> {
                     let strr = token.string.as_ref() as &[u8];
                     let ptr = strr.as_ptr();
                     let len = strr.len() + tokens[count + 1].string.len();
-                        let new_str = slice::from_raw_parts(ptr, len);
-                        let new_string = str::from_utf8(new_str);
-                        if let Ok(s) = new_string {
-                            token.string = s;
-                            count += 1;
+                    let new_str = slice::from_raw_parts(ptr, len);
+                    let new_string = str::from_utf8(new_str);
+                    if let Ok(s) = new_string {
+                        token.string = s;
+                        count += 1;
                     }
                 }
                 out.push(token);
@@ -374,7 +373,7 @@ pub fn tokenize<'a>(program: &'a str) -> Vec<Token<'a>> {
         .map(|i| token_split_by(i, '^'))
         .flatten()
         .collect();
-        out = out
+    out = out
         .iter()
         .map(|i| token_split_by(i, '&'))
         .flatten()
@@ -382,6 +381,7 @@ pub fn tokenize<'a>(program: &'a str) -> Vec<Token<'a>> {
     out = collect_tokens(&out);
     out = handle_numbers(&out);
     out = compress_quotes(&out).expect("quoutes should work\n");
+    println!("{:#?}", out);
     return out;
 }
 
@@ -405,7 +405,7 @@ pub fn extract_global<'a>(tokens: &'a [Token], idx: &mut usize) -> Option<Global
             if tokens[*idx] == "}" {
                 parens_count -= 1;
                 if parens_count < 1 {
-                    *idx +=1;
+                    *idx += 1;
                     break;
                 }
             }
@@ -507,10 +507,9 @@ pub fn parse_type(text: &[Token], types: &HashMap<String, Type>) -> Option<(Stri
         println!("expected struct declaration line{}", text.get(1)?.line);
     }
     let name = String::from(text.get(1)?.string);
-
     let mut out_types = vec![];
     let mut idx = 3;
-    while idx < text.len()-1 {
+    while idx < text.len() - 1 {
         let ident_name = &text[idx];
         if text[idx + 1] != ":" {
             println!(
@@ -539,8 +538,9 @@ pub fn parse_type(text: &[Token], types: &HashMap<String, Type>) -> Option<(Stri
         },
     ));
 }
-fn get_arms(expr:&mut AstNode)->(Option<&mut AstNode>, Option<&mut AstNode>){
-    match expr{
+
+fn get_arms(expr: &mut AstNode) -> (Option<&mut AstNode>, Option<&mut AstNode>) {
+    match expr {
         AstNode::Assignment { left, right } => {
             return (Some(left), Some(right));
         }
@@ -574,43 +574,58 @@ fn get_arms(expr:&mut AstNode)->(Option<&mut AstNode>, Option<&mut AstNode>){
         AstNode::And { left, right } => {
             return (Some(left), Some(right));
         }
-        AstNode::Or { left, right} => {
+        AstNode::Or { left, right } => {
             return (Some(left), Some(right));
+        }
+        AstNode::Deref { thing_to_deref } => {
+            return (None, Some(thing_to_deref.as_mut()));
+        }
+        AstNode::TakeRef { thing_to_ref } => {
+            return (None, Some(thing_to_ref.as_mut()));
         }
         _ => {
             return (None, None);
         }
     }
 }
-fn place_expr(_text:&[Token],_start:usize,left:AstNode, right:AstNode)->Option<AstNode>{
+
+fn place_expr(_text: &[Token], _start: usize, left: AstNode, right: AstNode) -> Option<AstNode> {
     let mut left = left;
     let mut right = right;
-    if left.get_priority()>=right.get_priority(){
-        let mut current = &mut left ;
-        while get_arms(current).1.expect("616").get_priority()>right.get_priority(){
+    if left.get_priority() >= right.get_priority() {
+        let mut current = &mut left;
+        while get_arms(current).1.expect("616").get_priority() > right.get_priority() {
             current = get_arms(current).1.expect("629");
         }
-        *get_arms(current).1.expect("631") = right; 
+        *get_arms(current).1.expect("631") = right;
         return Some(left);
-    } else{
-        let mut current = &mut right ;
-        while get_arms(current).0.expect("616").get_priority()>left.get_priority(){
+    } else {
+        let mut current = &mut right;
+        while get_arms(current).0.expect("616").get_priority() > left.get_priority() {
             current = get_arms(current).0.expect("629");
         }
-        if let Some(tr) = get_arms(current).0{
-            if let Some(tl) = get_arms(&mut left).1{
+        if let Some(tr) = get_arms(current).0 {
+            if let Some(tl) = get_arms(&mut left).1 {
                 *tl = tr.clone();
             }
         }
-        *get_arms(current).0.expect("631") = left; 
+        *get_arms(current).0.expect("631") = left;
         return Some(right);
     }
 }
-pub fn parse_list(text:&[Token], list_start:usize, list_end:usize, types:&HashMap<String,Type>, scope:&mut Scope, function_table:&HashMap<String,Function>)->Option<Vec<AstNode>>{
-    fn calc_next_end(text:&[Token], start:usize, list_end:usize)->usize{
+
+pub fn parse_list(
+    text: &[Token],
+    list_start: usize,
+    list_end: usize,
+    types: &HashMap<String, Type>,
+    scope: &mut Scope,
+    function_table: &HashMap<String, Function>,
+) -> Option<Vec<AstNode>> {
+    fn calc_next_end(text: &[Token], start: usize, list_end: usize) -> usize {
         let mut idx = start;
-        while idx<list_end{
-            if text[idx] == ","{
+        while idx < list_end {
+            if text[idx] == "," {
                 return idx;
             }
             idx += 1;
@@ -619,13 +634,21 @@ pub fn parse_list(text:&[Token], list_start:usize, list_end:usize, types:&HashMa
     }
     let mut out = vec![];
     let mut cursor = list_start;
-    while cursor<list_end{
-        let end = calc_next_end(text, cursor ,list_end);
-        out.push(parse_expression(text, &mut cursor, end, types, scope, function_table)?);
-        cursor = end+1;
+    while cursor < list_end {
+        let end = calc_next_end(text, cursor, list_end);
+        out.push(parse_expression(
+            text,
+            &mut cursor,
+            end,
+            types,
+            scope,
+            function_table,
+        )?);
+        cursor = end + 1;
     }
     return Some(out);
 }
+
 pub fn parse_expression(
     text: &[Token],
     cursor: &mut usize,
@@ -652,13 +675,13 @@ pub fn parse_expression(
             *cursor += 1;
             out = Some(AstNode::IntLiteral { value: fout });
         }
-    } else if text[*cursor] == "true"{
-        *cursor +=1;
-        out = Some(AstNode::BoolLiteral { value: true });
-    } else if text[*cursor] == "false"{
+    } else if text[*cursor] == "true" {
         *cursor += 1;
-        out = Some(AstNode::BoolLiteral { value: false});
-    }else if text[*cursor] == "{" {
+        out = Some(AstNode::BoolLiteral { value: true });
+    } else if text[*cursor] == "false" {
+        *cursor += 1;
+        out = Some(AstNode::BoolLiteral { value: false });
+    } else if text[*cursor] == "{" {
         let mut vout = vec![];
         *cursor += 1;
         while text[*cursor] != "}" && *cursor < last - 1 {
@@ -741,26 +764,12 @@ pub fn parse_expression(
     } else if text[*cursor] == "&" {
         *cursor += 1;
         out = Some(AstNode::TakeRef {
-            thing_to_ref: Box::new(parse_expression(
-                text,
-                cursor,
-                last,
-                types,
-                scope,
-                function_table,
-            )?),
+            thing_to_ref: Box::new(AstNode::VoidLiteral),
         })
     } else if text[*cursor] == "^" {
         *cursor += 1;
         out = Some(AstNode::Deref {
-            thing_to_deref: Box::new(parse_expression(
-                text,
-                cursor,
-                last,
-                types,
-                scope,
-                function_table,
-            )?),
+            thing_to_deref: Box::new(AstNode::VoidLiteral),
         })
     } else if text[*cursor] == "return" {
         *cursor += 1;
@@ -775,11 +784,11 @@ pub fn parse_expression(
             )?),
         });
         *cursor += 1;
-        if *cursor >=last{
+        if *cursor >= last {
             return out;
         }
-        if text[*cursor+1] == "}"{
-            *cursor +=1;
+        if text[*cursor + 1] == "}" {
+            *cursor += 1;
             return out;
         }
     } else if text[*cursor] == "=" {
@@ -833,18 +842,24 @@ pub fn parse_expression(
             .expect("expression should work");
         *cursor += 1;
         let new_scope = parse_scope(text, cursor, types, scope, function_table).expect("bruh");
-        let else_scope = if *cursor < last{
+        let else_scope = if *cursor < last {
             if text[*cursor] == "else" {
                 *cursor += 1;
-                if text[*cursor] == "if"{
-                    Some(vec![parse_expression(text, cursor, last, types, scope, function_table)?])
-                } else{
+                if text[*cursor] == "if" {
+                    Some(vec![parse_expression(
+                        text,
+                        cursor,
+                        last,
+                        types,
+                        scope,
+                        function_table,
+                    )?])
+                } else {
                     Some(
                         parse_scope(text, cursor, types, scope, function_table)
                             .expect("parsing scope should work"),
                     )
                 }
-
             } else {
                 None
             }
@@ -860,12 +875,15 @@ pub fn parse_expression(
     } else {
         if function_table.contains_key(text[*cursor].string) {
             let name = text[*cursor].string.to_owned();
-            *cursor+=1;
+            *cursor += 1;
             let args_end = calc_close_paren(text, *cursor)?;
-            *cursor +=1;
+            *cursor += 1;
             let args = parse_list(text, *cursor, args_end, types, scope, function_table)?;
-            out = Some(AstNode::FunctionCall { function_name: name, args:args });
-            *cursor = args_end+1;
+            out = Some(AstNode::FunctionCall {
+                function_name: name,
+                args: args,
+            });
+            *cursor = args_end + 1;
         } else if let Some(v) = scope.variable_idx(text[*cursor].string.to_owned()) {
             out = Some(AstNode::VariableUse {
                 name: text[*cursor].string.to_owned(),
@@ -885,7 +903,7 @@ pub fn parse_expression(
     }
     if *cursor < last {
         let right = parse_expression(text, cursor, last, types, scope, function_table)?;
-        return place_expr(text, start,out?, right);
+        return place_expr(text, start, out?, right);
     } else {
         if out.is_none() {
             println!("returned none, for some reason");
@@ -928,11 +946,11 @@ pub fn parse_scope(
     }
     let end = calc_close_scope(text, *cursor).expect("scope must end");
     let mut out = vec![];
-    if *cursor+1 == end{
+    if *cursor + 1 == end {
         return Some(vec![]);
     }
     while *cursor < end {
-        /* 
+        /*
         let mut should_break = true;
         for a in & text[*cursor..end]{
             if a.string != ";" && a.string != "}"{
@@ -945,24 +963,26 @@ pub fn parse_scope(
         }
         */
         let mut expr_end = calc_expr_end(text, end, *cursor).expect("expression must end");
-        if *cursor == start{
+        if *cursor == start {
             expr_end += 1;
         }
         if expr_end <= *cursor {
-            *cursor +=1;
+            *cursor += 1;
             continue;
         }
-        println!("expr span: {:#?}", (&text[*cursor..expr_end].iter().map(|i| i.string).collect::<Vec<&str>>()));
-        out.push(parse_expression(
-            text,
-            cursor,
-            expr_end,
-            types,
-            scope,
-            function_table,
-        ).expect("expression must be valid"));
+        println!(
+            "expr span: {:#?}",
+            (&text[*cursor..expr_end]
+                .iter()
+                .map(|i| i.string)
+                .collect::<Vec<&str>>())
+        );
+        out.push(
+            parse_expression(text, cursor, expr_end, types, scope, function_table)
+                .expect("expression must be valid"),
+        );
     }
-    *cursor =end+1;
+    *cursor = end + 1;
     return Some(out);
 }
 
@@ -999,7 +1019,7 @@ pub fn parse_global(
         println!("failed to parse global variable assignment");
     }
     let n = node?;
-    println!("{:#?}",n);
+    println!("{:#?}", n);
     return Some((String::from(name), vtype, n));
 }
 
