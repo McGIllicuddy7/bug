@@ -34,7 +34,7 @@ pub fn calc_close_scope(tokens: &[Token<'_>], base_idx: usize) -> Option<usize> 
     let mut paren_count = 0;
     let mut hit_paren = false;
     while idx < tokens.len() {
-        println!("calc close scope:{:#?}", tokens[idx]);
+        //println!("calc close scope:{:#?}", tokens[idx]);
         if tokens[idx] == "{" {
             paren_count += 1;
             hit_paren = true;
@@ -114,14 +114,11 @@ pub fn collect_tokens<'a>(tokens: &[Token<'a>]) -> Vec<Token<'a>> {
                     let strr = token.string.as_ref() as &[u8];
                     let ptr = strr.as_ptr();
                     let len = strr.len() + tokens[count + 1].string.len();
-                    let ptr0 = tokens[count].string.as_ptr();
-                    if ptr as usize + len == ptr0 as usize {
                         let new_str = slice::from_raw_parts(ptr, len);
                         let new_string = str::from_utf8(new_str);
                         if let Ok(s) = new_string {
                             token.string = s;
                         }
-                    }
                 }
                 out.push(token);
             } else if tokens[count] == "-" && tokens[count + 1] == ">" {
@@ -133,15 +130,12 @@ pub fn collect_tokens<'a>(tokens: &[Token<'a>]) -> Vec<Token<'a>> {
                     let strr = token.string.as_ref() as &[u8];
                     let ptr = strr.as_ptr();
                     let len = strr.len() + tokens[count + 1].string.len();
-                    let ptr0 = tokens[count + 1].string.as_ptr();
-                    if ptr as usize + len - 1 == ptr0 as usize {
                         let new_str = slice::from_raw_parts(ptr, len);
                         let new_string = str::from_utf8(new_str);
                         if let Ok(s) = new_string {
                             token.string = s;
                             count += 1;
                         }
-                    }
                 }
                 out.push(token);
             } else if tokens[count] == "<" && tokens[count + 1] == "=" {
@@ -153,15 +147,12 @@ pub fn collect_tokens<'a>(tokens: &[Token<'a>]) -> Vec<Token<'a>> {
                     let strr = token.string.as_ref() as &[u8];
                     let ptr = strr.as_ptr();
                     let len = strr.len() + tokens[count + 1].string.len();
-                    let ptr0 = tokens[count + 1].string.as_ptr();
-                    if ptr as usize + len - 1 == ptr0 as usize {
                         let new_str = slice::from_raw_parts(ptr, len);
                         let new_string = str::from_utf8(new_str);
                         if let Ok(s) = new_string {
                             token.string = s;
                             count += 1;
                         }
-                    }
                 }
                 out.push(token);
             } else if tokens[count] == ">" && tokens[count + 1] == "=" {
@@ -173,14 +164,11 @@ pub fn collect_tokens<'a>(tokens: &[Token<'a>]) -> Vec<Token<'a>> {
                     let strr = token.string.as_ref() as &[u8];
                     let ptr = strr.as_ptr();
                     let len = strr.len() + tokens[count + 1].string.len();
-                    let ptr0 = tokens[count + 1].string.as_ptr();
-                    if ptr as usize + len - 1 == ptr0 as usize {
                         let new_str = slice::from_raw_parts(ptr, len);
                         let new_string = str::from_utf8(new_str);
                         if let Ok(s) = new_string {
                             token.string = s;
                             count += 1;
-                        }
                     }
                 }
                 out.push(token);
@@ -425,7 +413,7 @@ pub fn extract_global<'a>(tokens: &'a [Token], idx: &mut usize) -> Option<Global
         }
     }
     let span = &tokens[start..*idx];
-    println!{"span:{:#?}",span};
+    //println!{"span:{:#?}",span};
     if span[0] == "struct" {
         let out = GlobalTypes::StructDef { text: span };
         *idx = *idx + 1;
@@ -590,21 +578,9 @@ fn get_arms(expr:&mut AstNode)->(Option<&mut AstNode>, Option<&mut AstNode>){
 fn place_expr(_text:&[Token],_start:usize,left:AstNode, right:AstNode)->Option<AstNode>{
     let mut left = left;
     let mut right = right;
-    if left.get_priority()>right.get_priority(){
-        println!("\nhit\n");
+    if left.get_priority()>=right.get_priority(){
         let mut current = &mut left ;
         while get_arms(current).1.expect("616").get_priority()>right.get_priority(){
-            match current{
-                AstNode::VoidLiteral=>{
-                    break;
-                }
-                _=>{
-
-                }
-            }
-            if get_arms(get_arms(current).1?).1.is_none(){
-                break;
-            }
             current = get_arms(current).1.expect("629");
         }
         *get_arms(current).1.expect("631") = right; 
@@ -612,18 +588,12 @@ fn place_expr(_text:&[Token],_start:usize,left:AstNode, right:AstNode)->Option<A
     } else{
         let mut current = &mut right ;
         while get_arms(current).0.expect("616").get_priority()>left.get_priority(){
-            match current{
-                AstNode::VoidLiteral=>{
-                    break;
-                }
-                _=>{
-
-                }
-            }
-            if get_arms(get_arms(current).0?).0.is_none(){
-                break;
-            }
             current = get_arms(current).0.expect("629");
+        }
+        if let Some(tr) = get_arms(current).0{
+            if let Some(tl) = get_arms(&mut left).1{
+                *tl = tr.clone();
+            }
         }
         *get_arms(current).0.expect("631") = left; 
         return Some(right);
@@ -638,7 +608,6 @@ pub fn parse_expression(
     function_table: &HashMap<String, Function>,
 ) -> Option<AstNode> {
     let start = *cursor;
-    //println!("called span:{:#?}", &text[*cursor..last]);
     let mut out = None;
     if is_numbers(text[*cursor].string) {
         if text[*cursor].string.contains('.') {
@@ -656,7 +625,13 @@ pub fn parse_expression(
             *cursor += 1;
             out = Some(AstNode::IntLiteral { value: fout });
         }
-    } else if text[*cursor] == "{" {
+    } else if text[*cursor] == "true"{
+        *cursor +=1;
+        out = Some(AstNode::BoolLiteral { value: true });
+    } else if text[*cursor] == "false"{
+        *cursor += 1;
+        out = Some(AstNode::BoolLiteral { value: false});
+    }else if text[*cursor] == "{" {
         let mut vout = vec![];
         *cursor += 1;
         while text[*cursor] != "}" && *cursor < last - 1 {
@@ -675,7 +650,7 @@ pub fn parse_expression(
                 }
             }
             next_indx -= 1;
-            println!("last:{}, next_indx:{} cursor:{}", last, next_indx, cursor);
+            //println!("last:{}, next_indx:{} cursor:{}", last, next_indx, cursor);
             let next = parse_expression(text, cursor, next_indx, types, scope, function_table);
             vout.push(next?);
         }
@@ -819,7 +794,7 @@ pub fn parse_expression(
     } else if text[*cursor] == "if" {
         println!("hit if");
         *cursor += 1;
-        let cond_end = calc_close_paren(text, *cursor).expect("failed to parse paren")-1;
+        let cond_end = calc_close_paren(text, *cursor).expect("failed to parse paren");
         if text[*cursor] != "(" {
             println!(
                 "error expected ( line {} instead found {}",
@@ -829,16 +804,20 @@ pub fn parse_expression(
         *cursor += 1;
         let cond = parse_expression(text, cursor, cond_end, types, scope, function_table)
             .expect("expression should work");
-        *cursor += 2;
-        let new_scope = parse_scope(text, cursor, types, scope, function_table).expect("bruh");
         *cursor += 1;
-        let else_scope = if *cursor < last && false{
-            println!("else block{:#?}", &text[*cursor..last]);
+        let new_scope = parse_scope(text, cursor, types, scope, function_table).expect("bruh");
+        let else_scope = if *cursor < last{
             if text[*cursor] == "else" {
-                Some(
-                    parse_scope(text, cursor, types, scope, function_table)
-                        .expect("parsing scope should work"),
-                )
+                *cursor += 1;
+                if text[*cursor] == "if"{
+                    Some(vec![parse_expression(text, cursor, last, types, scope, function_table)?])
+                } else{
+                    Some(
+                        parse_scope(text, cursor, types, scope, function_table)
+                            .expect("parsing scope should work"),
+                    )
+                }
+
             } else {
                 None
             }
@@ -871,16 +850,6 @@ pub fn parse_expression(
         return None;
     }
     if *cursor < last {
-        //println!("{}, {}, {:#?}", *cursor, last, text[*cursor]);
-        if text[*cursor] == ";" {
-            *cursor += 1;
-            return out;
-        }
-        if text[*cursor] == "}"{
-            *cursor += 1;
-            return out;
-        }
-        println!("{:#?}", text[*cursor]);
         let right = parse_expression(text, cursor, last, types, scope, function_table)?;
         return place_expr(text, start,out?, right);
     } else {
@@ -904,7 +873,6 @@ fn calc_expr_end(text: &[Token], end: usize, cursor: usize) -> Option<usize> {
             return Some(indx);
         }
         indx += 1;
-        println!("{}", text[indx].string);
     }
     return None;
 }
@@ -925,12 +893,28 @@ pub fn parse_scope(
     }
     let end = calc_close_scope(text, *cursor).expect("scope must end");
     let mut out = vec![];
+    if *cursor+1 == end{
+        return Some(vec![]);
+    }
     while *cursor < end {
+        /* 
+        let mut should_break = true;
+        for a in & text[*cursor..end]{
+            if a.string != ";" && a.string != "}"{
+                should_break = false
+            }
+        }
+        if should_break{
+            *cursor = end;
+            break;
+        }
+        */
         let expr_end = calc_expr_end(text, end, *cursor).expect("expression must end");
         if expr_end <= *cursor {
             *cursor +=1;
             continue;
         }
+        println!("expr span: {:#?}", (&text[*cursor..expr_end].iter().map(|i| i.string).collect::<Vec<&str>>()));
         out.push(parse_expression(
             text,
             cursor,
@@ -940,7 +924,7 @@ pub fn parse_scope(
             function_table,
         ).expect("expression must be valid"));
     }
-    *cursor += 1;
+    *cursor =end+1;
     return Some(out);
 }
 
@@ -1050,7 +1034,6 @@ pub fn program_to_ast(program: &str) -> Option<Program> {
     types.insert(String::from("void"), Type::VoidT);
     let mut scope: HashMap<String, (Type, usize)> = HashMap::new();
     let mut functions: HashMap<String, Function> = HashMap::new();
-    println!("{:#?}",globals);
     for i in &globals {
         match i {
             GlobalTypes::StructDef { text } => {

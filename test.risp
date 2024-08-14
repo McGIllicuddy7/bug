@@ -5,6 +5,16 @@ let test0:test = {0,0,0};
 
 
 fn main(args:[]string)->int{
-    return 1.0*2.0+3.0*4.0;
+    let a:float = 1.0+2.0;
+    let b:float = 1.0*2.0;
+    if (a==b){
+        a=b;
+        return b;
+    } else if (0 > 1){
+        b=a;
+    }
+    return a;
 }
  
+ fn i_love_toast()->void{
+ }
