@@ -230,14 +230,16 @@ fn handle_numbers<'a>(tokens: &[Token<'a>]) -> Vec<Token<'a>> {
 fn compress_quotes<'a>(tokens: &[Token<'a>]) -> Option<Vec<Token<'a>>> {
     fn str_compress<'a>(tokens: &[Token<'a>], cursor: &mut usize) -> Option<Token<'a>> {
         let start = tokens[*cursor].clone();
-        let mut count = 0_usize;
+        let mut count = 0;
+        *cursor += 1;
         let mut last_was_slash = false;
         while *cursor < tokens.len() {
             if tokens[*cursor].string == "\"" && !last_was_slash {
                 let out = unsafe {
-                    slice::from_raw_parts(start.string.as_ptr(), start.string.len() + count)
+                    slice::from_raw_parts(start.string.as_ptr(), start.string.len() + count+tokens[*cursor].string.len()+1)
                 };
                 if let Ok(out_str) = &str::from_utf8(out) {
+                    println!("out_str:{}", out_str);
                     return Some(Token {
                         string: out_str,
                         line: start.line,
@@ -892,6 +894,9 @@ pub fn parse_expression(
                 is_arg: v.2,
             });
             *cursor += 1;
+        } else if text[*cursor].string.chars().collect::<Vec<char>>()[0] == '"'{
+            out = Some(AstNode::StringLiteral { value: text[*cursor].string[1..text[*cursor].string.len()-1].to_owned()});
+            *cursor+=1;
         }
     }
     if out.is_none() {

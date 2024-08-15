@@ -7,6 +7,7 @@ let test0:test = {0,0,0};
 fn main(args:[]string)->int{
     let a:float = 1.0+1.0;
     let b:^float = &a;
+    let c:string = "";
     if (a==b){
         a=b;
         return b;
