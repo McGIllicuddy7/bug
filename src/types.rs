@@ -148,6 +148,109 @@ pub fn is_compatible_type(a: &Type, b: &Type) -> bool {
         }
     }
 }
+#[allow(unused)]
+pub fn is_equal_type(a:&Type, b:&Type)->bool{
+    match a {
+        Type::BoolT => match b {
+            Type::BoolT => {
+                return true;
+            }
+            _ => {
+                return false;
+            }
+        },
+        Type::IntegerT => match b {
+            Type::IntegerT => {
+                return true;
+            }
+            _ => {
+                return false;
+            }
+        },
+        Type::FloatT => match b {
+            Type::FloatT => {
+                return true;
+            }
+            _ => {
+                return false;
+            }
+        },
+        Type::StringT => match b {
+            Type::StringT => {
+                return true;
+            }
+            _ => {
+                return false;
+            }
+        },
+        Type::StructT { name, components } => {
+            let aname = name;
+            let acomponents = components;
+            match b {
+                Type::StructT { name, components } => {
+                    if name == "" || aname == "" {
+                        if acomponents.len() != components.len() {
+                            return false;
+                        }
+                        for i in 0..acomponents.len() {
+                            if !is_equal_type(&acomponents[i].1, &components[i].1) {
+                                return false;
+                            }
+                        }
+                        return true;
+                    } else {
+                        return aname == name;
+                    }
+                }
+                _ => {
+                    return false;
+                }
+            }
+        }
+        Type::PointerT { ptr_type } => {
+            let at = ptr_type;
+            match b {
+                Type::PointerT { ptr_type } => {
+                    return is_equal_type(&at, &ptr_type);
+                }
+                _ => {
+                    return false;
+                }
+            }
+        }
+        Type::ArrayT { array_type, size } => {
+            let at = array_type;
+            let asize = size;
+            match b {
+                Type::ArrayT { array_type, size } => {
+                    return is_equal_type(&at, &array_type) && asize == size;
+                }
+                _ => {
+                    return false;
+                }
+            }
+        }
+        Type::VoidT => match b {
+            Type::VoidT {} => {
+                return true;
+            }
+            _ => {
+                return false;
+            }
+        },
+        Type::VecT { ptr_type } => {
+            let at = ptr_type;
+            match b {
+                Type::VecT { ptr_type } => {
+                    return is_equal_type(&at, ptr_type);
+                }
+                _ => {
+                    return false;
+                }
+            }
+        }
+    }
+}
 
 #[allow(unused)]
 #[derive(Clone, Debug)]

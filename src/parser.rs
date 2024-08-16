@@ -484,7 +484,9 @@ fn parse_declared_type(
                     ptr_type: Box::new(i),
                 });
         } else if tokens.get(base + 2)?.string == "]" {
+            *idx +=2;
             if let Ok(count) = tokens[base + 1].string.parse::<usize>() {
+                *idx += 1;
                 return Some(parse_declared_type(tokens, idx, types))
                     .flatten()
                     .map(|i| Type::ArrayT {

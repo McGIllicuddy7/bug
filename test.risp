@@ -11,7 +11,7 @@ fn add(left:test right:test)->test{
 }
 
 fn main(args:[]string)->int{
-   let a:[]int = {};
+   let a:[4]int = {};
    a[0] = 1;
 }
  
