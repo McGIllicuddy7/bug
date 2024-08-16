@@ -24,7 +24,6 @@ pub enum Type {
     IntegerT,
     FloatT,
     StringT,
-    MatrixT,
     StructT {
         name: String,
         components: Vec<(String, Type)>,
@@ -105,14 +104,6 @@ pub fn is_compatible_type(a: &Type, b: &Type) -> bool {
                 }
             }
         }
-        Type::MatrixT => match b {
-            Type::MatrixT => {
-                return true;
-            }
-            _ => {
-                return false;
-            }
-        },
         Type::PointerT { ptr_type } => {
             let at = ptr_type;
             match b {
@@ -631,10 +622,22 @@ impl Scope {
         return None;
     }
 }
+#[derive(Debug)]
+pub struct FunctionTable{
+    pub functions:Vec<Function>,
+}
+impl FunctionTable{
+    pub fn new()->Self{
+        return Self{functions:vec![]};
+    }
+    pub fn push(&mut self, func:Function){
+        self.functions.push(func);
+    }
+}
 #[allow(unused)]
 #[derive(Debug)]
 pub struct Program {
     pub types: HashMap<String, Type>,
-    pub functions: HashMap<String, Function>,
+    pub functions: HashMap<String, FunctionTable>,
     pub static_variables: HashMap<String, (Type, usize)>,
 }

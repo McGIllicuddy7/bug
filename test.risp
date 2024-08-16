@@ -2,11 +2,17 @@ struct test {a:int b:int c:int};
 
 let test0:test = {0,0,0};
 
-
+fn add(left:test right:test)->test{
+    let out:test;
+    out.a = left.a+right.a;
+    out.b = left.b+right.b;
+    out.c = left.c+right.c;
+    return out;
+}
 
 fn main(args:[]string)->int{
-    let a:float = 1.0+1.0;
-    let b:^float = &a;
-    ^b = 1.0;
+   let a:test;
+   let b:test;
+   a.add(b);
 }
  

@@ -622,7 +622,7 @@ pub fn parse_list(
     list_end: usize,
     types: &HashMap<String, Type>,
     scope: &mut Scope,
-    function_table: &HashMap<String, Function>,
+    function_table: &HashMap<String, FunctionTable>,
 ) -> Option<Vec<AstNode>> {
     fn calc_next_end(text: &[Token], start: usize, list_end: usize) -> usize {
         let mut idx = start;
@@ -657,7 +657,7 @@ pub fn parse_expression(
     last: usize,
     types: &HashMap<String, Type>,
     scope: &mut Scope,
-    function_table: &HashMap<String, Function>,
+    function_table: &HashMap<String, FunctionTable>,
 ) -> Option<AstNode> {
     let start = *cursor;
     let mut out = None;
@@ -686,7 +686,7 @@ pub fn parse_expression(
     } else if text[*cursor] == "{" {
         let mut vout = vec![];
         *cursor += 1;
-        while text[*cursor] != "}" && *cursor < last - 1 {
+        while text[*cursor] != "}" && *cursor < last -1 {
             if text[*cursor] == "," {
                 *cursor += 1;
                 if *cursor >= last {
@@ -889,11 +889,50 @@ pub fn parse_expression(
         } else if let Some(v) = scope.variable_idx(text[*cursor].string.to_owned()) {
             out = Some(AstNode::VariableUse {
                 name: text[*cursor].string.to_owned(),
-                index: v.1,
-                vtype: v.0,
-                is_arg: v.2,
+                index: v.1.clone(),
+                vtype: v.0.clone(),
+                is_arg: v.2.clone(),
             });
             *cursor += 1;
+            if text[*cursor] == "."{
+                *cursor += 1;
+                if !function_table.contains_key(text[*cursor].string){
+                    match v.0 {
+                        Type::StructT{name:_, components:_}=>{
+                            out = Some(AstNode::FieldUsage { base: Box::new(out?), field_name:text[*cursor].string.to_owned() });
+                            *cursor += 1;
+                        }    
+                        Type::ArrayT { size, array_type }=>{
+                            if text[*cursor] == "x"{
+
+                            }else if text[*cursor] == "y"{
+
+                            } else if text[*cursor] == "z"{
+
+                            } else if text[*cursor]=="w"{
+
+                            }
+                        }
+                        _ =>{
+
+                        }
+                    }
+                } else{
+                    let name = text[*cursor].string.to_owned();
+                    *cursor += 1;
+                    let args_end = calc_close_paren(text, *cursor)?;
+                    *cursor += 1;
+                    let mut args = vec![out?];
+                    args.append(&mut parse_list(text, *cursor, args_end, types, scope, function_table)?);
+                    out = Some(AstNode::FunctionCall {
+                        function_name: name,
+                        args: args,
+                    });
+                    *cursor = args_end+1;
+                }
+            } else if text[*cursor] == "["{
+
+            }
         } else if text[*cursor].string.chars().collect::<Vec<char>>()[0] == '"'{
             out = Some(AstNode::StringLiteral { value: text[*cursor].string[1..text[*cursor].string.len()-1 ].to_owned()});
             *cursor+=1;
@@ -939,7 +978,7 @@ pub fn parse_scope(
     cursor: &mut usize,
     types: &HashMap<String, Type>,
     scope: &mut Scope,
-    function_table: &HashMap<String, Function>,
+    function_table: &HashMap<String, FunctionTable>,
 ) -> Option<Vec<AstNode>> {
     let start = *cursor;
     if text[*cursor] != "{" {
@@ -1032,7 +1071,7 @@ pub fn parse_function(
     text: &[Token],
     types: &HashMap<String, Type>,
     globals: &HashMap<String, (Type, usize)>,
-    function_table: &HashMap<String, Function>,
+    function_table: &HashMap<String, FunctionTable>,
 ) -> Option<(String, Function)> {
     // println!("function text:{:#?}", text);
     let mut args = vec![];
@@ -1081,7 +1120,7 @@ pub fn parse_function_stub(
     text: &[Token],
     types: &HashMap<String, Type>,
     _globals: &HashMap<String, (Type, usize)>,
-    _function_table: &HashMap<String, Function>,
+    _function_table: &HashMap<String, FunctionTable>,
 ) -> Option<(String, Function)> {
     // println!("function text:{:#?}", text);
     let mut args = vec![];
@@ -1135,11 +1174,10 @@ pub fn program_to_ast(program: &str) -> Option<Program> {
     types.insert(String::from("bool"), Type::BoolT);
     types.insert(String::from("int"), Type::IntegerT);
     types.insert(String::from("float"), Type::FloatT);
-    types.insert(String::from("matrix"), Type::MatrixT);
     types.insert(String::from("string"), Type::StringT);
     types.insert(String::from("void"), Type::VoidT);
     let mut scope: HashMap<String, (Type, usize)> = HashMap::new();
-    let mut functions: HashMap<String, Function> = HashMap::new();
+    let mut functions: HashMap<String, FunctionTable> = HashMap::new();
     for i in &globals {
         match i {
             GlobalTypes::StructDef { text } => {
@@ -1176,11 +1214,11 @@ pub fn program_to_ast(program: &str) -> Option<Program> {
             GlobalTypes::FunctionDef { text } => {
                 let tmp = parse_function_stub(*text, &types, &scope, &functions)?;
                 if functions.contains_key(&tmp.0) {
-                    println!("error {} redeclared", tmp.0);
-                    return None;
+                    functions.get_mut(&tmp.0)?.push(tmp.1);
+                } else{
+                    let table = FunctionTable::new();
+                    functions.insert(tmp.0, table);
                 }
-                println!("{:#?}", tmp.1);
-                functions.insert(tmp.0, tmp.1);
             }
             GlobalTypes::GlobalDef { text: _ } => {}
         }
@@ -1190,8 +1228,7 @@ pub fn program_to_ast(program: &str) -> Option<Program> {
             GlobalTypes::StructDef { text: _ } => {}
             GlobalTypes::FunctionDef { text } => {
                 let tmp = parse_function(*text, &types, &scope, &functions)?;
-                println!("{:#?}", tmp.1);
-                functions.insert(tmp.0, tmp.1);
+                functions.get_mut(&tmp.0)?.push(tmp.1);
             }
             GlobalTypes::GlobalDef { text: _ } => {}
         }
