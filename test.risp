@@ -7,20 +7,6 @@ let test0:test = {0,0,0};
 fn main(args:[]string)->int{
     let a:float = 1.0+1.0;
     let b:^float = &a;
-    let c:string = "";
-    if (a==b){
-        a=b;
-        return b;
-    } else if (0 > 1){
-        b=a;
-    }
-    b = 0;
-    return i_love_toast(0,0,0);
+    ^b = 1.0;
 }
  
- fn i_love_toast(a:int)->int{
-    let i_love:int = 3;
-    i_love = 0;
-    let you:int = 5;
-    return i_love+you*3;
- }

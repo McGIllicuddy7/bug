@@ -895,7 +895,7 @@ pub fn parse_expression(
             });
             *cursor += 1;
         } else if text[*cursor].string.chars().collect::<Vec<char>>()[0] == '"'{
-            out = Some(AstNode::StringLiteral { value: text[*cursor].string[1..text[*cursor].string.len()-1].to_owned()});
+            out = Some(AstNode::StringLiteral { value: text[*cursor].string[1..text[*cursor].string.len()-1 ].to_owned()});
             *cursor+=1;
         }
     }
