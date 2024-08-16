@@ -1,3 +1,5 @@
+use std::{env::var, sync::atomic::AtomicBool};
+
 pub use crate::types::*;
 
 #[derive(Debug, Clone, Copy)]
@@ -585,6 +587,15 @@ fn get_arms(expr: &mut AstNode) -> (Option<&mut AstNode>, Option<&mut AstNode>) 
         AstNode::TakeRef { thing_to_ref } => {
             return (None, Some(thing_to_ref.as_mut()));
         }
+        AstNode::FieldUsage { base, field_name:_ }=>{
+            return (Some(base),None);
+        }
+        AstNode::ArrayAccess { variable, index:_ }=>{
+            return (Some(variable),None);
+        }
+        AstNode::BoundFunctionCall { variable, function_name:_, args:_ }=>{
+            return (Some(variable), None);
+        }
         _ => {
             return (None, None);
         }
@@ -661,7 +672,7 @@ pub fn parse_expression(
 ) -> Option<AstNode> {
     let start = *cursor;
     let mut out = None;
-    if is_numbers(text[*cursor].string) {
+    if is_numbers(text[*cursor].string) && text[*cursor] != "."{
         if text[*cursor].string.contains('.') {
             let fout = text[*cursor]
                 .string
@@ -713,8 +724,8 @@ pub fn parse_expression(
         *cursor += 3;
         let vtype = parse_declared_type(text, cursor, types)?;
         scope.declare_variable(vtype.clone(), name.clone());
-        let tmp_out_opt = parse_expression(text, cursor, last, types, scope, function_table);
-        if let Some(mut tmp_out) = tmp_out_opt {
+        if text[*cursor] != ";" {
+            let mut tmp_out = parse_expression(text, cursor, last, types, scope, function_table)?;
             match &mut tmp_out {
                 AstNode::Assignment { left, right: _ } => {
                     let v = scope.variable_idx(name.clone())?;
@@ -737,7 +748,8 @@ pub fn parse_expression(
                 name,
                 var_type: vtype,
                 value_assigned: None,
-            })
+            });
+            *cursor +=1;
         };
     } else if text[*cursor] == "+" {
         *cursor += 1;
@@ -830,7 +842,6 @@ pub fn parse_expression(
             right: Box::new(AstNode::VoidLiteral),
         })
     } else if text[*cursor] == "if" {
-        println!("hit if");
         *cursor += 1;
         let cond_end = calc_close_paren(text, *cursor).expect("failed to parse paren");
         if text[*cursor] != "(" {
@@ -874,7 +885,74 @@ pub fn parse_expression(
             r#else: else_scope,
         });
         return out;
-    } else {
+    } else if text[*cursor] == "while" {
+        *cursor += 1;
+        let cond_end = calc_close_paren(text, *cursor).expect("failed to parse paren");
+        if text[*cursor] != "(" {
+            println!(
+                "error expected ( line {} instead found {}",
+                text[*cursor].line, text[*cursor].string
+            );
+        }
+        *cursor += 1;
+        let cond = parse_expression(text, cursor, cond_end, types, scope, function_table)
+            .expect("expression should work");
+        *cursor += 1;
+        let new_scope = parse_scope(text, cursor, types, scope, function_table).expect("bruh");
+        out = Some(AstNode::Loop {
+            condition: Box::new(cond), 
+            body: new_scope,
+        });
+        return out;
+    }  else if text[*cursor] == "for" {
+        *cursor += 1;
+        let paren_end = calc_close_paren(text, *cursor).expect("failed to parse paren");
+        if text[*cursor] != "(" {
+            println!(
+                "error expected ( line {} instead found {}",
+                text[*cursor].line, text[*cursor].string
+            );
+        }
+        *cursor += 1;
+        let variable_end = calc_expr_end(text,paren_end, *cursor)?;
+        let variable = Box::new(parse_expression(text, cursor, variable_end, types, scope, function_table)?);
+        *cursor = variable_end+1;
+        let cond_end =  calc_expr_end(text, paren_end, *cursor)?;
+        let condition = Box::new(parse_expression(text, cursor, cond_end, types, scope, function_table)?);
+        *cursor = cond_end+1;
+        let post_op = Box::new(parse_expression(text, cursor, paren_end, types, scope, function_table)?);
+        *cursor += 1;
+        let new_scope = parse_scope(text, cursor, types, scope, function_table).expect("bruh");
+        out = Some(AstNode::ForLoop { variable, condition, post_op, body:new_scope });
+        return out;
+    } else if text[*cursor] == "."{
+        *cursor += 1;
+        if text[*cursor +1] == "(" {
+            if function_table.contains_key(text[*cursor].string){
+                let name = text[*cursor].string.to_owned();
+                *cursor += 1;
+                let args_end = calc_close_paren(text, *cursor)?;
+                *cursor += 1;
+                let args = parse_list(text, *cursor, args_end, types, scope, function_table)?;
+                out = Some(AstNode::BoundFunctionCall { variable: Box::new(AstNode::VoidLiteral), function_name: name, args:args });
+                *cursor = args_end + 1;
+            } else{
+                println!("error unknown function {}", text[*cursor].string);
+                return None;
+            }
+        } else{
+            out = Some(AstNode::FieldUsage { base: Box::new(AstNode::VoidLiteral), field_name:text[*cursor].string.to_owned() });
+            *cursor += 1
+        }
+
+    } else if text[*cursor] == "["{
+        let expr_end = calc_close_block(text, *cursor)?;
+        *cursor += 1;
+        let expr = parse_expression(text, cursor, expr_end, types, scope, function_table)?;
+        *cursor +=1;
+        out = Some(AstNode::ArrayAccess { variable: Box::new(AstNode::VoidLiteral), index: Box::new(expr) });
+
+    }else {
         if function_table.contains_key(text[*cursor].string) {
             let name = text[*cursor].string.to_owned();
             *cursor += 1;
@@ -894,45 +972,6 @@ pub fn parse_expression(
                 is_arg: v.2.clone(),
             });
             *cursor += 1;
-            if text[*cursor] == "."{
-                *cursor += 1;
-                if !function_table.contains_key(text[*cursor].string){
-                    match v.0 {
-                        Type::StructT{name:_, components:_}=>{
-                            out = Some(AstNode::FieldUsage { base: Box::new(out?), field_name:text[*cursor].string.to_owned() });
-                            *cursor += 1;
-                        }    
-                        Type::ArrayT { size, array_type }=>{
-                            if text[*cursor] == "x"{
-
-                            }else if text[*cursor] == "y"{
-
-                            } else if text[*cursor] == "z"{
-
-                            } else if text[*cursor]=="w"{
-
-                            }
-                        }
-                        _ =>{
-
-                        }
-                    }
-                } else{
-                    let name = text[*cursor].string.to_owned();
-                    *cursor += 1;
-                    let args_end = calc_close_paren(text, *cursor)?;
-                    *cursor += 1;
-                    let mut args = vec![out?];
-                    args.append(&mut parse_list(text, *cursor, args_end, types, scope, function_table)?);
-                    out = Some(AstNode::FunctionCall {
-                        function_name: name,
-                        args: args,
-                    });
-                    *cursor = args_end+1;
-                }
-            } else if text[*cursor] == "["{
-
-            }
         } else if text[*cursor].string.chars().collect::<Vec<char>>()[0] == '"'{
             out = Some(AstNode::StringLiteral { value: text[*cursor].string[1..text[*cursor].string.len()-1 ].to_owned()});
             *cursor+=1;

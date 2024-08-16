@@ -244,13 +244,13 @@ pub enum AstNode {
     },
     Loop {
         condition: Box<AstNode>,
-        body: Box<AstNode>,
+        body: Vec<AstNode>,
     },
     ForLoop {
         variable: Box<AstNode>,
         condition: Box<AstNode>,
         post_op: Box<AstNode>,
-        body: Box<AstNode>,
+        body:Vec<AstNode>,
     },
     Return {
         body: Box<AstNode>,
@@ -265,6 +265,15 @@ pub enum AstNode {
         base: Box<AstNode>,
         field_name: String,
     },
+    ArrayAccess{
+        variable:Box<AstNode>,
+        index:Box<AstNode>
+    },
+    BoundFunctionCall{
+        variable:Box<AstNode>,
+        function_name:String,
+        args:Vec<AstNode>,
+    }
 }
 
 impl AstNode {
@@ -446,6 +455,12 @@ impl AstNode {
             } => {
                 return None;
             }
+            Self::ArrayAccess { variable, index:_ }=>{
+                return  None;
+            }
+            Self::BoundFunctionCall { variable:_, function_name, args:_ }=>{
+                return Some(function_table.get(function_name)?.return_type.clone());
+            }
         }
     }
     pub fn get_priority(&self) -> usize {
@@ -565,7 +580,16 @@ impl AstNode {
                 base: _,
                 field_name: _,
             } => {
-                return 0;
+                return 1;
+            }
+            Self::ArrayAccess {
+                variable: _,
+                index: _,
+            } => {
+                return 1;
+            }
+            Self::BoundFunctionCall { variable:_, function_name:_, args:_ }=>{
+                return 1;
             }
         }
     }
