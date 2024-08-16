@@ -11,7 +11,7 @@ fn add(left:test right:test)->test{
 }
 
 fn main(args:[]string)->int{
-   let a:test;
+   let a:test = {0,0,0};
    let b:test;
    a.add(b);
 }

@@ -695,7 +695,7 @@ pub fn parse_expression(
                 continue;
             }
             let mut next_indx = *cursor;
-            while text[next_indx] != "," && text[next_indx] != "}" && next_indx < last {
+            while text[next_indx] != "," && text[next_indx] != "}" &&text[next_indx] != ";" && next_indx < last {
                 next_indx += 1;
                 if next_indx >= last {
                     break;
@@ -703,8 +703,8 @@ pub fn parse_expression(
             }
             next_indx -= 1;
             //println!("last:{}, next_indx:{} cursor:{}", last, next_indx, cursor);
-            let next = parse_expression(text, cursor, next_indx, types, scope, function_table);
-            vout.push(next?);
+            let next = parse_expression(text, cursor, next_indx, types, scope, function_table).expect("should compiler");
+            vout.push(next);
         }
         *cursor += 1;
         out = Some(AstNode::StructLiteral { nodes: vout });
@@ -993,6 +993,7 @@ pub fn parse_scope(
     if *cursor + 1 == end {
         return Some(vec![]);
     }
+    *cursor += 1;
     while *cursor < end {
         /*
         let mut should_break = true;
