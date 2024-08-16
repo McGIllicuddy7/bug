@@ -53,9 +53,10 @@ pub fn calc_close_scope(tokens: &[Token<'_>], base_idx: usize) -> Option<usize> 
 }
 #[allow(unused)]
 pub fn calc_close_block(tokens: &[Token<'_>], base_idx: usize) -> Option<usize> {
-    let mut idx = base_idx;
+    let mut idx = base_idx + 1;
     let mut paren_count = 1;
     if tokens[base_idx] != "[" {
+        println!("base wasn't a [");
         return None;
     }
     while idx < tokens.len() {
@@ -69,6 +70,7 @@ pub fn calc_close_block(tokens: &[Token<'_>], base_idx: usize) -> Option<usize> 
         }
         idx += 1;
     }
+    println!("failed to find next ]");
     return None;
 }
 
@@ -946,7 +948,7 @@ pub fn parse_expression(
         }
 
     } else if text[*cursor] == "["{
-        let expr_end = calc_close_block(text, *cursor)?;
+        let expr_end = calc_close_block(text, *cursor).expect("block must close");
         *cursor += 1;
         let expr = parse_expression(text, cursor, expr_end, types, scope, function_table)?;
         *cursor +=1;

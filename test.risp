@@ -11,11 +11,7 @@ fn add(left:test right:test)->test{
 }
 
 fn main(args:[]string)->int{
-   let a:test = {0,0,0};
-   let b:test;
-   a = a.add(b);
-   for(let i:int = 0; i<10; i = i+1){
-    a.b = a.b+1;
-   }
+   let a:[]int = {};
+   a[0] = 1;
 }
  
