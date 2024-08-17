@@ -767,4 +767,45 @@ pub struct Program {
     pub types: HashMap<String, Type>,
     pub functions: HashMap<String, FunctionTable>,
     pub static_variables: HashMap<String, (Type, usize)>,
+    pub global_initializers: Vec<(String, Option<AstNode>)>,
+}
+pub fn name_mangle_type(var:&Type)->String{
+    match var{
+        Type::BoolT=>{
+            return String::from("bool");
+        }
+        Type::FloatT=>{
+            return String::from("double");
+        }
+        Type::IntegerT=>{
+            return String::from("long");
+        }
+        Type::StringT=>{
+            return String::from("String");
+        }
+        Type::VoidT=>{
+            return String::from("void");
+        }
+        Type::PointerT { ptr_type }=>{
+            return name_mangle_type(ptr_type)+"*";
+        }
+        Type::ArrayT { size, array_type }=>{
+            return name_mangle_type(array_type)+&format!("[{size}]");
+        }
+        Type::SliceT { ptr_type }=>{
+            return name_mangle_type(ptr_type)+"Slice_t";
+        }
+        Type::StructT { name, components:_ }=>{
+            return String::from("user_")+&name;
+        }
+    }
+}
+pub fn name_mangle_function(var:&Function, _filename:&str)->String{
+    let mut args = String::new();
+    let name = var.name.to_owned();
+    for i in &var.args{
+        args+= "_";
+        args += &name_mangle_type(i);
+    }
+    return String::from("user_")+&name+&args;
 }

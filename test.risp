@@ -1,7 +1,7 @@
 struct test {a:int b:int c:int};
 
 let test0:test = {0,0,0};
-
+let test:[]test = {};
 fn add(left:test right:test)->test{
     let out:test;
     out.a = left.a+right.a;

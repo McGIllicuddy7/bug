@@ -1,4 +1,4 @@
-use std::{env::var, sync::atomic::AtomicBool};
+
 
 pub use crate::types::*;
 
@@ -459,7 +459,7 @@ pub fn extract_globals<'a>(tokens: &'a [Token<'a>]) -> Result<Vec<GlobalTypes<'a
 fn parse_declared_type(
     tokens: &[Token],
     idx: &mut usize,
-    types: &HashMap<String, Type>,
+    types: &mut HashMap<String, Type>,
 ) -> Option<Type> {
     let base = *idx;
     let current = &tokens[base];
@@ -478,11 +478,13 @@ fn parse_declared_type(
     if current.string == "[" {
         if tokens.get(base + 1)?.string == "]" {
             *idx += 2;
-            return Some(parse_declared_type(tokens, idx, types))
+            let out =Some(parse_declared_type(tokens, idx, types))
                 .flatten()
                 .map(|i| Type::SliceT {
                     ptr_type: Box::new(i),
                 });
+            types.insert(name_mangle_type(&out.clone()?), out.clone()?);
+            return out;
         } else if tokens.get(base + 2)?.string == "]" {
             *idx +=2;
             if let Ok(count) = tokens[base + 1].string.parse::<usize>() {
@@ -507,7 +509,7 @@ fn parse_declared_type(
     return None;
 }
 
-pub fn parse_type(text: &[Token], types: &HashMap<String, Type>) -> Option<(String, Type)> {
+pub fn parse_type(text: &[Token], types: &mut HashMap<String, Type>) -> Option<(String, Type)> {
     if text.len() < 3 {
         println!("error requires at least three tokens to declare struct");
     }
@@ -528,7 +530,7 @@ pub fn parse_type(text: &[Token], types: &HashMap<String, Type>) -> Option<(Stri
             return None;
         }
         idx += 2;
-        let comp_type = parse_declared_type(text, &mut idx, types);
+        let comp_type = parse_declared_type(text, &mut idx,types);
         if comp_type.is_none() {
             println!(
                 "error: unknown type:{} at line:{}",
@@ -635,7 +637,7 @@ pub fn parse_list(
     text: &[Token],
     list_start: usize,
     list_end: usize,
-    types: &HashMap<String, Type>,
+    types: &mut HashMap<String, Type>,
     scope: &mut Scope,
     function_table: &HashMap<String, FunctionTable>,
 ) -> Option<Vec<AstNode>> {
@@ -670,7 +672,7 @@ pub fn parse_expression(
     text: &[Token],
     cursor: &mut usize,
     last: usize,
-    types: &HashMap<String, Type>,
+    types: &mut HashMap<String, Type>,
     scope: &mut Scope,
     function_table: &HashMap<String, FunctionTable>,
 ) -> Option<AstNode> {
@@ -1019,7 +1021,7 @@ fn calc_expr_end(text: &[Token], end: usize, cursor: usize) -> Option<usize> {
 pub fn parse_scope(
     text: &[Token],
     cursor: &mut usize,
-    types: &HashMap<String, Type>,
+    types: &mut HashMap<String, Type>,
     scope: &mut Scope,
     function_table: &HashMap<String, FunctionTable>,
 ) -> Option<Vec<AstNode>> {
@@ -1076,7 +1078,7 @@ pub fn parse_scope(
 
 pub fn parse_global(
     text: &[Token],
-    types: &HashMap<String, Type>,
+    types: &mut HashMap<String, Type>,
 ) -> Option<(String, Type, AstNode)> {
     let mut idx = 0;
     if text[idx] != "let" {
@@ -1113,7 +1115,7 @@ pub fn parse_global(
 
 pub fn parse_function(
     text: &[Token],
-    types: &HashMap<String, Type>,
+    types: &mut HashMap<String, Type>,
     globals: &HashMap<String, (Type, usize)>,
     function_table: &HashMap<String, FunctionTable>,
 ) -> Option<(String, Function)> {
@@ -1162,7 +1164,7 @@ pub fn parse_function(
 
 pub fn parse_function_stub(
     text: &[Token],
-    types: &HashMap<String, Type>,
+    types: &mut HashMap<String, Type>,
     _globals: &HashMap<String, (Type, usize)>,
     _function_table: &HashMap<String, FunctionTable>,
 ) -> Option<(String, Function)> {
@@ -1225,27 +1227,29 @@ pub fn program_to_ast(program: &str) -> Option<Program> {
     for i in &globals {
         match i {
             GlobalTypes::StructDef { text } => {
-                let tmp = parse_type(*text, &types)?;
+                let tmp = parse_type(*text, &mut types)?;
                 if types.contains_key(&tmp.0) {
                     println!("error {} redeclared", tmp.0);
                     return None;
                 }
-                types.insert(tmp.0, tmp.1);
+                types.insert(tmp.0, tmp.1.clone());
             }
             GlobalTypes::FunctionDef { text: _ } => {}
             GlobalTypes::GlobalDef { text: _ } => {}
         }
     }
     let mut global_count = 0;
+    let mut global_initializers:Vec<(String,Option<AstNode>)> = vec![];
     for i in &globals {
         match i {
             GlobalTypes::StructDef { text: _ } => {}
             GlobalTypes::GlobalDef { text } => {
-                let tmp = parse_global(*text, &types)?;
+                let tmp = parse_global(*text, &mut types)?;
                 if scope.contains_key(&tmp.0) {
                     println!("error {} redeclared", tmp.0);
                     return None;
                 }
+                global_initializers.push((tmp.0.clone(), Some(tmp.2.clone())));
                 scope.insert(tmp.0, (tmp.1, global_count));
                 global_count += 1;
             }
@@ -1256,7 +1260,7 @@ pub fn program_to_ast(program: &str) -> Option<Program> {
         match i {
             GlobalTypes::StructDef { text: _ } => {}
             GlobalTypes::FunctionDef { text } => {
-                let tmp = parse_function_stub(*text, &types, &scope, &functions)?;
+                let tmp = parse_function_stub(*text, &mut types, &scope, &functions)?;
                 if functions.contains_key(&tmp.0) {
                     functions.get_mut(&tmp.0)?.push(tmp.1);
                 } else{
@@ -1271,7 +1275,7 @@ pub fn program_to_ast(program: &str) -> Option<Program> {
         match i {
             GlobalTypes::StructDef { text: _ } => {}
             GlobalTypes::FunctionDef { text } => {
-                let tmp = parse_function(*text, &types, &scope, &functions)?;
+                let tmp = parse_function(*text, &mut types, &scope, &functions)?;
                 functions.get_mut(&tmp.0)?.push(tmp.1);
             }
             GlobalTypes::GlobalDef { text: _ } => {}
@@ -1281,5 +1285,6 @@ pub fn program_to_ast(program: &str) -> Option<Program> {
         types,
         functions,
         static_variables: scope,
+        global_initializers,
     });
 }
