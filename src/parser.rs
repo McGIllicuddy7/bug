@@ -551,40 +551,40 @@ pub fn parse_type(text: &[Token], types: &mut HashMap<String, Type>) -> Option<(
 
 fn get_arms(expr: &mut AstNode) -> (Option<&mut AstNode>, Option<&mut AstNode>) {
     match expr {
-        AstNode::Assignment { left, right } => {
+        AstNode::Assignment { left, right,data:_ } => {
             return (Some(left), Some(right));
         }
-        AstNode::Add { left, right } => {
+        AstNode::Add { left, right, data:_} => {
             return (Some(left), Some(right));
         }
-        AstNode::Sub { left, right } => {
+        AstNode::Sub { left, right,data:_ } => {
             return (Some(left), Some(right));
         }
-        AstNode::Mult { left, right } => {
+        AstNode::Mult { left, right , data:_} => {
             return (Some(left), Some(right));
         }
-        AstNode::Div { left, right } => {
+        AstNode::Div { left, right,data:_ } => {
             return (Some(left), Some(right));
         }
-        AstNode::Equals { left, right } => {
+        AstNode::Equals { left, right, data:_ } => {
             return (Some(left), Some(right));
         }
-        AstNode::LessThan { left, right } => {
+        AstNode::LessThan { left, right, data:_ } => {
             return (Some(left), Some(right));
         }
-        AstNode::GreaterThan { left, right } => {
+        AstNode::GreaterThan { left, right, data:_ } => {
             return (Some(left), Some(right));
         }
-        AstNode::GreaterOrEq { left, right } => {
+        AstNode::GreaterOrEq { left, right, data:_ } => {
             return (Some(left), Some(right));
         }
-        AstNode::LessOrEq { left, right } => {
+        AstNode::LessOrEq { left, right , data:_} => {
             return (Some(left), Some(right));
         }
-        AstNode::And { left, right } => {
+        AstNode::And { left, right, data:_ } => {
             return (Some(left), Some(right));
         }
-        AstNode::Or { left, right } => {
+        AstNode::Or { left, right , data:_} => {
             return (Some(left), Some(right));
         }
         AstNode::Deref { thing_to_deref } => {
@@ -733,13 +733,14 @@ pub fn parse_expression(
         if text[*cursor] != ";" {
             let mut tmp_out = parse_expression(text, cursor, last, types, scope, function_table)?;
             match &mut tmp_out {
-                AstNode::Assignment { left, right: _ } => {
+                AstNode::Assignment { left, right: _ ,data:_} => {
                     let v = scope.variable_idx(name.clone())?;
                     *left = Box::new(AstNode::VariableUse {
                         name: name.clone(),
                         index: v.1.clone(),
                         vtype: v.0.clone(),
                         is_arg: v.2.clone(),
+                        data:Some(AstNodeData { line: text[*cursor-2].line, temporary_index: None })
                     });
                 }
                 _ => {}
@@ -762,24 +763,28 @@ pub fn parse_expression(
         out = Some(AstNode::Add {
             left: Box::new(AstNode::VoidLiteral),
             right: Box::new(AstNode::VoidLiteral),
+            data:Some(AstNodeData{line:text[*cursor-1].line, temporary_index:None}),
         })
     } else if text[*cursor] == "-" {
         *cursor += 1;
         out = Some(AstNode::Sub {
             left: Box::new(AstNode::VoidLiteral),
             right: Box::new(AstNode::VoidLiteral),
+            data:Some(AstNodeData{line:text[*cursor-1].line, temporary_index:None}),
         })
     } else if text[*cursor] == "*" {
         *cursor += 1;
         out = Some(AstNode::Mult {
             left: Box::new(AstNode::VoidLiteral),
             right: Box::new(AstNode::VoidLiteral),
+            data:Some(AstNodeData{line:text[*cursor-1].line, temporary_index:None}),
         })
     } else if text[*cursor] == "/" {
         *cursor += 1;
         out = Some(AstNode::Div {
             left: Box::new(AstNode::VoidLiteral),
             right: Box::new(AstNode::VoidLiteral),
+            data:Some(AstNodeData{line:text[*cursor-1].line, temporary_index:None}),
         })
     } else if text[*cursor] == "&" {
         *cursor += 1;
@@ -816,36 +821,42 @@ pub fn parse_expression(
         out = Some(AstNode::Assignment {
             left: Box::new(AstNode::VoidLiteral),
             right: Box::new(AstNode::VoidLiteral),
+            data:Some(AstNodeData{line:text[*cursor-1].line, temporary_index:None}),
         })
     } else if text[*cursor] == "<" {
         *cursor += 1;
         out = Some(AstNode::LessThan {
             left: Box::new(AstNode::VoidLiteral),
             right: Box::new(AstNode::VoidLiteral),
+            data:Some(AstNodeData{line:text[*cursor-1].line, temporary_index:None}),
         })
     } else if text[*cursor] == ">" {
         *cursor += 1;
         out = Some(AstNode::GreaterThan {
             left: Box::new(AstNode::VoidLiteral),
             right: Box::new(AstNode::VoidLiteral),
+            data:Some(AstNodeData{line:text[*cursor-1].line, temporary_index:None}),
         })
     } else if text[*cursor] == "==" {
         *cursor += 1;
         out = Some(AstNode::Equals {
             left: Box::new(AstNode::VoidLiteral),
             right: Box::new(AstNode::VoidLiteral),
+            data:Some(AstNodeData{line:text[*cursor-1].line, temporary_index:None}),
         })
     } else if text[*cursor] == "<=" {
         *cursor += 1;
         out = Some(AstNode::LessOrEq {
             left: Box::new(AstNode::VoidLiteral),
             right: Box::new(AstNode::VoidLiteral),
+            data:Some(AstNodeData{line:text[*cursor-1].line, temporary_index:None}),
         })
     } else if text[*cursor] == ">=" {
         *cursor += 1;
         out = Some(AstNode::LessThan {
             left: Box::new(AstNode::VoidLiteral),
             right: Box::new(AstNode::VoidLiteral),
+            data:Some(AstNodeData{line:text[*cursor-1].line, temporary_index:None}),
         })
     } else if text[*cursor] == "if" {
         *cursor += 1;
@@ -968,6 +979,7 @@ pub fn parse_expression(
             out = Some(AstNode::FunctionCall {
                 function_name: name,
                 args: args,
+                data:Some(AstNodeData{line:text[*cursor-1].line, temporary_index:None}),
             });
             *cursor = args_end + 1;
         } else if let Some(v) = scope.variable_idx(text[*cursor].string.to_owned()) {
@@ -976,6 +988,7 @@ pub fn parse_expression(
                 index: v.1.clone(),
                 vtype: v.0.clone(),
                 is_arg: v.2.clone(),
+                data:Some(AstNodeData{line:text[*cursor-1].line, temporary_index:None}),
             });
             *cursor += 1;
         } else if text[*cursor].string.chars().collect::<Vec<char>>()[0] == '"'{

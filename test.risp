@@ -14,6 +14,7 @@ fn +(left:test right:test)->test{
 fn main(args:[]string)->int{
    let a:[4]int = {};
    a[0] = 1;
+   let b:int = 1+2*3;
 }
 fn +(left:int right:int)->int{
     return left+right;

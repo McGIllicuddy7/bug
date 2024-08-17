@@ -2,7 +2,10 @@ use crate::parser::*;
 use crate::types::Type;
 use std::fs;
 use std::io::Write;
-
+struct ExpressionPart{
+    variable_idx:Option<usize>,
+    node:AstNode,
+}
 pub fn compile_function_header(func:&Function, filename:&str)->Result<String,()>{
     let mut out= String::new();
     out += &name_mangle_type(&func.return_type);
@@ -86,8 +89,30 @@ pub fn compile_static(name:&String,vtype:&Type, index:usize)->Result<String,()>{
     out += ";\n";
     return Ok(out);
 }
-pub fn compiler_function(func:&Function)->Result<String,()>{
-    todo!();
+pub fn compile_expression(tmp_counter:&mut usize,expr:&AstNode)->Result<String,()>{
+    Ok(String::from("testing 1 2 3"))
+}
+pub fn compile_function(func:&Function, filename:&str)->Result<String,()>{
+    let mut out = String::new();
+    out += &name_mangle_type(&func.return_type);
+    out += " ";
+    out += &name_mangle_function(func, filename);
+    out += "(";
+    for i in 0..func.args.len(){
+        out += &name_mangle_type(&func.args[i]);
+        out += " ";
+        out += &func.arg_names[i];
+        if i <func.args.len()-1{
+            out += ",";
+        }
+    }
+    out += "){\n";
+    let mut temp_counter = 0;
+    for i in &func.program{
+        out += &compile_expression(&mut temp_counter,i)?;
+    }
+    out += "}\n";
+    return Ok(out);
 }
 
 pub fn compile(prog:Program, base_filename:&str)->Result<(),()>{
@@ -106,10 +131,17 @@ pub fn compile(prog:Program, base_filename:&str)->Result<(),()>{
     for i in &prog.static_variables{
         statics += &compile_static(&i.0, &i.1.0, i.1.1)?;
     }
+    let mut functions = String::new();
+    for i in &prog.functions{
+        for func in &i.1.functions{
+            functions+= &compile_function(func, filename)?;
+        }
+    }
     let mut fout = fs::File::create("main.c").expect("testing expect");
     out += &typedecs;
     out += &func_decs;
     out += &statics;
+    out += &functions;
     fout.write(out.as_bytes()).expect("tesing expect");
     return Ok(());
 }

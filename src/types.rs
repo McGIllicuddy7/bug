@@ -251,7 +251,12 @@ pub fn is_equal_type(a:&Type, b:&Type)->bool{
         }
     }
 }
-
+#[allow(unused)]
+#[derive(Clone,Debug)]
+pub struct AstNodeData{
+    pub line:usize,
+    pub temporary_index:Option<usize>,
+}
 #[allow(unused)]
 #[derive(Clone, Debug)]
 pub enum AstNode {
@@ -279,14 +284,17 @@ pub enum AstNode {
         index: usize,
         vtype: Type,
         is_arg: bool,
+        data:Option<AstNodeData>, 
     },
     FunctionCall {
         function_name: String,
         args: Vec<AstNode>,
+        data:Option<AstNodeData>,
     },
     Assignment {
         left: Box<AstNode>,
         right: Box<AstNode>,
+        data:Option<AstNodeData>,
     },
     VariableDeclaration {
         name: String,
@@ -296,49 +304,61 @@ pub enum AstNode {
     Add {
         left: Box<AstNode>,
         right: Box<AstNode>,
+        data:Option<AstNodeData>
     },
     Sub {
         left: Box<AstNode>,
         right: Box<AstNode>,
+        data:Option<AstNodeData>
     },
     Mult {
         left: Box<AstNode>,
         right: Box<AstNode>,
+        data:Option<AstNodeData>
     },
     Div {
         left: Box<AstNode>,
         right: Box<AstNode>,
+        data:Option<AstNodeData>
     },
     Equals {
         left: Box<AstNode>,
         right: Box<AstNode>,
+        data:Option<AstNodeData>
     },
     GreaterThan {
         left: Box<AstNode>,
         right: Box<AstNode>,
+        data:Option<AstNodeData>
     },
     LessThan {
         left: Box<AstNode>,
         right: Box<AstNode>,
+        data:Option<AstNodeData>
     },
     GreaterOrEq {
         left: Box<AstNode>,
         right: Box<AstNode>,
+        data:Option<AstNodeData>
     },
     LessOrEq {
         left: Box<AstNode>,
         right: Box<AstNode>,
+        data:Option<AstNodeData>
     },
     Not {
         value: Box<AstNode>,
+        data:Option<AstNodeData>
     },
     And {
         left: Box<AstNode>,
         right: Box<AstNode>,
+        data:Option<AstNodeData>
     },
     Or {
         left: Box<AstNode>,
         right: Box<AstNode>,
+        data:Option<AstNodeData>
     },
     If {
         condition: Box<AstNode>,
@@ -416,16 +436,18 @@ impl AstNode {
                 index: _,
                 vtype,
                 is_arg: _,
+                data:_,
             } => {
                 return Some(vtype.clone());
             }
             Self::FunctionCall {
                 function_name,
                 args: _,
+                data:_,
             } => {
                 return Some(function_table.get(function_name)?.return_type.clone());
             }
-            Self::Assignment { left: _, right: _ } => {
+            Self::Assignment { left: _, right: _ ,data:_} => {
                 return Some(Type::VoidT);
             }
             Self::VariableDeclaration {
@@ -435,7 +457,7 @@ impl AstNode {
             } => {
                 return Some(Type::VoidT);
             }
-            Self::Add { left, right } => {
+            Self::Add { left, right ,data:_} => {
                 if is_compatible_type(
                     &left.get_type(function_table, types)?,
                     &right.get_type(function_table, types)?,
@@ -444,7 +466,7 @@ impl AstNode {
                 }
                 return None;
             }
-            Self::Sub { left, right } => {
+            Self::Sub { left, right,data:_ } => {
                 if is_compatible_type(
                     &left.get_type(function_table, types)?,
                     &right.get_type(function_table, types)?,
@@ -453,7 +475,7 @@ impl AstNode {
                 }
                 return None;
             }
-            Self::Mult { left, right } => {
+            Self::Mult { left, right,data:_ } => {
                 if is_compatible_type(
                     &left.get_type(function_table, types)?,
                     &right.get_type(function_table, types)?,
@@ -462,7 +484,7 @@ impl AstNode {
                 }
                 return None;
             }
-            Self::Div { left, right } => {
+            Self::Div { left, right ,data:_} => {
                 if is_compatible_type(
                     &left.get_type(function_table, types)?,
                     &right.get_type(function_table, types)?,
@@ -471,28 +493,28 @@ impl AstNode {
                 }
                 return None;
             }
-            Self::Equals { left: _, right: _ } => {
+            Self::Equals { left: _, right: _ ,data:_} => {
                 return Some(Type::BoolT);
             }
-            Self::LessThan { left: _, right: _ } => {
+            Self::LessThan { left: _, right: _ ,data:_} => {
                 return Some(Type::BoolT);
             }
-            Self::GreaterThan { left: _, right: _ } => {
+            Self::GreaterThan { left: _, right: _ ,data:_} => {
                 return Some(Type::BoolT);
             }
-            Self::GreaterOrEq { left: _, right: _ } => {
+            Self::GreaterOrEq { left: _, right: _ ,data:_} => {
                 return Some(Type::BoolT);
             }
-            Self::LessOrEq { left: _, right: _ } => {
+            Self::LessOrEq { left: _, right: _ ,data:_} => {
                 return Some(Type::BoolT);
             }
-            Self::Not { value: _ } => {
+            Self::Not { value: _ ,data:_} => {
                 return Some(Type::BoolT);
             }
-            Self::And { left: _, right: _ } => {
+            Self::And { left: _, right: _ ,data:_} => {
                 return Some(Type::BoolT);
             }
-            Self::Or { left: _, right: _ } => {
+            Self::Or { left: _, right: _ ,data:_} => {
                 return Some(Type::BoolT);
             }
             Self::If {
@@ -525,6 +547,7 @@ impl AstNode {
                     index: _,
                     vtype,
                     is_arg: _,
+                    data:_,
                 } => match vtype {
                     Type::PointerT { ptr_type } => {
                         return Some(ptr_type.as_ref().clone());
@@ -543,6 +566,7 @@ impl AstNode {
                     index: _,
                     vtype,
                     is_arg: _,
+                    data:_,
                 } => {
                     return Some(Type::PointerT {
                         ptr_type: Box::new(vtype.clone()),
@@ -594,16 +618,18 @@ impl AstNode {
                 index: _,
                 vtype: _,
                 is_arg: _,
+                data:_,
             } => {
                 return 0;
             }
             Self::FunctionCall {
                 function_name: _,
                 args: _,
+                data:_,
             } => {
                 return 0;
             }
-            Self::Assignment { left: _, right: _ } => {
+            Self::Assignment { left: _, right: _ ,data:_} => {
                 return 8;
             }
             Self::VariableDeclaration {
@@ -613,40 +639,40 @@ impl AstNode {
             } => {
                 return 0;
             }
-            Self::Add { left: _, right: _ } => {
+            Self::Add { left: _, right: _,data:_ } => {
                 return 5;
             }
-            Self::Sub { left: _, right: _ } => {
+            Self::Sub { left: _, right: _ ,data:_} => {
                 return 5;
             }
-            Self::Mult { left: _, right: _ } => {
+            Self::Mult { left: _, right: _ ,data:_} => {
                 return 3;
             }
-            Self::Div { left: _, right: _ } => {
+            Self::Div { left: _, right: _ ,data:_} => {
                 return 3;
             }
-            Self::Equals { left: _, right: _ } => {
+            Self::Equals { left: _, right: _ ,data:_} => {
                 return 6;
             }
-            Self::LessThan { left: _, right: _ } => {
+            Self::LessThan { left: _, right: _ ,data:_} => {
                 return 6;
             }
-            Self::GreaterThan { left: _, right: _ } => {
+            Self::GreaterThan { left: _, right: _ ,data:_} => {
                 return 6;
             }
-            Self::GreaterOrEq { left: _, right: _ } => {
+            Self::GreaterOrEq { left: _, right: _ ,data:_} => {
                 return 6;
             }
-            Self::LessOrEq { left: _, right: _ } => {
+            Self::LessOrEq { left: _, right: _,data:_ } => {
                 return 6;
             }
-            Self::Not { value: _ } => {
+            Self::Not { value: _,data:_ } => {
                 return 0;
             }
-            Self::And { left: _, right: _ } => {
+            Self::And { left: _, right: _ ,data:_} => {
                 return 7;
             }
-            Self::Or { left: _, right: _ } => {
+            Self::Or { left: _, right: _ ,data:_} => {
                 return 7;
             }
             Self::If {
