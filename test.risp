@@ -2,7 +2,8 @@ struct test {a:int b:int c:int};
 
 let test0:test = {0,0,0};
 let test:[]test = {};
-fn add(left:test right:test)->test{
+
+fn +(left:test right:test)->test{
     let out:test;
     out.a = left.a+right.a;
     out.b = left.b+right.b;
@@ -13,5 +14,8 @@ fn add(left:test right:test)->test{
 fn main(args:[]string)->int{
    let a:[4]int = {};
    a[0] = 1;
+}
+fn +(left:int right:int)->int{
+    return left+right;
 }
  

@@ -706,6 +706,19 @@ pub struct Function {
     pub arg_names: Vec<String>,
     pub program: Vec<AstNode>,
 }
+impl PartialEq for Function{
+    fn eq(&self, other: &Self) -> bool {
+        if self.name == other.name && self.args.len() == other.args.len(){
+            for i in 0..self.args.len(){
+                if !is_equal_type(&self.args[i], &other.args[i]){
+                    return false;
+                }
+            }
+            return true;
+        }
+        return false;
+    }
+}
 #[derive(Debug)]
 pub struct Scope {
     pub scope: Vec<HashMap<String, (Type, usize, bool)>>,
@@ -796,10 +809,11 @@ pub fn name_mangle_type(var:&Type)->String{
             return name_mangle_type(ptr_type)+"Slice_t";
         }
         Type::StructT { name, components:_ }=>{
-            return String::from("user_")+&name;
+            return String::from("u_")+&name;
         }
     }
 }
+
 pub fn name_mangle_function(var:&Function, _filename:&str)->String{
     let mut args = String::new();
     let name = var.name.to_owned();
@@ -807,5 +821,36 @@ pub fn name_mangle_function(var:&Function, _filename:&str)->String{
         args+= "_";
         args += &name_mangle_type(i);
     }
-    return String::from("user_")+&name+&args;
+    match name.as_ref(){
+        "+"=>{
+            return String::from("operator_plus")+&args;
+        }
+        "-"=>{
+            return String::from("operator_minus")+&args;
+        }
+        "*"=>{
+            return String::from("operator_mult")+&args;
+        }
+        "/"=>{
+            return String::from("operator_divide")+&args;
+        }
+        "=="=>{
+            return String::from("operator_equals")+&args;
+        }
+        "<"=>{
+            return String::from("operator_less_than")+&args;
+        }
+        ">"=>{
+            return String::from("operator_greater_than")+&args;
+        }
+        "<="=>{
+            return String::from("operator_less_than_or_eq")+&args;
+        }
+        ">="=>{
+            return String::from("operator_greater_than_eq")+&args;
+        }
+        _=>{
+            return String::from("user_")+&name+&args;
+        }
+    }
 }

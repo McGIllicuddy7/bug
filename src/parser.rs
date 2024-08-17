@@ -1261,12 +1261,11 @@ pub fn program_to_ast(program: &str) -> Option<Program> {
             GlobalTypes::StructDef { text: _ } => {}
             GlobalTypes::FunctionDef { text } => {
                 let tmp = parse_function_stub(*text, &mut types, &scope, &functions)?;
-                if functions.contains_key(&tmp.0) {
-                    functions.get_mut(&tmp.0)?.push(tmp.1);
-                } else{
+                if !functions.contains_key(&tmp.0){
                     let table = FunctionTable::new();
-                    functions.insert(tmp.0, table);
+                    functions.insert(tmp.0.clone(), table);
                 }
+                functions.get_mut(&tmp.0)?.push(tmp.1);
             }
             GlobalTypes::GlobalDef { text: _ } => {}
         }
@@ -1276,7 +1275,12 @@ pub fn program_to_ast(program: &str) -> Option<Program> {
             GlobalTypes::StructDef { text: _ } => {}
             GlobalTypes::FunctionDef { text } => {
                 let tmp = parse_function(*text, &mut types, &scope, &functions)?;
-                functions.get_mut(&tmp.0)?.push(tmp.1);
+                for i in &mut functions.get_mut(&tmp.0)?.functions{
+                    if i == &tmp.1{
+                        *i = tmp.1;
+                        break;
+                    }
+                }
             }
             GlobalTypes::GlobalDef { text: _ } => {}
         }
