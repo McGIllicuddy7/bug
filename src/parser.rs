@@ -480,7 +480,7 @@ fn parse_declared_type(
             *idx += 2;
             return Some(parse_declared_type(tokens, idx, types))
                 .flatten()
-                .map(|i| Type::VecT {
+                .map(|i| Type::SliceT {
                     ptr_type: Box::new(i),
                 });
         } else if tokens.get(base + 2)?.string == "]" {

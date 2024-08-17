@@ -36,7 +36,7 @@ pub enum Type {
         array_type: Box<Type>,
     },
     VoidT,
-    VecT {
+    SliceT {
         ptr_type: Box<Type>,
     },
 }
@@ -135,10 +135,10 @@ pub fn is_compatible_type(a: &Type, b: &Type) -> bool {
                 return false;
             }
         },
-        Type::VecT { ptr_type } => {
+        Type::SliceT { ptr_type } => {
             let at = ptr_type;
             match b {
-                Type::VecT { ptr_type } => {
+                Type::SliceT { ptr_type } => {
                     return is_compatible_type(&at, ptr_type);
                 }
                 _ => {
@@ -238,10 +238,10 @@ pub fn is_equal_type(a:&Type, b:&Type)->bool{
                 return false;
             }
         },
-        Type::VecT { ptr_type } => {
+        Type::SliceT { ptr_type } => {
             let at = ptr_type;
             match b {
-                Type::VecT { ptr_type } => {
+                Type::SliceT { ptr_type } => {
                     return is_equal_type(&at, ptr_type);
                 }
                 _ => {
