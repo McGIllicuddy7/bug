@@ -1,12 +1,9 @@
 use crate::parser::*;
 use crate::types::Type;
+use std::fmt::format;
 use std::fs;
 use std::io::Write;
-struct ExpressionPart{
-    variable_idx:Option<usize>,
-    node:AstNode,
-}
-pub fn compile_function_header(func:&Function, filename:&str)->Result<String,()>{
+pub fn compile_function_header(func:&Function, filename:&str)->Result<String,String>{
     let mut out= String::new();
     out += &name_mangle_type(&func.return_type);
     out += " ";
@@ -24,7 +21,7 @@ pub fn compile_function_header(func:&Function, filename:&str)->Result<String,()>
     return Ok(out);
 }
 
-pub fn compile_function_table_header(_name:&String, data:&FunctionTable,filename:&str)->Result<String, ()>{
+pub fn compile_function_table_header(_name:&String, data:&FunctionTable,filename:&str)->Result<String, String>{
     let mut out = String::new(); 
     for i in &data.functions{
         out += &compile_function_header(i,filename)?;
@@ -32,7 +29,7 @@ pub fn compile_function_table_header(_name:&String, data:&FunctionTable,filename
     return Ok(out);
 }
 
-pub fn compile_type(_name:String, data:Type)->Result<String, ()>{
+pub fn compile_type(_name:String, data:Type)->Result<String, String>{
     match &data{
         Type::SliceT { ptr_type:_}=>{
 
@@ -67,7 +64,7 @@ pub fn compile_type(_name:String, data:Type)->Result<String, ()>{
     Ok(out)
 } 
 
-pub fn compile_static(name:&String,vtype:&Type, index:usize)->Result<String,()>{
+pub fn compile_static(name:&String,vtype:&Type, _index:usize)->Result<String,String>{
     let mut out = name_mangle_type(vtype)+" "+&name;
     out += match vtype{
         Type::BoolT=>{
@@ -89,10 +86,67 @@ pub fn compile_static(name:&String,vtype:&Type, index:usize)->Result<String,()>{
     out += ";\n";
     return Ok(out);
 }
-pub fn compile_expression(tmp_counter:&mut usize,expr:&AstNode)->Result<String,()>{
-    Ok(String::from("testing 1 2 3"))
+pub fn compile_expression(tmp_counter:&mut usize,expr:&mut AstNode,expect_return:bool)->Result<String,String>{
+    match expr{
+        AstNode::VoidLiteral=>{
+            return Err("found void literal".to_owned());
+        }
+        AstNode::BoolLiteral { value }=>{
+            if *value{
+                return Ok("true".to_owned());
+            } else{
+                return Ok("false".to_owned());
+            }
+        }
+        AstNode::StringLiteral {value,}=>{
+            return Ok(value.clone());
+        }
+        AstNode::IntLiteral { value }=>{
+            return Ok(format!("{value}"));
+        }
+        AstNode::FloatLiteral { value }=>{
+            return Ok(format!("{value}"));
+        }
+        AstNode::StructLiteral { nodes }=>{
+            let mut out = String::from("{");
+            for i in nodes{
+                out += &compile_expression(tmp_counter, i, expect_return)?;
+                out += ",";
+            }
+            out += "}";
+            return Ok(out);
+        }
+        AstNode::ArrayLiteral { nodes }=>{
+            let mut out = String::from("{");
+            for i in nodes{
+                out += &compile_expression(tmp_counter, i, expect_return)?;
+                out += ",";
+            }
+            out += "}";
+            return Ok(out);
+        }
+        AstNode::VariableUse { name, index:_, vtype:_, is_arg:_, data:_ }=>{
+            return Ok(name.clone());
+        }
+        AstNode::FunctionCall { function_name, args, data:_ }=>{
+            let mut base = function_name.clone()+"(";
+            for i in args{
+                base += &compile_expression(tmp_counter, expr, true)?;
+            }
+            base += ");";
+            if expect_return{
+
+            } else{
+
+            }
+        }
+        _=>{
+            unreachable!();
+        }
+    }
+    todo!()
 }
-pub fn compile_function(func:&Function, filename:&str)->Result<String,()>{
+pub fn compile_function(func:&mut Function, filename:&str)->Result<String,String>{
     let mut out = String::new();
     out += &name_mangle_type(&func.return_type);
     out += " ";
@@ -108,14 +162,14 @@ pub fn compile_function(func:&Function, filename:&str)->Result<String,()>{
     }
     out += "){\n";
     let mut temp_counter = 0;
-    for i in &func.program{
-        out += &compile_expression(&mut temp_counter,i)?;
+    for i in &mut func.program{
+        out += &compile_expression(&mut temp_counter,i,false)?;
     }
     out += "}\n";
     return Ok(out);
 }
 
-pub fn compile(prog:Program, base_filename:&str)->Result<(),()>{
+pub fn compile(prog:Program, base_filename:&str)->Result<(),String>{
     let filename = &base_filename[0..base_filename.len()-5];
     let mut out = String::new();
     let mut typedecs = "".to_owned();
@@ -134,7 +188,8 @@ pub fn compile(prog:Program, base_filename:&str)->Result<(),()>{
     let mut functions = String::new();
     for i in &prog.functions{
         for func in &i.1.functions{
-            functions+= &compile_function(func, filename)?;
+            let mut f =  func.clone();
+            functions+= &compile_function(&mut f,filename)?;
         }
     }
     let mut fout = fs::File::create("main.c").expect("testing expect");

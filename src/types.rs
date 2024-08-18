@@ -40,6 +40,21 @@ pub enum Type {
         ptr_type: Box<Type>,
     },
 }
+impl Type{
+    pub fn get_array_type(&self)->Option<Type>{
+        match &self{
+            &Self::ArrayT { size, array_type }=>{
+                return Some(array_type.as_ref().clone());
+            }
+            &Self::SliceT { ptr_type }=>{
+                return Some(ptr_type.as_ref().clone());
+            }
+            _=>{
+                return None;
+            }
+        }
+    }
+}
 pub fn is_compatible_type(a: &Type, b: &Type) -> bool {
     match a {
         Type::BoolT => match b {
@@ -283,7 +298,7 @@ pub enum AstNode {
         name: String,
         index: usize,
         vtype: Type,
-        is_arg: bool,
+is_arg: bool,
         data:Option<AstNodeData>, 
     },
     FunctionCall {
@@ -583,7 +598,7 @@ impl AstNode {
                 return None;
             }
             Self::ArrayAccess { variable, index:_ }=>{
-                return  None;
+                return  Some(variable.get_type(function_table, types)?.get_array_type()?);
             }
             Self::BoundFunctionCall { variable:_, function_name, args:_ }=>{
                 return Some(function_table.get(function_name)?.return_type.clone());
@@ -722,9 +737,113 @@ impl AstNode {
             }
         }
     }
+    pub fn get_data(&self)->Option<&AstNodeData>{
+        match self{
+            Self::VariableUse{name:_, index:_, vtype:_, is_arg:_, data}=>{
+                data.as_ref()
+            }
+            Self::FunctionCall{function_name:_, args:_, data}=>{
+                data.as_ref()
+            }
+            Self::Assignment{left:_, right:_, data}=>{
+                data.as_ref()
+            }
+            Self::Add{left:_, right:_, data}=>{
+                data.as_ref()
+            }
+            Self::Sub{left:_, right:_, data}=>{
+                data.as_ref()
+            }
+            Self::Mult{left:_, right:_, data}=>{
+                data.as_ref()
+            }
+            Self::Div{left:_, right:_, data}=>{
+                data.as_ref()
+            }
+            Self::Equals{left:_, right:_, data}=>{
+                data.as_ref()
+            }
+            Self::GreaterThan{left:_, right:_, data}=>{
+                data.as_ref()
+            }
+            Self::LessThan{left:_, right:_, data}=>{
+                data.as_ref()
+            }
+            Self::GreaterOrEq{left:_, right:_, data}=>{
+                data.as_ref()
+            }
+            Self::LessOrEq{left:_, right:_, data}=>{
+                data.as_ref()
+            }
+            Self::Not{value:_, data}=>{
+                data.as_ref()
+            }
+            Self::And{left:_, right:_, data}=>{
+                data.as_ref()
+            }
+            Self::Or{left:_, right:_, data}=>{
+                data.as_ref()
+            }
+            _=>{
+                None
+            }
+        }
+    }
+    pub fn get_data_mut(&mut self)->Option<&mut AstNodeData>{
+        match self{
+            Self::VariableUse{name:_, index:_, vtype:_, is_arg:_, data}=>{
+                data.as_mut()
+            }
+            Self::FunctionCall{function_name:_, args:_, data}=>{
+                data.as_mut()
+            }
+            Self::Assignment{left:_, right:_, data}=>{
+                data.as_mut()
+            }
+            Self::Add{left:_, right:_, data}=>{
+                data.as_mut()
+            }
+            Self::Sub{left:_, right:_, data}=>{
+                data.as_mut()
+            }
+            Self::Mult{left:_, right:_, data}=>{
+                data.as_mut()
+            }
+            Self::Div{left:_, right:_, data}=>{
+                data.as_mut()
+            }
+            Self::Equals{left:_, right:_, data}=>{
+                data.as_mut()
+            }
+            Self::GreaterThan{left:_, right:_, data}=>{
+                data.as_mut()
+            }
+            Self::LessThan{left:_, right:_, data}=>{
+                data.as_mut()
+            }
+            Self::GreaterOrEq{left:_, right:_, data}=>{
+                data.as_mut()
+            }
+            Self::LessOrEq{left:_, right:_, data}=>{
+                data.as_mut()
+            }
+            Self::Not{value:_, data}=>{
+                data.as_mut()
+            }
+            Self::And{left:_, right:_, data}=>{
+                data.as_mut()
+            }
+            Self::Or{left:_, right:_, data}=>{
+                data.as_mut()
+            }
+            _=>{
+                None
+            }
+        }
+    }
 }
 #[allow(unused)]
-#[derive(Debug)]
+#[derive(Debug,Clone)]
 pub struct Function {
     pub name: String,
     pub return_type: Type,
