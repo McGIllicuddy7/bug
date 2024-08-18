@@ -162,6 +162,7 @@ pub fn compile_expression(tmp_counter:&mut usize,expr:&mut AstNode,expect_return
             let left_s = compile_expression(tmp_counter, left, false, stack, functions, types,indent)?;
             let right_s = compile_expression(tmp_counter, right, true, stack, functions, types,indent)?;
             if left.get_type(functions, types).expect("should have type").is_array(){
+                let s = right.get_type(functions, types).expect("right should have type");
                 return Ok(left_s+".start = "+&right_s+";")
             }
             return Ok(left_s+" = "+&right_s+";\n");
@@ -349,7 +350,6 @@ pub fn compile_expression(tmp_counter:&mut usize,expr:&mut AstNode,expect_return
             unreachable!();
         }
     }
-    todo!();
 }
 pub fn compile_function(func:&mut Function, filename:&str, functions:&HashMap<String,FunctionTable>, types:&HashMap<String, Type>)->Result<String,String>{
     let mut out = String::new();
@@ -481,7 +481,7 @@ pub fn compile(prog:Program, base_filename:&str)->Result<(),String>{
     out += &func_decs;
     out += &statics;
     out += &functions;
-    out += "int main(int argc,const char ** argv){\n long result = user_main();\n    printf(\"exited with %ld\",result);\n}";
+    out += "int main(int argc,const char ** argv){\n    long result = user_main();\n    printf(\"exited with %ld\\n\",result);\n}";
     fout.write(out.as_bytes()).expect("tesing expect");
     drop(fout);
     std::process::Command::new("gcc").arg("main.c").arg("-std=c2x").exec();
