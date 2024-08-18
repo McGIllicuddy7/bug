@@ -2,3 +2,4 @@
 /src/i-love-you.txt
 *.c 
 *.o
+*.out

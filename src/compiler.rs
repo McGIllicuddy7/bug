@@ -1,6 +1,8 @@
 use crate::parser::*;
 use crate::types::Type;
+use std::fmt::format;
 use std::fs;
+use std::hash::Hash;
 use std::io::Write;
 use std::os::unix::process::CommandExt;
 use std::process::Command;
@@ -130,21 +132,22 @@ pub fn compile_expression(tmp_counter:&mut usize,expr:&mut AstNode,expect_return
             return Ok(String::from("user_")+name);
         }
         AstNode::FunctionCall { function_name, args, data:_ }=>{
-            let mut base = function_name.clone()+"(";
             let bargs = args.clone();
-            for i in args{
-                base += &compile_expression(tmp_counter,i, true,stack,functions,types)?;
-            }
-            base += ");\n";
             let mut fn_args = vec![];
             for i in bargs{
                 fn_args.push(i.get_type(functions, types).expect("should_have_type"));
             }
             let retv = get_function_by_args(function_name,fn_args.as_slice(),functions).expect("should find function");
+            let mut base =retv.name.clone()+"(";
+            for i in args{
+                base += &compile_expression(tmp_counter,i, true,stack,functions,types)?;
+            }
+            base += ");\n";
             if expect_return{
-                base = format!("{} temp{} = {};\n", &name_mangle_type(&retv.return_type),*tmp_counter,&base );
+                *stack+= &format!("{} tmp{} = {};\n", &name_mangle_type(&retv.return_type),*tmp_counter,&base );
+                let fmt = format!("tmp{}",*tmp_counter);
                 *tmp_counter+=1;
-                return Ok(base);
+                return Ok(fmt);
             } else{
                return Ok(base);
             }
@@ -343,6 +346,7 @@ pub fn compile_function(func:&mut Function, filename:&str, functions:&HashMap<St
     for i in 0..func.args.len(){
         out += &name_mangle_type(&func.args[i]);
         out += " ";
+        out += "user_";
         out += &func.arg_names[i];
         if i <func.args.len()-1{
             out += ",";
@@ -356,10 +360,12 @@ pub fn compile_function(func:&mut Function, filename:&str, functions:&HashMap<St
         out += &stack;
         out += base;
     }
-    out += "}\n";
+    out += "\n}\n";
     return Ok(out);
 }
-
+pub fn handle_dependencies(map:&HashMap<String,Type>)->Vec<(String,Type)>{
+    todo!();
+}
 pub fn compile(prog:Program, base_filename:&str)->Result<(),String>{
     let filename = &base_filename[0..base_filename.len()-5];
     let mut out = String::new();

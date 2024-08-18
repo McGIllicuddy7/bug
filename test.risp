@@ -2,14 +2,11 @@ struct test {a:int b:int c:int};
 
 let test0:test = {0,0,0};
 let test:[]test = {};
-
+fn i_love_toast(a:int)->int{
+    return a+23;
+}
 fn main()->int{
-  let b:int = 1+2*3;
-  let i:int = 0;
-   while (i < 110){
-        b = b+1;
-        i = i+1;
-   }
+   let b:int = i_love_toast(8);
    return b;
 }
 
