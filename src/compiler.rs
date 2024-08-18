@@ -48,7 +48,7 @@ pub fn compile_type(_name:String, data:Type)->Result<String, String>{
     let mut vars = String::new();
     match &data{
         Type::SliceT { ptr_type }=>{
-            vars = format!("    {} * start; size_t end;\n", name_mangle_type(&ptr_type));
+            vars = format!("    {} * start; size_t len;\n", name_mangle_type(&ptr_type));
         }
         Type::StructT { name:_, components }=>{
             for i in components{
@@ -163,7 +163,18 @@ pub fn compile_expression(tmp_counter:&mut usize,expr:&mut AstNode,expect_return
             let right_s = compile_expression(tmp_counter, right, true, stack, functions, types,indent)?;
             if left.get_type(functions, types).expect("should have type").is_array(){
                 let s = right.get_type(functions, types).expect("right should have type");
-                return Ok(left_s+".start = "+&right_s+";")
+                match s{
+                    Type::SliceT { ptr_type:_ }=>{
+                        return Ok(left_s+ "=" +&right_s+";")
+                    }
+                    Type::ArrayT { size, array_type:_ }=>{
+                        return Ok(left_s.clone()+ ".start=" +&right_s+";\n"+&left_s+&format!(".len = {};\n", size));
+                    }
+                    _=>{
+                        unreachable!()
+                    }
+                }  
+
             }
             return Ok(left_s+" = "+&right_s+";\n");
         }
@@ -345,6 +356,10 @@ pub fn compile_expression(tmp_counter:&mut usize,expr:&mut AstNode,expect_return
             let left = compile_expression(tmp_counter, variable, false, stack, functions, types, indent)?;
             let idx = compile_expression(tmp_counter, index, true, stack, functions, types, indent)?;
             return Ok(left+".start["+&idx+"]");
+        }
+        AstNode::FieldUsage { base, field_name }=>{
+            let left = compile_expression(tmp_counter, base, false, stack, functions, types, indent)?;
+            return Ok(left+"."+&field_name);
         }
         _=>{
             unreachable!();

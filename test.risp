@@ -5,13 +5,19 @@ fn i_love_toast(a:int)->int{
    return 8+23*a;
 }
 fn main()->int{
-   let b:[8]int = {0,0,0,0,0,0,0,0};
+   let b:[]int = {0,0,0,0,0,0,0,0};
    let i:int = 0;
-   while(i<8){
+   while(i<b.len){
       b[i] = i_love_toast(i);
       i = i+1;
    }
-   return b[0];
+   i =0;
+   let count:int = 0;
+   while(i<b.len){
+      count = count+b[i];
+      i = i+1;
+   }
+   return count;
 }
 
  

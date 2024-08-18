@@ -461,10 +461,7 @@ impl AstNode {
                 for i in nodes {
                     out_types.push((("").to_owned(), i.get_type(function_table, types)?));
                 }
-                return Some(Type::StructT {
-                    name: "".to_owned(),
-                    components: out_types,
-                });
+                return Some(Type::ArrayT { size:out_types.len(), array_type: Box::new(out_types[0].1.clone()) } );
             }
             Self::VariableUse {
                 name: _,
