@@ -43,7 +43,7 @@ pub enum Type {
 impl Type{
     pub fn get_array_type(&self)->Option<Type>{
         match &self{
-            &Self::ArrayT { size, array_type }=>{
+            &Self::ArrayT { size:_, array_type }=>{
                 return Some(array_type.as_ref().clone());
             }
             &Self::SliceT { ptr_type }=>{
@@ -54,6 +54,32 @@ impl Type{
             }
         }
     }
+    pub fn is_array(&self)->bool{
+        match &self{
+            &Self::ArrayT { size:_, array_type:_ }=>{
+                return true;
+            }
+            &Self::SliceT { ptr_type:_ }=>{
+                return true;
+            }
+            _=>{
+                return false;
+            }
+        }
+    }
+   pub fn is_basic_number(&self)->bool {
+    match &self{
+        &Self::IntegerT { }=>{
+            return true;
+        }
+        &Self::FloatT {}=>{
+            return true;
+        }
+        _=>{
+            return false;
+        }
+    }
+   }
 }
 pub fn is_compatible_type(a: &Type, b: &Type) -> bool {
     match a {
@@ -289,6 +315,7 @@ pub enum AstNode {
         value: f64,
     },
     StructLiteral {
+        vtype:Type,
         nodes: Vec<AstNode>,
     },
     ArrayLiteral {
@@ -426,15 +453,8 @@ impl AstNode {
             Self::StringLiteral { value: _ } => Some(Type::StringT),
             Self::IntLiteral { value: _ } => Some(Type::IntegerT),
             Self::FloatLiteral { value: _ } => Some(Type::FloatT),
-            Self::StructLiteral { nodes } => {
-                let mut out_types = vec![];
-                for i in nodes {
-                    out_types.push((("").to_owned(), i.get_type(function_table, types)?));
-                }
-                return Some(Type::StructT {
-                    name: "".to_owned(),
-                    components: out_types,
-                });
+            Self::StructLiteral { vtype,nodes:_ } => {
+                return Some(vtype.clone());
             }
             Self::ArrayLiteral { nodes } => {
                 let mut out_types = vec![];
@@ -624,7 +644,7 @@ impl AstNode {
             Self::FloatLiteral { value: _ } => {
                 return 0;
             }
-            Self::StructLiteral { nodes: _ } => {
+            Self::StructLiteral {vtype:_ ,nodes: _ } => {
                 return 0;
             }
             Self::ArrayLiteral { nodes: _ } => {
@@ -852,6 +872,7 @@ pub struct Function {
     pub args: Vec<Type>,
     pub arg_names: Vec<String>,
     pub program: Vec<AstNode>,
+    pub forward_declared:bool,
 }
 impl PartialEq for Function{
     fn eq(&self, other: &Self) -> bool {
@@ -949,8 +970,8 @@ pub fn name_mangle_type(var:&Type)->String{
         Type::PointerT { ptr_type }=>{
             return name_mangle_type(ptr_type)+"*";
         }
-        Type::ArrayT { size, array_type }=>{
-            return name_mangle_type(array_type)+&format!("[{size}]");
+        Type::ArrayT { size:_, array_type }=>{
+            return name_mangle_type(array_type)+"Slice_t";
         }
         Type::SliceT { ptr_type }=>{
             return name_mangle_type(ptr_type)+"Slice_t";

@@ -489,12 +489,10 @@ fn parse_declared_type(
             *idx +=2;
             if let Ok(count) = tokens[base + 1].string.parse::<usize>() {
                 *idx += 1;
-                return Some(parse_declared_type(tokens, idx, types))
-                    .flatten()
-                    .map(|i| Type::ArrayT {
-                        size: count,
-                        array_type: Box::new(i),
-                    });
+                let base = parse_declared_type(tokens, idx, types)?;
+                let out= Type::SliceT { ptr_type: Box::new(base.clone()) };
+                types.insert(name_mangle_type(&out.clone()), out.clone());
+                return Some(Type::ArrayT { size: count, array_type: Box::new(base) });
             } else {
                 return None;
             }
@@ -724,7 +722,7 @@ pub fn parse_expression(
             vout.push(next);
         }
         *cursor += 1;
-        out = Some(AstNode::StructLiteral { nodes: vout });
+        out = Some(AstNode::ArrayLiteral { nodes: vout });
     } else if text[*cursor] == "let" {
         let name = text[*cursor + 1].string.to_owned();
         *cursor += 3;
@@ -994,6 +992,36 @@ pub fn parse_expression(
         } else if text[*cursor].string.chars().collect::<Vec<char>>()[0] == '"'{
             out = Some(AstNode::StringLiteral { value: text[*cursor].string[1..text[*cursor].string.len()-1 ].to_owned()});
             *cursor+=1;
+        } else if types.contains_key(text[*cursor].string){
+            let vtype = types.get(text[*cursor].string)?.clone();
+            if text[*cursor+1] != "{"{
+                println!("error line:{} expected struct literal",text[*cursor].line );
+            }
+            *cursor+=1;
+            let mut vout = vec![];
+            *cursor += 1;
+            while text[*cursor] != "}" && *cursor < last -1 {
+                if text[*cursor] == "," {
+                    *cursor += 1;
+                    if *cursor >= last {
+                        break;
+                    }
+                    continue;
+                }
+                let mut next_indx = *cursor;
+                while text[next_indx] != "," && text[next_indx] != "}" &&text[next_indx] != ";" && next_indx < last {
+                    next_indx += 1;
+                    if next_indx >= last {
+                        break;
+                    }
+                }
+                next_indx -= 1;
+                //println!("last:{}, next_indx:{} cursor:{}", last, next_indx, cursor);
+                let next = parse_expression(text, cursor, next_indx, types, scope, function_table).expect("should compiler");
+                vout.push(next);
+            }
+            *cursor += 1;
+            out = Some(AstNode::StructLiteral { vtype, nodes: vout });
         }
     }
     if out.is_none() {
@@ -1171,6 +1199,7 @@ pub fn parse_function(
             args: args,
             arg_names: arg_names,
             program: out,
+            forward_declared:false,
         },
     ));
 }
@@ -1215,6 +1244,7 @@ pub fn parse_function_stub(
             args: args,
             arg_names: arg_names,
             program: vec![],
+            forward_declared:true,
         },
     ));
 }

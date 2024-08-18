@@ -3,11 +3,11 @@ struct test {a:int b:int c:int};
 let test0:test = {0,0,0};
 let test:[]test = {};
 fn i_love_toast(a:int)->int{
-    return a+23;
+   return 8;
 }
 fn main()->int{
-   let b:int = i_love_toast(8);
-   return b;
+   let b:[8]int = {0,0,0,0,0};
+   return b[0];
 }
 
  
