@@ -417,7 +417,7 @@ is_arg: bool,
 impl AstNode {
     pub fn get_type(
         &self,
-        function_table: &HashMap<String, Function>,
+        function_table: &HashMap<String, FunctionTable>,
         types: &HashMap<String, Type>,
     ) -> Option<Type> {
         match self {
@@ -457,10 +457,11 @@ impl AstNode {
             }
             Self::FunctionCall {
                 function_name,
-                args: _,
+                args,
                 data:_,
             } => {
-                return Some(function_table.get(function_name)?.return_type.clone());
+                let fn_args = args.iter().map(|i| i.get_type(function_table, types))collect();
+                return Some(get_function_by_args(function_name, fn_args,function_table)?.return_type.clone());
             }
             Self::Assignment { left: _, right: _ ,data:_} => {
                 return Some(Type::VoidT);
@@ -998,4 +999,27 @@ pub fn name_mangle_function(var:&Function, _filename:&str)->String{
             return String::from("user_")+&name+&args;
         }
     }
+}
+
+pub fn get_function_by_args(name:&str, args:&[Type], functions:&HashMap<String, FunctionTable>)->Option<Function>{
+    let table = functions.get(name)?;
+    for i in &table.functions{
+        if args.len() != i.args.len(){
+            continue;
+        }
+        let mut matched = true;
+        for j in 0..args.len(){
+            if !is_equal_type(&args[j], &i.args[j]){
+                matched = false;
+                break; 
+            }
+        }
+        if !matched{
+            continue;
+        }
+        let mut out = i.clone();
+        out.name = name_mangle_function(&out, "")
+        return Some(out);
+    }
+    return None;
 }

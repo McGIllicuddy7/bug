@@ -86,7 +86,7 @@ pub fn compile_static(name:&String,vtype:&Type, _index:usize)->Result<String,Str
     out += ";\n";
     return Ok(out);
 }
-pub fn compile_expression(tmp_counter:&mut usize,expr:&mut AstNode,expect_return:bool)->Result<String,String>{
+pub fn compile_expression(tmp_counter:&mut usize,expr:&mut AstNode,expect_return:bool, stack:&mut String,functions:&HashMap<String, FunctionTable>,types:&HashMap<String,Type>)->Result<String,String>{
     match expr{
         AstNode::VoidLiteral=>{
             return Err("found void literal".to_owned());
@@ -110,7 +110,7 @@ pub fn compile_expression(tmp_counter:&mut usize,expr:&mut AstNode,expect_return
         AstNode::StructLiteral { nodes }=>{
             let mut out = String::from("{");
             for i in nodes{
-                out += &compile_expression(tmp_counter, i, expect_return)?;
+                out += &compile_expression(tmp_counter, i, expect_return,stack,functions,types)?;
                 out += ",";
             }
             out += "}";
@@ -119,7 +119,7 @@ pub fn compile_expression(tmp_counter:&mut usize,expr:&mut AstNode,expect_return
         AstNode::ArrayLiteral { nodes }=>{
             let mut out = String::from("{");
             for i in nodes{
-                out += &compile_expression(tmp_counter, i, expect_return)?;
+                out += &compile_expression(tmp_counter, i, expect_return,stack,functions,types)?;
                 out += ",";
             }
             out += "}";
@@ -130,14 +130,21 @@ pub fn compile_expression(tmp_counter:&mut usize,expr:&mut AstNode,expect_return
         }
         AstNode::FunctionCall { function_name, args, data:_ }=>{
             let mut base = function_name.clone()+"(";
+            let bargs = args.clone();
             for i in args{
-                base += &compile_expression(tmp_counter, expr, true)?;
+                base += &compile_expression(tmp_counter,i, true,stack,functions,types)?;
             }
             base += ");";
+            let mut fn_args = vec![];
+            for i in bargs{
+                fn_args.push(i.get_type(functions, types).expect("should_have_type"));
+            }
+            let retv = get_function_by_args(function_name,fn_args.as_slice(),functions).expect("should find function");
             if expect_return{
-
+                base = format!("{} temp{} = {}", &name_mangle_type(&retv.return_type),*tmp_counter,&base );
+                return Ok(base);
             } else{
-
+               return Ok(base);
             }
         }
         _=>{
