@@ -3,6 +3,7 @@ use crate::types::Type;
 use std::fs;
 use std::io::Write;
 use std::os::unix::process::CommandExt;
+use std::collections::HashSet;
 pub fn compile_function_header(func:&Function, filename:&str)->Result<String,String>{
     let mut out= String::new();
     out += &name_mangle_type(&func.return_type);
@@ -47,7 +48,7 @@ pub fn compile_type(_name:String, data:Type)->Result<String, String>{
     let mut vars = String::new();
     match &data{
         Type::SliceT { ptr_type }=>{
-            vars = format!("    {} * start; {}* end;\n", name_mangle_type(&ptr_type), name_mangle_type(&ptr_type));
+            vars = format!("    {} * start; size_t end;\n", name_mangle_type(&ptr_type));
         }
         Type::StructT { name:_, components }=>{
             for i in components{
@@ -161,7 +162,7 @@ pub fn compile_expression(tmp_counter:&mut usize,expr:&mut AstNode,expect_return
             let left_s = compile_expression(tmp_counter, left, false, stack, functions, types,indent)?;
             let right_s = compile_expression(tmp_counter, right, true, stack, functions, types,indent)?;
             if left.get_type(functions, types).expect("should have type").is_array(){
-                return Ok(left_s+".start = "+&right_s+";\n")
+                return Ok(left_s+".start = "+&right_s+";")
             }
             return Ok(left_s+" = "+&right_s+";\n");
         }
@@ -272,7 +273,7 @@ pub fn compile_expression(tmp_counter:&mut usize,expr:&mut AstNode,expect_return
             pushv+=next;
             if let Some(assigned) = value_assigned{
                 let l = compile_expression(tmp_counter, assigned, true, stack, functions, types,indent)?;
-                pushv +=&l;
+                pushv +=&(calc_indent(indent)+&l);
             }
             pushv += "\n";
             *stack +=&pushv;
@@ -377,14 +378,83 @@ pub fn compile_function(func:&mut Function, filename:&str, functions:&HashMap<St
     return Ok(out);
 }
 pub fn handle_dependencies(map:&HashMap<String,Type>)->Vec<(String,Type)>{
-    todo!();
+    fn contains_undeclared_type(t:&Type, map: &HashSet<String>, recursed:bool)->bool{
+        match t{
+            Type::ArrayT { size:_, array_type }=>{
+                if contains_undeclared_type(&array_type, map,true){
+                    return true;
+                }
+                false
+            }
+            Type::PointerT { ptr_type }=>{
+                if contains_undeclared_type(&ptr_type, map,true){
+                    return true;
+                }
+                false
+            }
+            Type::SliceT { ptr_type }=>{
+                if contains_undeclared_type(&ptr_type, map,true){
+                    return true;
+                }
+                false
+            }
+            Type::StructT { name, components }=>{
+                if recursed{
+                    if !map.contains(name){
+                        return true;
+                    }
+                }
+                for i in components{
+                    if contains_undeclared_type(&i.1, map,true){
+                        return true;
+                    }
+                }
+                false
+            }
+            _=>{
+                false
+            }
+        }
+    }
+    let mut declared_types: HashSet<String> = HashSet::new();
+    let mut que:Vec<(&String,&Type)> = vec![];
+    let mut out = vec![];
+    for i in map{
+        let t = i.1;
+        if contains_undeclared_type(t, &declared_types,false){
+            que.push(i);
+        } else{
+            declared_types.insert(i.0.clone());
+            out.push((i.0.clone(), i.1.clone()));
+        }
+        let mut pushed = false;
+        loop{
+            for k in 0..que.len(){
+                let j = &que[k];
+                if !contains_undeclared_type((*j).1, &declared_types,false){
+                    declared_types.insert(j.0.clone());
+                    out.push((j.0.clone(), j.1.clone()));
+                    pushed = true;
+                }
+                println!("{}", *j.0);
+                que.remove(k);
+                break;
+            }
+            if !pushed{
+                break;
+            }
+            pushed = false;
+        }
+    }
+    return out;
 }
 pub fn compile(prog:Program, base_filename:&str)->Result<(),String>{
     let filename = &base_filename[0..base_filename.len()-5];
     let mut out = String::new();
     let mut typedecs = "".to_owned();
-    typedecs += "typedef struct {char * start; char * end;}String;\n";
-    for i in &prog.types{
+    typedecs += "typedef struct {char * start; size_t length;}String;\n";
+    let progtypes = handle_dependencies(&prog.types);
+    for i in &progtypes{
         typedecs += &compile_type(i.0.clone(), i.1.clone())?;
     };
     let mut func_decs = String::new();
