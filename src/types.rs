@@ -460,8 +460,8 @@ impl AstNode {
                 args,
                 data:_,
             } => {
-                let fn_args = args.iter().map(|i| i.get_type(function_table, types))collect();
-                return Some(get_function_by_args(function_name, fn_args,function_table)?.return_type.clone());
+                let fn_args:Vec<Type> = args.iter().map(|i| i.get_type(function_table, types).expect("should have type")).collect();
+                return Some(get_function_by_args(function_name, &fn_args,function_table)?.return_type.clone());
             }
             Self::Assignment { left: _, right: _ ,data:_} => {
                 return Some(Type::VoidT);
@@ -601,8 +601,9 @@ impl AstNode {
             Self::ArrayAccess { variable, index:_ }=>{
                 return  Some(variable.get_type(function_table, types)?.get_array_type()?);
             }
-            Self::BoundFunctionCall { variable:_, function_name, args:_ }=>{
-                return Some(function_table.get(function_name)?.return_type.clone());
+            Self::BoundFunctionCall { variable:_, function_name, args}=>{
+                let fn_args:Vec<Type> = args.iter().map(|i| i.get_type(function_table, types).expect("should have type")).collect();
+                return Some(get_function_by_args(function_name, &fn_args,function_table)?.return_type.clone());
             }
         }
     }
@@ -1018,7 +1019,7 @@ pub fn get_function_by_args(name:&str, args:&[Type], functions:&HashMap<String, 
             continue;
         }
         let mut out = i.clone();
-        out.name = name_mangle_function(&out, "")
+        out.name = name_mangle_function(&out, "");
         return Some(out);
     }
     return None;
