@@ -150,7 +150,7 @@ pub fn compile_expression(tmp_counter:&mut usize,expr:&mut AstNode,expect_return
             }
             base += ")";
             if expect_return{
-                *stack+= &format!("{} tmp{} = {};\n", &name_mangle_type(&retv.return_type),*tmp_counter,&base );
+                *stack+= &(calc_indent(indent)+&format!("{} tmp{} = {};\n", &name_mangle_type(&retv.return_type),*tmp_counter,&base ));
                 let fmt = calc_indent(indent)+&format!("tmp{}",*tmp_counter);
                 *tmp_counter+=1;
                 return Ok(fmt);
@@ -159,8 +159,8 @@ pub fn compile_expression(tmp_counter:&mut usize,expr:&mut AstNode,expect_return
             }
         }
         AstNode::Assignment { left, right, data:_ }=>{
-            let left_s = compile_expression(tmp_counter, left, false, stack, functions, types,indent)?;
-            let right_s = compile_expression(tmp_counter, right, true, stack, functions, types,indent)?;
+            let left_s = compile_expression(tmp_counter, left, false, stack, functions, types,1)?;
+            let right_s = compile_expression(tmp_counter, right, true, stack, functions, types,1)?;
             if left.get_type(functions, types).expect("should have type").is_array(){
                 let s = right.get_type(functions, types).expect("right should have type");
                 match s{
@@ -168,7 +168,7 @@ pub fn compile_expression(tmp_counter:&mut usize,expr:&mut AstNode,expect_return
                         return Ok(left_s+ "=" +&right_s+";")
                     }
                     Type::ArrayT { size, array_type:_ }=>{
-                        return Ok(left_s.clone()+ ".start=" +&right_s+";\n"+&left_s+&format!(".len = {};\n", size));
+                        return Ok(left_s.clone()+ ".start=" +&right_s+";\n"+&calc_indent(indent)+&left_s+&format!(".len = {};\n", size));
                     }
                     _=>{
                         unreachable!()
@@ -176,7 +176,22 @@ pub fn compile_expression(tmp_counter:&mut usize,expr:&mut AstNode,expect_return
                 }  
 
             }
-            return Ok(left_s+" = "+&right_s+";\n");
+            match left.get_type(functions, types).expect("should have type"){
+                Type::StringT=>{
+                    match right.as_ref(){
+                        AstNode::StringLiteral { value}=>{
+                            return Ok(left_s.clone()+ ".start=" +&right_s+";\n"+&calc_indent(indent)+&left_s+&format!(".len = {};\n", value.len()));
+                        }
+                        _=>{
+
+                        }
+                    }
+                }
+                _=>{
+
+                }
+            }
+            return Ok(calc_indent(indent)+&left_s+" = "+&right_s+";\n");
         }
         AstNode::Add { left, right, data:_ }=>{
             let left_s = compile_expression(tmp_counter, left, true, stack, functions, types,indent)?;
@@ -335,9 +350,9 @@ pub fn compile_expression(tmp_counter:&mut usize,expr:&mut AstNode,expect_return
             return Ok("".to_owned());
         }
         AstNode::ForLoop{ variable,condition, body ,post_op}=>{
-            *stack += "{";
+            *stack += "{\n";
             let var = compile_expression(tmp_counter, variable, expect_return, stack, functions, types,indent)?;
-            let cond = "while".to_owned()+&compile_expression(tmp_counter,  condition, true, stack, functions, types,indent)?+"{\n";
+            let cond= calc_indent(indent)+ "while"+&compile_expression(tmp_counter,  condition, true, stack, functions, types,indent)?+"{\n";
             let mut to_do = String::new();
             *stack += &var;
             *stack += &cond;
@@ -345,7 +360,7 @@ pub fn compile_expression(tmp_counter:&mut usize,expr:&mut AstNode,expect_return
                 let base = &compile_expression(tmp_counter,i,false, stack, functions,types,indent+1)?;
                 to_do+= base;
             }
-            let post_op = compile_expression(tmp_counter, post_op, expect_return, stack, functions, types,indent)?;
+            let post_op = calc_indent(indent)+&compile_expression(tmp_counter, post_op, expect_return, stack, functions, types,indent)?;
             to_do += &post_op;
             to_do += "}\n}\n";
             *stack += &to_do;
