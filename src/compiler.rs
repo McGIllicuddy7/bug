@@ -513,6 +513,6 @@ pub fn compile(prog:Program, base_filename:&str)->Result<(),String>{
     out += "int main(int argc,const char ** argv){\n    long result = user_main();\n    printf(\"exited with %ld\\n\",result);\n}";
     fout.write(out.as_bytes()).expect("tesing expect");
     drop(fout);
-    std::process::Command::new("gcc").arg("main.c").arg("-std=c2x").exec();
+    std::process::Command::new("gcc").arg(file_name).arg("-std=c2x").arg("-c").exec();
     return Ok(());
 }

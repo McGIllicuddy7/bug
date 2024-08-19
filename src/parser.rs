@@ -1,6 +1,9 @@
 
 
-use std::hash::Hash;
+
+
+
+
 
 pub use crate::types::*;
 
@@ -1260,7 +1263,7 @@ pub fn parse_function_stub(
         is_pub
     ));
 }
-pub fn program_to_ast(program: &str) -> Option<Program> {
+pub fn get_public_members(program:&str)->Option<Program>{
     let tokens = tokenize(program);
     //println!("{:#?}", tokens);
     let globals_result = extract_globals(&tokens);
@@ -1279,6 +1282,28 @@ pub fn program_to_ast(program: &str) -> Option<Program> {
     types.insert(String::from("void"), Type::VoidT);
     let mut scope: HashMap<String, (Type, usize)> = HashMap::new();
     let mut functions: HashMap<String, FunctionTable> = HashMap::new();
+    let mut pub_functions:HashMap<String, FunctionTable> = HashMap::new();
+    for i in &globals{
+        match i{
+            GlobalTypes::IncludeDirective { text }=>{
+                let pubs = parse_include_directive(*text)?;
+                for i in pubs.0{
+                    types.insert(i.0, i.1);
+                }
+                for i in pubs.1{
+                    if !functions.contains_key(&i.0){
+                        functions.insert(i.0.clone(), FunctionTable::new());
+                    } 
+                    for j in i.1.functions{
+                        functions.get_mut(&i.0)?.push(j);
+                    }
+                }
+            } 
+            _=>{
+
+            }
+        }
+    }
     for i in &globals {
         match i {
             GlobalTypes::StructDef { text } => {
@@ -1287,7 +1312,123 @@ pub fn program_to_ast(program: &str) -> Option<Program> {
                     println!("error {} redeclared", tmp.0);
                     return None;
                 }
-                types.insert(tmp.0, tmp.1.clone());
+                types.insert(tmp.0.clone(), tmp.1.clone());
+                if tmp.2{
+                    pub_types.insert(tmp.0.clone(), tmp.1.clone());
+                }
+            }
+            _=>{}
+        }
+    }
+    for i in &pub_types{
+        
+    }
+    let mut global_count = 0;
+    let mut global_initializers:Vec<(String,Option<AstNode>)> = vec![];
+    for i in &globals {
+        match i {
+            GlobalTypes::GlobalDef { text } => {
+                let tmp = parse_global(*text, &mut types)?;
+                if scope.contains_key(&tmp.0) {
+                    println!("error {} redeclared", tmp.0);
+                    return None;
+                }
+                global_initializers.push((tmp.0.clone(), Some(tmp.2.clone())));
+                scope.insert(tmp.0, (tmp.1, global_count));
+                global_count += 1;
+            }
+            _=>{
+
+            }
+        }
+    }
+    for i in &globals {
+        match i {
+            GlobalTypes::FunctionDef { text } => {
+                let tmp = parse_function_stub(*text, &mut types, &scope, &functions)?;
+                if !functions.contains_key(&tmp.0){
+                    let table = FunctionTable::new();
+                    functions.insert(tmp.0.clone(), table);
+                }
+                functions.get_mut(&tmp.0)?.push(tmp.1.clone());
+                if tmp.2{
+                        if !pub_functions.contains_key(&tmp.0){
+                            let table = FunctionTable::new();
+                            pub_functions.insert(tmp.0.clone(), table);
+                        }
+                        pub_functions.get_mut(&tmp.0)?.push(tmp.1.clone());
+                }
+            }
+        _=>{
+
+        }
+    }
+}
+    return Some(Program {
+        types:pub_types,
+        functions:pub_functions,
+        static_variables: scope,
+        global_initializers,
+    });
+}
+pub fn parse_include_directive<'a>(span:&[Token<'a>])->Option<(HashMap<String,Type>,HashMap<String,FunctionTable>,String)>{
+    let tprg = std::fs::read_to_string(span[1].string).expect("testing expect");
+    let base_out = get_public_members(&tprg)?;
+    return Some((base_out.types, base_out.functions, span[1].string.to_owned()));
+}
+pub fn program_to_ast(program: &str,compile_queue:&mut Vec<String>) -> Option<Program> {
+    let tokens = tokenize(program);
+    //println!("{:#?}", tokens);
+    let globals_result = extract_globals(&tokens);
+    if globals_result.is_err() {
+        let s = globals_result.expect_err("is error shouldn't break");
+        println!("{}", s);
+        return None;
+    }
+    let globals = globals_result.expect("is ok by previous call");
+    let mut types: HashMap<String, Type> = HashMap::new();
+    let mut pub_types:HashMap<String,Type> = HashMap::new();
+    types.insert(String::from("bool"), Type::BoolT);
+    types.insert(String::from("int"), Type::IntegerT);
+    types.insert(String::from("float"), Type::FloatT);
+    types.insert(String::from("string"), Type::StringT);
+    types.insert(String::from("void"), Type::VoidT);
+    let mut scope: HashMap<String, (Type, usize)> = HashMap::new();
+    let mut functions: HashMap<String, FunctionTable> = HashMap::new();
+    let mut pub_functions:HashMap<String, FunctionTable> = HashMap::new();
+    for i in &globals{
+        match i{
+            GlobalTypes::IncludeDirective { text }=>{
+                let pubs = parse_include_directive(*text)?;
+                for i in pubs.0{
+                    types.insert(i.0, i.1);
+                }
+                for i in pubs.1{
+                    if !functions.contains_key(&i.0){
+                        functions.insert(i.0.clone(), FunctionTable::new());
+                    } 
+                    for j in i.1.functions{
+                        functions.get_mut(&i.0)?.push(j);
+                    }
+                }
+            } 
+            _=>{
+
+            }
+        }
+    }
+    for i in &globals {
+        match i {
+            GlobalTypes::StructDef { text } => {
+                let tmp = parse_type(*text, &mut types)?;
+                if types.contains_key(&tmp.0) {
+                    println!("error {} redeclared", tmp.0);
+                    return None;
+                }
+                types.insert(tmp.0.clone(), tmp.1.clone());
+                if tmp.2{
+                    pub_types.insert(tmp.0.clone(), tmp.1.clone());
+                }
             }
             _=>{}
         }
@@ -1319,7 +1460,14 @@ pub fn program_to_ast(program: &str) -> Option<Program> {
                     let table = FunctionTable::new();
                     functions.insert(tmp.0.clone(), table);
                 }
-                functions.get_mut(&tmp.0)?.push(tmp.1);
+                functions.get_mut(&tmp.0)?.push(tmp.1.clone());
+                if tmp.2{
+                        if !pub_functions.contains_key(&tmp.0){
+                            let table = FunctionTable::new();
+                            pub_functions.insert(tmp.0.clone(), table);
+                        }
+                        pub_functions.get_mut(&tmp.0)?.push(tmp.1.clone());
+                }
             }
         _=>{
 
