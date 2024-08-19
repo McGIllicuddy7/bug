@@ -504,7 +504,8 @@ pub fn compile(prog:Program, base_filename:&str)->Result<(),String>{
             functions+= &compile_function(&mut f,filename, &prog.functions, &prog.types)?;
         }
     }
-    let mut fout = fs::File::create("main.c").expect("testing expect");
+    let out_file_name = filename.to_owned()+".c";
+    let mut fout = fs::File::create(&out_file_name).expect("testing expect");
     out += "#include <stdio.h>\n";
     out += &typedecs;
     out += &func_decs;
@@ -513,6 +514,6 @@ pub fn compile(prog:Program, base_filename:&str)->Result<(),String>{
     out += "int main(int argc,const char ** argv){\n    long result = user_main();\n    printf(\"exited with %ld\\n\",result);\n}";
     fout.write(out.as_bytes()).expect("tesing expect");
     drop(fout);
-    std::process::Command::new("gcc").arg(file_name).arg("-std=c2x").arg("-c").exec();
+    std::process::Command::new("gcc").arg(&out_file_name).arg("-std=c2x").arg("-c").exec();
     return Ok(());
 }

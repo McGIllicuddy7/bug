@@ -1,5 +1,5 @@
 pub struct test {a:int b:int c:int};
-
+import toast.risp;
 let test0:test = {0,0,0};
 pub fn i_love_toast(a:int)->int{
    return 8+23*a;

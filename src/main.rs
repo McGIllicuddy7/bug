@@ -10,15 +10,22 @@ fn main() {
     let mut comp_que = vec!["test.risp".to_owned()];
     let mut i =0; 
     while i<comp_que.len(){
-        let tprg = std::io::read_to_string(&comp_que[i]);
+        let tprg = std::fs::read_to_string(&comp_que[i]).expect("testing expect"); 
         let prg = program_to_ast(&tprg,&mut comp_que).expect("testing expect");
         println!("{:#?}", prg);
-        let _ = compile(prg,comp_que[i]).expect("testing expect");
+        let _ = compile(prg,&comp_que[i]).expect("testing expect");
     }
     let mut cmd =   std::process::Command::new("ld");
-
-    for i in comp_que{
-        let name = i[0..i.len()-5]+".o";
+    for i in &comp_que{
+        let name = i[0..i.len()-5].to_owned()+".o";
+        println!("{name}");
+        cmd.arg(name);
+    }
+    cmd.exec();
+    let mut cmd = std::process::Command::new("rm");
+    for i in &comp_que{
+        let name = i[0..i.len()-5].to_owned()+".o";
+        println!("{name}");
         cmd.arg(name);
     }
     cmd.exec();
