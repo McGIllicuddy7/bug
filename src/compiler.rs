@@ -335,20 +335,19 @@ pub fn compile_expression(tmp_counter:&mut usize,expr:&mut AstNode,expect_return
             return Ok("".to_owned());
         }
         AstNode::ForLoop{ variable,condition, body ,post_op}=>{
+            *stack += "{";
             let var = compile_expression(tmp_counter, variable, expect_return, stack, functions, types,indent)?;
-            let cond = "while".to_owned()+&compile_expression(tmp_counter,  condition, true, stack, functions, types,indent)?;
-            let mut to_do = String::from("{\n");
+            let cond = "while".to_owned()+&compile_expression(tmp_counter,  condition, true, stack, functions, types,indent)?+"{\n";
+            let mut to_do = String::new();
+            *stack += &var;
+            *stack += &cond;
             for i in body{
-                let mut stack = String::new();
-                let base = &compile_expression(tmp_counter,i,false,&mut stack, functions,types,indent+1)?;
-                to_do += &stack;
+                let base = &compile_expression(tmp_counter,i,false, stack, functions,types,indent+1)?;
                 to_do+= base;
             }
             let post_op = compile_expression(tmp_counter, post_op, expect_return, stack, functions, types,indent)?;
             to_do += &post_op;
-            to_do += "}\n";
-            *stack += &var;
-            *stack += &cond;
+            to_do += "}\n}\n";
             *stack += &to_do;
             return Ok("".to_owned());
         }

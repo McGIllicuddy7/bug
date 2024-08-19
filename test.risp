@@ -6,12 +6,10 @@ fn i_love_toast(a:int)->int{
 }
 fn main()->int{
    let b:[]int = {0,0,0,0,0,0,0,0};
-   let i:int = 0;
-   while(i<b.len){
+   for(let i:int =0; i<b.len; i= i+1){
       b[i] = i_love_toast(i);
-      i = i+1;
    }
-   i =0;
+   let i:int = 0;
    let count:int = 0;
    while(i<b.len){
       count = count+b[i];
