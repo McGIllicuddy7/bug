@@ -1,5 +1,7 @@
 
 
+use std::hash::Hash;
+
 pub use crate::types::*;
 
 #[derive(Debug, Clone, Copy)]
@@ -7,6 +9,7 @@ pub enum GlobalTypes<'a> {
     StructDef { text: &'a [Token<'a>] },
     FunctionDef { text: &'a [Token<'a>] },
     GlobalDef { text: &'a [Token<'a>] },
+    IncludeDirective{text:&'a [Token<'a>]}
 }
 
 pub fn calc_close_paren(tokens: &[Token<'_>], base_idx: usize) -> Option<usize> {
@@ -426,19 +429,22 @@ pub fn extract_global<'a>(tokens: &'a [Token], idx: &mut usize) -> Option<Global
         }
     }
     let span = &tokens[start..*idx];
-    //println!{"span:{:#?}",span};
-    if span[0] == "struct" {
+    if span[0] == "struct" ||span[1] == "struct"{
         let out = GlobalTypes::StructDef { text: span };
         *idx = *idx + 1;
         return Some(out);
     }
-    if span[0] == "let" {
+    if span[0] == "let"{
         let out = GlobalTypes::GlobalDef { text: span };
         *idx += 1;
         return Some(out);
     }
-    if span[0] == "fn" {
+    if span[0] == "fn" ||span[1] == "fn"{
         let out = GlobalTypes::FunctionDef { text: span };
+        return Some(out);
+    }
+    if span[0] == "import"{
+        let out = GlobalTypes::IncludeDirective { text: span };
         return Some(out);
     }
     println!("returned none 2 span :{:#?}", span);
@@ -447,7 +453,6 @@ pub fn extract_global<'a>(tokens: &'a [Token], idx: &mut usize) -> Option<Global
 }
 
 pub fn extract_globals<'a>(tokens: &'a [Token<'a>]) -> Result<Vec<GlobalTypes<'a>>, String> {
-    //println!("tokens:{:#?}", tokens);
     let mut out = vec![];
     let mut idx = 0;
     while let Some(p) = extract_global(&tokens, &mut idx) {
@@ -507,10 +512,16 @@ fn parse_declared_type(
     return None;
 }
 
-pub fn parse_type(text: &[Token], types: &mut HashMap<String, Type>) -> Option<(String, Type)> {
-    if text.len() < 3 {
+pub fn parse_type(base_text: &[Token], types: &mut HashMap<String, Type>) -> Option<(String, Type,bool)> {
+    if base_text.len() < 3 {
         println!("error requires at least three tokens to declare struct");
     }
+    let is_pub = *base_text.get(0)? == "pub";   
+    let text = if is_pub{
+        &base_text[1..]
+    } else{
+        &base_text[0..]
+    };
     if *text.get(0)? != "struct" {
         println!("expected struct declaration line{}", text.get(1)?.line);
     }
@@ -544,6 +555,7 @@ pub fn parse_type(text: &[Token], types: &mut HashMap<String, Type>) -> Option<(
             name,
             components: out_types.clone(),
         },
+        is_pub
     ));
 }
 
@@ -1081,18 +1093,6 @@ pub fn parse_scope(
     }
     *cursor += 1;
     while *cursor < end {
-        /*
-        let mut should_break = true;
-        for a in & text[*cursor..end]{
-            if a.string != ";" && a.string != "}"{
-                should_break = false
-            }
-        }
-        if should_break{
-            *cursor = end;
-            break;
-        }
-        */
         let mut expr_end = calc_expr_end(text, end, *cursor).expect("expression must end");
         if *cursor == start {
             expr_end += 1;
@@ -1155,12 +1155,17 @@ pub fn parse_global(
 }
 
 pub fn parse_function(
-    text: &[Token],
+    base_text: &[Token],
     types: &mut HashMap<String, Type>,
     globals: &HashMap<String, (Type, usize)>,
     function_table: &HashMap<String, FunctionTable>,
 ) -> Option<(String, Function)> {
-    // println!("function text:{:#?}", text);
+    let is_pub = base_text[0] == "pub";
+    let text = if is_pub{
+        &base_text[1..]
+    } else{
+        &base_text[0..]
+    };
     let mut args = vec![];
     let mut arg_names = vec![];
     let mut cursor = 1_usize;
@@ -1205,12 +1210,18 @@ pub fn parse_function(
 }
 
 pub fn parse_function_stub(
-    text: &[Token],
+    base_text: &[Token],
     types: &mut HashMap<String, Type>,
     _globals: &HashMap<String, (Type, usize)>,
     _function_table: &HashMap<String, FunctionTable>,
-) -> Option<(String, Function)> {
+) -> Option<(String, Function,bool)> {
     // println!("function text:{:#?}", text);
+    let is_pub = base_text[0] == "pub";
+    let text = if is_pub{
+        &base_text[1..]
+    } else{
+        base_text
+    };
     let mut args = vec![];
     let mut arg_names = vec![];
     let mut cursor = 1_usize;
@@ -1246,6 +1257,7 @@ pub fn parse_function_stub(
             program: vec![],
             forward_declared:true,
         },
+        is_pub
     ));
 }
 pub fn program_to_ast(program: &str) -> Option<Program> {
@@ -1258,8 +1270,8 @@ pub fn program_to_ast(program: &str) -> Option<Program> {
         return None;
     }
     let globals = globals_result.expect("is ok by previous call");
-    //println!("globals:{:#?}",globals);
     let mut types: HashMap<String, Type> = HashMap::new();
+    let mut pub_types:HashMap<String,Type> = HashMap::new();
     types.insert(String::from("bool"), Type::BoolT);
     types.insert(String::from("int"), Type::IntegerT);
     types.insert(String::from("float"), Type::FloatT);
@@ -1277,15 +1289,13 @@ pub fn program_to_ast(program: &str) -> Option<Program> {
                 }
                 types.insert(tmp.0, tmp.1.clone());
             }
-            GlobalTypes::FunctionDef { text: _ } => {}
-            GlobalTypes::GlobalDef { text: _ } => {}
+            _=>{}
         }
     }
     let mut global_count = 0;
     let mut global_initializers:Vec<(String,Option<AstNode>)> = vec![];
     for i in &globals {
         match i {
-            GlobalTypes::StructDef { text: _ } => {}
             GlobalTypes::GlobalDef { text } => {
                 let tmp = parse_global(*text, &mut types)?;
                 if scope.contains_key(&tmp.0) {
@@ -1296,12 +1306,13 @@ pub fn program_to_ast(program: &str) -> Option<Program> {
                 scope.insert(tmp.0, (tmp.1, global_count));
                 global_count += 1;
             }
-            GlobalTypes::FunctionDef { text: _ } => {}
+            _=>{
+
+            }
         }
     }
     for i in &globals {
         match i {
-            GlobalTypes::StructDef { text: _ } => {}
             GlobalTypes::FunctionDef { text } => {
                 let tmp = parse_function_stub(*text, &mut types, &scope, &functions)?;
                 if !functions.contains_key(&tmp.0){
@@ -1310,12 +1321,13 @@ pub fn program_to_ast(program: &str) -> Option<Program> {
                 }
                 functions.get_mut(&tmp.0)?.push(tmp.1);
             }
-            GlobalTypes::GlobalDef { text: _ } => {}
+        _=>{
+
         }
+    }
     }
     for i in &globals {
         match i {
-            GlobalTypes::StructDef { text: _ } => {}
             GlobalTypes::FunctionDef { text } => {
                 let tmp = parse_function(*text, &mut types, &scope, &functions)?;
                 for i in &mut functions.get_mut(&tmp.0)?.functions{
@@ -1325,7 +1337,7 @@ pub fn program_to_ast(program: &str) -> Option<Program> {
                     }
                 }
             }
-            GlobalTypes::GlobalDef { text: _ } => {}
+            _=>{}
         }
     }
     return Some(Program {

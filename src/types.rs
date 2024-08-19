@@ -982,6 +982,9 @@ pub fn name_mangle_type(var:&Type)->String{
 pub fn name_mangle_function(var:&Function, _filename:&str)->String{
     let mut args = String::new();
     let name = var.name.to_owned();
+    if name == "main"{
+        return String::from("user_main");
+    }
     for i in &var.args{
         args+= "_";
         args += &name_mangle_type(i);
