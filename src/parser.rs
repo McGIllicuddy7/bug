@@ -1,11 +1,3 @@
-
-
-
-
-
-
-
-use crate::compile;
 pub use crate::types::*;
 
 #[derive(Debug, Clone, Copy)]
@@ -1257,7 +1249,7 @@ pub fn parse_function_stub(
         is_pub
     ));
 }
-pub fn get_public_members(program:&str)->Option<Program>{
+pub fn get_public_members(program:&str,to_compile:&mut Vec<String>)->Option<Program>{
     let tokens = tokenize(program);
     //println!("{:#?}", tokens);
     let globals_result = extract_globals(&tokens);
@@ -1280,7 +1272,7 @@ pub fn get_public_members(program:&str)->Option<Program>{
     for i in &globals{
         match i{
             GlobalTypes::IncludeDirective { text }=>{
-                let pubs = parse_include_directive(*text)?;
+                let pubs = parse_include_directive(*text,to_compile)?;
                 for i in pubs.0{
                     types.insert(i.0, i.1);
                 }
@@ -1292,6 +1284,7 @@ pub fn get_public_members(program:&str)->Option<Program>{
                         functions.get_mut(&i.0)?.push(j);
                     }
                 }
+                to_compile.push(pubs.2);
             } 
             _=>{
 
@@ -1313,9 +1306,6 @@ pub fn get_public_members(program:&str)->Option<Program>{
             }
             _=>{}
         }
-    }
-    for i in &pub_types{
-        
     }
     let mut global_count = 0;
     let mut global_initializers:Vec<(String,Option<AstNode>)> = vec![];
@@ -1365,10 +1355,10 @@ pub fn get_public_members(program:&str)->Option<Program>{
         global_initializers,
     });
 }
-pub fn parse_include_directive<'a>(span:&[Token<'a>])->Option<(HashMap<String,Type>,HashMap<String,FunctionTable>,String)>{
+pub fn parse_include_directive<'a>(span:&[Token<'a>],to_compile:&mut Vec<String>)->Option<(HashMap<String,Type>,HashMap<String,FunctionTable>,String)>{
     let file = span[1].string.to_owned()+".risp";
     let tprg = std::fs::read_to_string(&file).expect("testing expect");
-    let base_out = get_public_members(&tprg)?;
+    let base_out = get_public_members(&tprg,to_compile)?;
     return Some((base_out.types, base_out.functions, span[1].string.to_owned()));
 }
 pub fn program_to_ast(program: &str,compile_queue:&mut Vec<String>) -> Option<Program> {
@@ -1394,7 +1384,7 @@ pub fn program_to_ast(program: &str,compile_queue:&mut Vec<String>) -> Option<Pr
     for i in &globals{
         match i{
             GlobalTypes::IncludeDirective { text }=>{
-                let pubs = parse_include_directive(*text)?;
+                let pubs = parse_include_directive(*text,compile_queue)?;
                 for i in pubs.0{
                     types.insert(i.0, i.1);
                 }

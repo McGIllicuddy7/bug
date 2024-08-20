@@ -2,7 +2,6 @@ use crate::parser::*;
 use crate::types::Type;
 use std::fs;
 use std::io::Write;
-use std::os::unix::process::CommandExt;
 use std::collections::HashSet;
 pub fn compile_function_header(func:&Function, filename:&str)->Result<String,String>{
     let mut out= String::new();
@@ -374,6 +373,10 @@ pub fn compile_expression(tmp_counter:&mut usize,expr:&mut AstNode,expect_return
         AstNode::FieldUsage { base, field_name }=>{
             let left = compile_expression(tmp_counter, base, false, stack, functions, types, indent)?;
             return Ok(left+"."+&field_name);
+        }
+        AstNode::Deref { thing_to_deref }=>{
+            let right = compile_expression(tmp_counter, thing_to_deref.as_mut(),false, stack, functions, types, indent)?;
+            return Ok("&".to_owned()+&right);
         }
         _=>{
             unreachable!();

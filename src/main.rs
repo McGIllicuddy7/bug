@@ -4,7 +4,6 @@ mod types;
 mod compiler;
 use crate::parser::*;
 use crate::compiler::*;
-use std::os::unix::process::CommandExt;
 fn main() {
     std::env::set_var("RUST_BACKTRACE", "1");
     let mut comp_que = vec!["test.risp".to_owned()];
@@ -14,7 +13,6 @@ fn main() {
         let tprg = std::fs::read_to_string(&comp_que[i]).expect("testing expect"); 
         let prg = program_to_ast(&tprg,&mut comp_que).expect("testing expect");
         let _ = compile(prg,&comp_que[i]).expect("testing expect");
-        println!("i:{} compile_que:{:#?}",comp_que.len(), comp_que);
         i += 1;
         if i>=comp_que.len(){
             break;
