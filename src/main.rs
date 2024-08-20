@@ -9,24 +9,29 @@ fn main() {
     std::env::set_var("RUST_BACKTRACE", "1");
     let mut comp_que = vec!["test.risp".to_owned()];
     let mut i =0; 
-    while i<comp_que.len(){
+    loop{
+        println!("{}",comp_que[i]);
         let tprg = std::fs::read_to_string(&comp_que[i]).expect("testing expect"); 
         let prg = program_to_ast(&tprg,&mut comp_que).expect("testing expect");
-        println!("{:#?}", prg);
         let _ = compile(prg,&comp_que[i]).expect("testing expect");
+        println!("i:{} compile_que:{:#?}",comp_que.len(), comp_que);
+        i += 1;
+        if i>=comp_que.len(){
+            break;
+        }
     }
-    let mut cmd =   std::process::Command::new("ld");
+    let mut cmd =   std::process::Command::new("gcc");
     for i in &comp_que{
         let name = i[0..i.len()-5].to_owned()+".o";
         println!("{name}");
         cmd.arg(name);
     }
-    cmd.exec();
+    println!("{:#?}",cmd.output());
     let mut cmd = std::process::Command::new("rm");
     for i in &comp_que{
         let name = i[0..i.len()-5].to_owned()+".o";
         println!("{name}");
         cmd.arg(name);
     }
-    cmd.exec();
+    let _= cmd.output();
 }

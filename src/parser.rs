@@ -5,6 +5,7 @@
 
 
 
+use crate::compile;
 pub use crate::types::*;
 
 #[derive(Debug, Clone, Copy)]
@@ -19,7 +20,7 @@ pub fn calc_close_paren(tokens: &[Token<'_>], base_idx: usize) -> Option<usize> 
     let mut idx = base_idx + 1;
     let mut paren_count = 1;
     if tokens[base_idx] != "(" {
-        println!("base wasn't a paren");
+        println!("base wasn't a paren, instead found {} line {}",tokens[base_idx].string, tokens[base_idx].line);
         return None;
     }
     while idx < tokens.len() {
@@ -393,7 +394,6 @@ pub fn tokenize<'a>(program: &'a str) -> Vec<Token<'a>> {
     out = collect_tokens(&out);
     out = handle_numbers(&out);
     out = compress_quotes(&out).expect("quoutes should work\n");
-    println!("{:#?}", out);
     return out;
 }
 
@@ -402,7 +402,7 @@ pub fn extract_global<'a>(tokens: &'a [Token], idx: &mut usize) -> Option<Global
     if start >= tokens.len() {
         return None;
     }
-    if tokens[start] != "let" {
+    if tokens[start] != "let" && tokens[start] != "import" {
         let mut parens_count = 0;
         let mut hit_paren = false;
         while parens_count > 0 || !hit_paren {
@@ -448,12 +448,14 @@ pub fn extract_global<'a>(tokens: &'a [Token], idx: &mut usize) -> Option<Global
     }
     if span[0] == "import"{
         let out = GlobalTypes::IncludeDirective { text: span };
+        *idx +=1;
         return Some(out);
     }
     println!("returned none 2 span :{:#?}", span);
     assert!(false);
     return None;
 }
+
 
 pub fn extract_globals<'a>(tokens: &'a [Token<'a>]) -> Result<Vec<GlobalTypes<'a>>, String> {
     let mut out = vec![];
@@ -1104,13 +1106,6 @@ pub fn parse_scope(
             *cursor += 1;
             continue;
         }
-        println!(
-            "expr span: {:#?}",
-            (&text[*cursor..expr_end]
-                .iter()
-                .map(|i| i.string)
-                .collect::<Vec<&str>>())
-        );
         out.push(
             parse_expression(text, cursor, expr_end, types, scope, function_table)
                 .expect("expression must be valid"),
@@ -1153,7 +1148,6 @@ pub fn parse_global(
         println!("failed to parse global variable assignment");
     }
     let n = node?;
-    println!("{:#?}", n);
     return Some((String::from(name), vtype, n));
 }
 
@@ -1372,7 +1366,8 @@ pub fn get_public_members(program:&str)->Option<Program>{
     });
 }
 pub fn parse_include_directive<'a>(span:&[Token<'a>])->Option<(HashMap<String,Type>,HashMap<String,FunctionTable>,String)>{
-    let tprg = std::fs::read_to_string(span[1].string).expect("testing expect");
+    let file = span[1].string.to_owned()+".risp";
+    let tprg = std::fs::read_to_string(&file).expect("testing expect");
     let base_out = get_public_members(&tprg)?;
     return Some((base_out.types, base_out.functions, span[1].string.to_owned()));
 }
@@ -1411,6 +1406,7 @@ pub fn program_to_ast(program: &str,compile_queue:&mut Vec<String>) -> Option<Pr
                         functions.get_mut(&i.0)?.push(j);
                     }
                 }
+                compile_queue.push(pubs.2+".risp");
             } 
             _=>{
 

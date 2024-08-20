@@ -1,10 +1,8 @@
 pub struct test {a:int b:int c:int};
 import toast.risp;
 let test0:test = {0,0,0};
-pub fn i_love_toast(a:int)->int{
-   return 8+23*a;
-}
-fn main()->int{
+
+pub fn main()->int{
    let b:[]int = {0,0,0,0,0,0,0,0};
    for(let i:int =0; i<b.len; i= i+1){
       b[i] = i_love_toast(i);

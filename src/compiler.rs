@@ -465,7 +465,6 @@ pub fn handle_dependencies(map:&HashMap<String,Type>)->Vec<(String,Type)>{
                     out.push((j.0.clone(), j.1.clone()));
                     pushed = true;
                 }
-                println!("{}", *j.0);
                 que.remove(k);
                 break;
             }
@@ -511,9 +510,11 @@ pub fn compile(prog:Program, base_filename:&str)->Result<(),String>{
     out += &func_decs;
     out += &statics;
     out += &functions;
+    if prog.functions.contains_key("main"){
     out += "int main(int argc,const char ** argv){\n    long result = user_main();\n    printf(\"exited with %ld\\n\",result);\n}";
+    }
     fout.write(out.as_bytes()).expect("tesing expect");
     drop(fout);
-    std::process::Command::new("gcc").arg(&out_file_name).arg("-std=c2x").arg("-c").exec();
+    let _=std::process::Command::new("gcc").arg(&out_file_name).arg("-std=c2x").arg("-c").output();
     return Ok(());
 }
