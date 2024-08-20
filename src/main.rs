@@ -25,11 +25,12 @@ fn main() {
         cmd.arg(name);
     }
     let _ = cmd.output().expect("input should be ok");
+    print!("\ncleaning up...");
     let mut cmd = std::process::Command::new("rm");
     for i in &comp_que{
         let name = i[0..i.len()-5].to_owned()+".o";
-        println!("{name}");
+        print!("{name} ");
         cmd.arg(name);
     }
-    let _= cmd.output();
+    let _= cmd.output().expect("command should work");
 }
