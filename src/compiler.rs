@@ -378,6 +378,10 @@ pub fn compile_expression(tmp_counter:&mut usize,expr:&mut AstNode,expect_return
             let right = compile_expression(tmp_counter, thing_to_deref.as_mut(),false, stack, functions, types, indent)?;
             return Ok("*".to_owned()+&right);
         }
+        AstNode::TakeRef { thing_to_ref }=>{
+            let right = compile_expression(tmp_counter, thing_to_ref.as_mut(),false, stack, functions, types, indent)?;
+            return Ok("&".to_owned()+&right);
+        }
         _=>{
             unreachable!();
         }

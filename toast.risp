@@ -1,4 +1,4 @@
-import test3.risp;
-pub fn i_love_toast(a:int)->int{
-   return 8+23*a;
+import i_love_toast.risp;
+pub fn test2(i:^int)->void{
+    ^i = i_love_toast(^i);
 }
