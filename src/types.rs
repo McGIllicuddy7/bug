@@ -613,8 +613,27 @@ impl AstNode {
                         ptr_type: Box::new(variable.get_type(function_table, types)?.get_array_type()?),
                     });
                 }
-                Self::FieldUsage { base, field_name:_ }=>{
-                    todo!();
+                Self::FieldUsage { base, field_name }=>{
+                    let vtype = base.get_type(function_table, types)?;
+                    match vtype{
+                        Type::ArrayT { size:_, array_type }=>{
+                            return Some(*array_type.to_owned());
+                        }
+                        Type::SliceT { ptr_type }=>{
+                            return Some(*ptr_type.to_owned());
+                        }
+                        Type::StructT { name:_, components }=>{
+                            for i in &components{
+                                if *i.0 == *field_name{
+                                    return Some( i.1.clone());
+                                }
+                            }
+                            return None;
+                        }
+                        _=>{
+                            return None;
+                        }
+                    }
                 }
                 _=>{
                     return None;
