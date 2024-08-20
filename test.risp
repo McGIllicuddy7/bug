@@ -1,18 +1,14 @@
 pub struct test {a:int b:int c:int};
 import toast.risp;
+import i_love_toast.risp;
 let test0:test = {0,0,0};
 
 pub fn main()->int{
    let b:[]int = {0,0,0,0,0,0,0,0};
    for(let i:int =0; i<b.len; i= i+1){
-      test2(&i);
+      test2(&b[i]);
    }
-   let i:int = 0;
-   let count:int = 0;
-   while(i<b.len){
-      count = count+b[i];
-      i = i+1;
-   }
+   let count:int = sum(b);
    return count;
 }
 

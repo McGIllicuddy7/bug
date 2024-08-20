@@ -1,4 +1,5 @@
 import i_love_toast.risp;
+let a:[]int = {0};
 pub fn test2(i:^int)->void{
     ^i = i_love_toast(^i);
 }

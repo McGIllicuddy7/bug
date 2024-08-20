@@ -1,3 +1,10 @@
 pub fn i_love_toast(a:int)->int{
    return 8+23*a;
 }
+pub fn sum(a:[]int)->int{
+   let out:int = 0;
+   for(let i:int = 0; i<a.len; i = i+1){
+      out = out + a[i];
+   }
+   return out;
+}

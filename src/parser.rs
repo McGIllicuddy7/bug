@@ -1,4 +1,5 @@
 pub use crate::types::*;
+use crate::validation::alide_parens;
 
 #[derive(Debug, Clone, Copy)]
 pub enum GlobalTypes<'a> {
@@ -485,7 +486,7 @@ fn parse_declared_type(
                 .map(|i| Type::SliceT {
                     ptr_type: Box::new(i),
                 });
-            types.insert(name_mangle_type(&out.clone()?), out.clone()?);
+            types.insert(name_mangle_type_for_names(&out.clone()?), out.clone()?);
             return out;
         } else if tokens.get(base + 2)?.string == "]" {
             *idx +=2;
@@ -493,7 +494,7 @@ fn parse_declared_type(
                 *idx += 1;
                 let base = parse_declared_type(tokens, idx, types)?;
                 let out= Type::SliceT { ptr_type: Box::new(base.clone()) };
-                types.insert(name_mangle_type(&out.clone()), out.clone());
+                types.insert(name_mangle_type_for_names(&out.clone()), out.clone());
                 return Some(Type::ArrayT { size: count, array_type: Box::new(base) });
             } else {
                 return None;
@@ -1098,9 +1099,11 @@ pub fn parse_scope(
             *cursor += 1;
             continue;
         }
+        let mut tmp = parse_expression(text, cursor, expr_end, types, scope, function_table)
+        .expect("expression must be valid");
+        alide_parens(&mut tmp);
         out.push(
-            parse_expression(text, cursor, expr_end, types, scope, function_table)
-                .expect("expression must be valid"),
+            tmp
         );
     }
     *cursor = end + 1;
@@ -1139,7 +1142,8 @@ pub fn parse_global(
     if node.is_none() {
         println!("failed to parse global variable assignment");
     }
-    let n = node?;
+    let mut n = node?;
+    alide_parens(&mut n);
     return Some((String::from(name), vtype, n));
 }
 

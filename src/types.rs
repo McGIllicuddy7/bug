@@ -438,6 +438,9 @@ is_arg: bool,
         variable:Box<AstNode>,
         function_name:String,
         args:Vec<AstNode>,
+    },
+    Paren{
+        internals:Box<AstNode>,
     }
 }
 
@@ -605,7 +608,15 @@ impl AstNode {
                         ptr_type: Box::new(vtype.clone()),
                     });
                 }
-                _ => {
+                Self::ArrayAccess { variable, index:_ }=> {
+                    return Some(Type::PointerT {
+                        ptr_type: Box::new(variable.get_type(function_table, types)?.get_array_type()?),
+                    });
+                }
+                Self::FieldUsage { base, field_name:_ }=>{
+                    todo!();
+                }
+                _=>{
                     return None;
                 }
             },
@@ -621,6 +632,9 @@ impl AstNode {
             Self::BoundFunctionCall { variable:_, function_name, args}=>{
                 let fn_args:Vec<Type> = args.iter().map(|i| i.get_type(function_table, types).expect("should have type")).collect();
                 return Some(get_function_by_args(function_name, &fn_args,function_table)?.return_type.clone());
+            }
+            Self::Paren { internals }=>{
+                return internals.get_type(function_table, types)
             }
         }
     }
@@ -645,6 +659,9 @@ impl AstNode {
                 return 0;
             }
             Self::ArrayLiteral { nodes: _ } => {
+                return 0;
+            }
+            Self::Paren { internals }=>{
                 return 0;
             }
             Self::VariableUse {

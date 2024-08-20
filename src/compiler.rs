@@ -147,9 +147,9 @@ pub fn compile_expression(tmp_counter:&mut usize,expr:&mut AstNode,expect_return
             for i in args{
                 base += &compile_expression(tmp_counter,i, true,stack,functions,types,indent)?;
             }
-            base += ")";
+            base += ");\n";
             if expect_return{
-                *stack+= &(calc_indent(indent)+&format!("{} tmp{} = {};\n", &name_mangle_type(&retv.return_type),*tmp_counter,&base ));
+                *stack+= &(calc_indent(indent)+&format!("{} tmp{} = {}", &name_mangle_type(&retv.return_type),*tmp_counter,&base ));
                 let fmt = calc_indent(indent)+&format!("tmp{}",*tmp_counter);
                 *tmp_counter+=1;
                 return Ok(fmt);
