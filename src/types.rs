@@ -978,6 +978,37 @@ pub fn name_mangle_type(var:&Type)->String{
         }
     }
 }
+pub fn name_mangle_type_for_names(var:&Type)->String{
+    match var{
+        Type::BoolT=>{
+            return String::from("bool");
+        }
+        Type::FloatT=>{
+            return String::from("double");
+        }
+        Type::IntegerT=>{
+            return String::from("long");
+        }
+        Type::StringT=>{
+            return String::from("String");
+        }
+        Type::VoidT=>{
+            return String::from("void");
+        }
+        Type::PointerT { ptr_type }=>{
+            return name_mangle_type(ptr_type)+"_ptr";
+        }
+        Type::ArrayT { size:_, array_type }=>{
+            return name_mangle_type(array_type)+"Slice_t";
+        }
+        Type::SliceT { ptr_type }=>{
+            return name_mangle_type(ptr_type)+"Slice_t";
+        }
+        Type::StructT { name, components:_ }=>{
+            return String::from("u_")+&name;
+        }
+    }
+}
 
 pub fn name_mangle_function(var:&Function, _filename:&str)->String{
     let mut args = String::new();
@@ -987,7 +1018,7 @@ pub fn name_mangle_function(var:&Function, _filename:&str)->String{
     }
     for i in &var.args{
         args+= "_";
-        args += &name_mangle_type(i);
+        args += &name_mangle_type_for_names(i);
     }
     match name.as_ref(){
         "+"=>{

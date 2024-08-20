@@ -376,7 +376,7 @@ pub fn compile_expression(tmp_counter:&mut usize,expr:&mut AstNode,expect_return
         }
         AstNode::Deref { thing_to_deref }=>{
             let right = compile_expression(tmp_counter, thing_to_deref.as_mut(),false, stack, functions, types, indent)?;
-            return Ok("&".to_owned()+&right);
+            return Ok("*".to_owned()+&right);
         }
         _=>{
             unreachable!();
@@ -480,6 +480,7 @@ pub fn handle_dependencies(map:&HashMap<String,Type>)->Vec<(String,Type)>{
     return out;
 }
 pub fn compile(prog:Program, base_filename:&str)->Result<(),String>{
+    println!("compiling file: {}", base_filename);
     let filename = &base_filename[0..base_filename.len()-5];
     let mut out = String::new();
     let mut typedecs = "".to_owned();

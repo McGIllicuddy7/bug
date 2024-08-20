@@ -1284,7 +1284,10 @@ pub fn get_public_members(program:&str,to_compile:&mut Vec<String>)->Option<Prog
                         functions.get_mut(&i.0)?.push(j);
                     }
                 }
-                to_compile.push(pubs.2);
+                if !to_compile.contains(&(pubs.2.clone()+".risp")){
+                    to_compile.push(pubs.2+".risp");
+                }
+
             } 
             _=>{
 
@@ -1396,7 +1399,9 @@ pub fn program_to_ast(program: &str,compile_queue:&mut Vec<String>) -> Option<Pr
                         functions.get_mut(&i.0)?.push(j);
                     }
                 }
-                compile_queue.push(pubs.2+".risp");
+                if !compile_queue.contains(&(pubs.2.clone()+".risp")){
+                    compile_queue.push(pubs.2+".risp");
+                }
             } 
             _=>{
 

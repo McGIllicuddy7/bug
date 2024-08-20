@@ -9,8 +9,7 @@ fn main() {
     let mut comp_que = vec!["test.risp".to_owned()];
     let mut i =0; 
     loop{
-        println!("{}",comp_que[i]);
-        let tprg = std::fs::read_to_string(&comp_que[i]).expect("testing expect"); 
+        let tprg = std::fs::read_to_string(&comp_que[i]).expect("testing expect");
         let prg = program_to_ast(&tprg,&mut comp_que).expect("testing expect");
         let _ = compile(prg,&comp_que[i]).expect("testing expect");
         i += 1;
@@ -18,13 +17,14 @@ fn main() {
             break;
         }
     }
+    print!("linking...");
     let mut cmd =   std::process::Command::new("gcc");
     for i in &comp_que{
         let name = i[0..i.len()-5].to_owned()+".o";
-        println!("{name}");
+        print!("{} ",name);
         cmd.arg(name);
     }
-    println!("{:#?}",cmd.output());
+    let _ = cmd.output().expect("input should be ok");
     let mut cmd = std::process::Command::new("rm");
     for i in &comp_que{
         let name = i[0..i.len()-5].to_owned()+".o";
