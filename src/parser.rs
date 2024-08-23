@@ -1,6 +1,6 @@
 pub use crate::types::*;
 use crate::validation::alide_parens;
-
+use crate::validation::validate_ast;
 #[derive(Debug, Clone, Copy)]
 pub enum GlobalTypes<'a> {
     StructDef { text: &'a [Token<'a>] },
@@ -757,12 +757,14 @@ pub fn parse_expression(
                 name,
                 var_type: vtype,
                 value_assigned: Some(Box::new(tmp_out.clone())),
+                data:Some(AstNodeData{line:text[*cursor-2].line, temporary_index:None})
             });
         } else {
             out = Some(AstNode::VariableDeclaration {
                 name,
                 var_type: vtype,
-                value_assigned: None,
+                value_assigned: None,  
+                data:Some(AstNodeData{line:text[*cursor-2].line, temporary_index:None})
             });
             *cursor +=1;
         };
@@ -976,8 +978,14 @@ pub fn parse_expression(
         let expr = parse_expression(text, cursor, expr_end, types, scope, function_table)?;
         *cursor +=1;
         out = Some(AstNode::ArrayAccess { variable: Box::new(AstNode::VoidLiteral), index: Box::new(expr) });
-
-    }else {
+    }
+     else if text[*cursor] == "("{
+        let expr_end = calc_close_paren(text, *cursor).expect("parens must close");
+        *cursor +=1;
+        let inner = parse_expression(text, cursor, last, types, scope, function_table)?;
+        *cursor = expr_end+1;
+        out = Some(AstNode::Paren { internals: Box::new(inner) });
+     }else {
         if function_table.contains_key(text[*cursor].string) {
             let name = text[*cursor].string.to_owned();
             *cursor += 1;
@@ -1381,6 +1389,7 @@ pub fn program_to_ast(program: &str,compile_queue:&mut Vec<String>) -> Option<Pr
     let mut types: HashMap<String, Type> = HashMap::new();
     let mut pub_types:HashMap<String,Type> = HashMap::new();
     types.insert(String::from("bool"), Type::BoolT);
+    types.insert(String::from("char"), Type::CharT);
     types.insert(String::from("int"), Type::IntegerT);
     types.insert(String::from("float"), Type::FloatT);
     types.insert(String::from("string"), Type::StringT);
@@ -1483,10 +1492,18 @@ pub fn program_to_ast(program: &str,compile_queue:&mut Vec<String>) -> Option<Pr
             _=>{}
         }
     }
-    return Some(Program {
+    let out = validate_ast(Program{
         types,
         functions,
-        static_variables: scope,
-        global_initializers,
-    });
+        static_variables:scope,
+        global_initializers}
+    );
+    if let Ok(out) = out{
+        return Some(out);
+    } else if let Err(out) = out{
+        println!("{out}");
+        return None;
+    } else{
+        unreachable!();
+    }
 }

@@ -136,13 +136,18 @@ pub fn compile_expression(tmp_counter:&mut usize,expr:&mut AstNode,expect_return
         AstNode::VariableUse { name, index:_, vtype:_, is_arg:_, data:_ }=>{
             return Ok(String::from("user_")+name);
         }
-        AstNode::FunctionCall { function_name, args, data:_ }=>{
+        AstNode::FunctionCall { function_name, args, data }=>{
             let bargs = args.clone();
             let mut fn_args = vec![];
             for i in bargs{
                 fn_args.push(i.get_type(functions, types).expect("should_have_type"));
             }
-            let retv = get_function_by_args(function_name,fn_args.as_slice(),functions).expect("should find function");
+            let retv_opt = get_function_by_args(function_name,fn_args.as_slice(),functions);
+            if retv_opt.is_none(){
+                println!("args:{:#?}",args);
+                return Err(format!("error failed to find function \"{}\" with arguments {:#?}, line:{}", function_name,fn_args, data.clone().expect("").line))
+            }
+            let retv = retv_opt.expect("");
             let mut base =retv.name.clone()+"(";
             for i in args{
                 base += &compile_expression(tmp_counter,i, true,stack,functions,types,indent)?;
@@ -275,7 +280,7 @@ pub fn compile_expression(tmp_counter:&mut usize,expr:&mut AstNode,expect_return
             let pushv = format!("({}||{})",left_s,right_s);
             return Ok(pushv);
         } 
-        AstNode::VariableDeclaration { name, var_type, value_assigned }=>{
+        AstNode::VariableDeclaration { name, var_type, value_assigned ,data:_}=>{
             let mut pushv = calc_indent(indent)+&format!("{} user_{} =",name_mangle_type(var_type), name);
             let next = 
             match var_type{

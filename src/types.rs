@@ -21,6 +21,7 @@ impl PartialEq<&str> for Token<'_> {
 #[derive(Clone, Debug)]
 pub enum Type {
     BoolT,
+    CharT,
     IntegerT,
     FloatT,
     StringT,
@@ -91,6 +92,17 @@ pub fn is_compatible_type(a: &Type, b: &Type) -> bool {
                 return false;
             }
         },
+        Type::CharT=>match b{
+            Type::CharT=>{
+                return true;
+            }
+            Type::IntegerT=>{
+                return true;
+            }
+            _=>{
+                return false;
+            }
+        }
         Type::IntegerT => match b {
             Type::FloatT => {
                 return true;
@@ -162,6 +174,9 @@ pub fn is_compatible_type(a: &Type, b: &Type) -> bool {
             match b {
                 Type::ArrayT { array_type, size } => {
                     return is_compatible_type(&at, &array_type) && asize == size;
+                }                
+                Type::SliceT { ptr_type} => {
+                    return is_compatible_type(&at, &ptr_type);
                 }
                 _ => {
                     return false;
@@ -179,6 +194,9 @@ pub fn is_compatible_type(a: &Type, b: &Type) -> bool {
         Type::SliceT { ptr_type } => {
             let at = ptr_type;
             match b {
+                Type::ArrayT { array_type, size :_} => {
+                    return is_compatible_type(&at, &array_type); 
+                }   
                 Type::SliceT { ptr_type } => {
                     return is_compatible_type(&at, ptr_type);
                 }
@@ -200,6 +218,14 @@ pub fn is_equal_type(a:&Type, b:&Type)->bool{
                 return false;
             }
         },
+        Type::CharT=>match b{
+            Type::CharT=>{
+                return true;
+            }
+            _=>{
+                return false;
+            }
+        }
         Type::IntegerT => match b {
             Type::IntegerT => {
                 return true;
@@ -325,7 +351,7 @@ pub enum AstNode {
         name: String,
         index: usize,
         vtype: Type,
-is_arg: bool,
+        is_arg: bool,
         data:Option<AstNodeData>, 
     },
     FunctionCall {
@@ -342,6 +368,7 @@ is_arg: bool,
         name: String,
         var_type: Type,
         value_assigned: Option<Box<AstNode>>,
+        data:Option<AstNodeData>,
     },
     Add {
         left: Box<AstNode>,
@@ -364,6 +391,11 @@ is_arg: bool,
         data:Option<AstNodeData>
     },
     Equals {
+        left: Box<AstNode>,
+        right: Box<AstNode>,
+        data:Option<AstNodeData>
+    }, 
+    NotEquals {
         left: Box<AstNode>,
         right: Box<AstNode>,
         data:Option<AstNodeData>
@@ -483,15 +515,16 @@ impl AstNode {
                 let fn_args:Vec<Type> = args.iter().map(|i| i.get_type(function_table, types).expect("should have type")).collect();
                 return Some(get_function_by_args(function_name, &fn_args,function_table)?.return_type.clone());
             }
-            Self::Assignment { left: _, right: _ ,data:_} => {
-                return Some(Type::VoidT);
+            Self::Assignment { left, right: _ ,data:_} => {
+                return left.get_type(function_table, types);
             }
             Self::VariableDeclaration {
                 name: _,
-                var_type: _,
+                var_type,
                 value_assigned: _,
+                data:_
             } => {
-                return Some(Type::VoidT);
+                return Some(var_type.clone());
             }
             Self::Add { left, right ,data:_} => {
                 if is_compatible_type(
@@ -530,6 +563,9 @@ impl AstNode {
                 return None;
             }
             Self::Equals { left: _, right: _ ,data:_} => {
+                return Some(Type::BoolT);
+            }
+            Self::NotEquals { left:_, right:_, data:_ }=>{
                 return Some(Type::BoolT);
             }
             Self::LessThan { left: _, right: _ ,data:_} => {
@@ -609,9 +645,7 @@ impl AstNode {
                     });
                 }
                 Self::ArrayAccess { variable, index:_ }=> {
-                    return Some(Type::PointerT {
-                        ptr_type: Box::new(variable.get_type(function_table, types)?.get_array_type()?),
-                    });
+                    return Some(Type::PointerT{ptr_type: Box::new(variable.get_type(function_table, types).expect("should have type").get_array_type()?)});
                 }
                 Self::FieldUsage { base, field_name }=>{
                     let vtype = base.get_type(function_table, types)?;
@@ -706,6 +740,7 @@ impl AstNode {
                 name: _,
                 var_type: _,
                 value_assigned: _,
+                data:_,
             } => {
                 return 0;
             }
@@ -722,6 +757,9 @@ impl AstNode {
                 return 3;
             }
             Self::Equals { left: _, right: _ ,data:_} => {
+                return 6;
+            }
+            Self::NotEquals { left:_, right:_, data:_ }=>{
                 return 6;
             }
             Self::LessThan { left: _, right: _ ,data:_} => {
@@ -770,10 +808,10 @@ impl AstNode {
                 return 8;
             }
             Self::Deref { thing_to_deref: _ } => {
-                return 1;
+                return 2;
             }
             Self::TakeRef { thing_to_ref: _ } => {
-                return 1;
+                return 2;
             }
             Self::FieldUsage {
                 base: _,
@@ -963,7 +1001,7 @@ impl Scope {
         return None;
     }
 }
-#[derive(Debug)]
+#[derive(Debug,Clone)]
 pub struct FunctionTable{
     pub functions:Vec<Function>,
 }
@@ -1000,6 +1038,9 @@ pub fn name_mangle_type(var:&Type)->String{
         Type::VoidT=>{
             return String::from("void");
         }
+        Type::CharT=>{
+            return String::from("char");
+        }
         Type::PointerT { ptr_type }=>{
             return name_mangle_type(ptr_type)+"*";
         }
@@ -1018,6 +1059,9 @@ pub fn name_mangle_type_for_names(var:&Type)->String{
     match var{
         Type::BoolT=>{
             return String::from("bool");
+        }
+        Type::CharT=>{
+            return String::from("char");
         }
         Type::FloatT=>{
             return String::from("double");
