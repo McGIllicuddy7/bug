@@ -306,6 +306,8 @@ pub fn compile_expression(tmp_counter:&mut usize,expr:&mut AstNode,expect_return
             };
             used_types.insert(var_type.clone());
             pushv+=next;
+            let gc_reg = calc_indent(indent)+&format!("gc_register_ptr(&user_{name}, {});\n",gc_function_name(var_type));
+            pushv += &gc_reg;
             if let Some(assigned) = value_assigned{
                 let l = compile_expression(tmp_counter, assigned, true, stack, functions, types,indent,used_types)?;
                 pushv +=&(calc_indent(indent)+&l);
