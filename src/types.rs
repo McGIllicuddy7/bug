@@ -18,7 +18,7 @@ impl PartialEq<&str> for Token<'_> {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug,Eq, Hash,PartialEq)]
 pub enum Type {
     BoolT,
     CharT,

@@ -142,6 +142,9 @@ pub fn compile_expression(tmp_counter:&mut usize,expr:&mut AstNode,expect_return
             for i in bargs{
                 fn_args.push(i.get_type(functions, types).expect("should_have_type"));
             }
+            for i in &fn_args{
+                used_types.insert(i.clone());
+            }
             let retv_opt = get_function_by_args(function_name,fn_args.as_slice(),functions);
             if retv_opt.is_none(){
                 println!("args:{:#?}",args);
@@ -301,6 +304,7 @@ pub fn compile_expression(tmp_counter:&mut usize,expr:&mut AstNode,expect_return
                 }
                 
             };
+            used_types.insert(var_type.clone());
             pushv+=next;
             if let Some(assigned) = value_assigned{
                 let l = compile_expression(tmp_counter, assigned, true, stack, functions, types,indent,used_types)?;
@@ -403,6 +407,7 @@ pub fn compile_function(func:&mut Function, filename:&str, functions:&HashMap<St
     out += &name_mangle_function(func, filename);
     out += "(";
     for i in 0..func.args.len(){
+        used_types.insert(func.args[i].clone());
         out += &name_mangle_type(&func.args[i]);
         out += " ";
         out += "user_";
@@ -492,6 +497,57 @@ pub fn handle_dependencies(map:&HashMap<String,Type>)->Vec<(String,Type)>{
     }
     return out;
 }
+pub fn gc_function_name(t:&Type)->String{
+    return "gc_".to_owned()+&name_mangle_type_for_names(t);
+}
+fn compile_gc_functions(types:HashSet<Type>)->String{
+    let mut out = String::new();
+    for i in &types{
+        out += "inline void ";
+        out += &(gc_function_name(i)+"(void*);\n");
+    }
+    for i in &types{
+        match i{
+            Type::StringT{}=>{
+                continue;
+            }
+            _=>{}
+        }
+        out += "inline void ";
+        out += &(gc_function_name(i)+"(void* ptr){\n");
+        out += &("  ".to_owned()+&(name_mangle_type(i)+"* var = ptr;\n"));
+        match i{
+            Type::PointerT { ptr_type }=>{
+                out += "   gc_any_ptr(*var);\n";
+                out += "    ";
+                out += &(gc_function_name(ptr_type)+"(*var);\n");
+            }
+            Type::SliceT { ptr_type}=>{
+                out += "   gc_any_ptr(var->start);\n";
+                out += "    for(int i =0; i<var->len; i++){";
+                out += "    "; 
+                out += &(gc_function_name(ptr_type)+"(&var->start[i]);}\n");
+            }
+            Type::StructT { name:_, components }=>{
+                out += "    gc_any_ptr(*var)\n";
+                for i in components{
+                    out += "    ";
+                    out += &gc_function_name(&i.1);
+                    out += "(";
+                    out += "var->";
+                    out += &i.0;
+                    out += ");\n";
+
+                }
+            }
+            _=>{
+                out += "return;\n";
+            }
+        }
+        out += "}\n";
+    }
+    return out;
+}
 pub fn compile(prog:Program, base_filename:&str)->Result<(),String>{
     println!("compiling file: {}", base_filename);
     let fname = "output/".to_owned()+&base_filename[0..base_filename.len()-5];
@@ -503,9 +559,6 @@ pub fn compile(prog:Program, base_filename:&str)->Result<(),String>{
     for i in &progtypes{
         typedecs += &compile_type(i.0.clone(), i.1.clone())?;
     };
-    for i in &progtypes{
-        typedecs += &("gc_".to_owned()+&i.0+"(void *);\n");
-    }
     let mut func_decs = String::new();
     for i in &prog.functions{
         func_decs += &compile_function_table_header(i.0, i.1,filename)?;
@@ -526,7 +579,8 @@ pub fn compile(prog:Program, base_filename:&str)->Result<(),String>{
     }
     let out_file_name = filename.to_owned()+".c";
     let mut fout = fs::File::create(&out_file_name).expect("testing expect");
-    out += "#include \"prog_builtins.h\"\n";
+    typedecs += &compile_gc_functions(used_types);
+    out += "#include \"../builtins.h\"\n";
     out += &typedecs;
     out += &func_decs;
     out += &statics;

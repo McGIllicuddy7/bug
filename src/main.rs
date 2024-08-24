@@ -19,21 +19,21 @@ fn main() {
             break;
         }
     }
-    let _= std::process::Command::new("gcc").arg("-c").arg("-std=c2x").arg("builtins.c").output();
+    let t= std::process::Command::new("gcc").arg("-c").arg("-std=c2x").arg("builtins.c").output().expect("should work");
+    println!("\n{}",String::from_utf8(t.stderr).expect("should be ut8"));
     print!("linking...");
     let mut cmd =   std::process::Command::new("gcc");
     for i in &comp_que{
-        let name = "output/".to_owned()+&i[0..i.len()-5]+".o";
+        let name = "".to_owned()+&i[0..i.len()-5]+".o";
         print!("{} ",name);
         cmd.arg(name);
     }
-    cmd.arg("builtins.o".to_owned());
-    print!("builtins.o");
-    let _ = cmd.output().expect("input should be ok");
+    let t = cmd.output().expect("input should be ok");
+    println!("\n{}",String::from_utf8(t.stderr).expect("should be ut8"));
     print!("\ncleaning up...");
     let mut cmd = std::process::Command::new("rm");
     for i in &comp_que{
-        let name = "output".to_owned()+&i[0..i.len()-5]+".o";
+        let name = "".to_owned()+&i[0..i.len()-5]+".o";
         print!("{name} ");
         cmd.arg(name);
     }
