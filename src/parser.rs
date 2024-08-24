@@ -1376,7 +1376,7 @@ pub fn parse_include_directive<'a>(span:&[Token<'a>],to_compile:&mut Vec<String>
     let base_out = get_public_members(&tprg,to_compile)?;
     return Some((base_out.types, base_out.functions, span[1].string.to_owned()));
 }
-pub fn program_to_ast(program: &str,compile_queue:&mut Vec<String>) -> Option<Program> {
+pub fn program_to_ast(program: &str,compile_queue:&mut Vec<String>,file:&str) -> Option<Program> {
     let tokens = tokenize(program);
     //println!("{:#?}", tokens);
     let globals_result = extract_globals(&tokens);
@@ -1501,7 +1501,7 @@ pub fn program_to_ast(program: &str,compile_queue:&mut Vec<String>) -> Option<Pr
     if let Ok(out) = out{
         return Some(out);
     } else if let Err(out) = out{
-        println!("{out}");
+        println!("Error {file}: {out} ");
         return None;
     } else{
         unreachable!();

@@ -145,7 +145,7 @@ pub fn compile_expression(tmp_counter:&mut usize,expr:&mut AstNode,expect_return
             let retv_opt = get_function_by_args(function_name,fn_args.as_slice(),functions);
             if retv_opt.is_none(){
                 println!("args:{:#?}",args);
-                return Err(format!("error failed to find function \"{}\" with arguments {:#?}, line:{}", function_name,fn_args, data.clone().expect("").line))
+                return Err(format!("failed to find function \"{}\" with arguments {:#?}, line:{}", function_name,fn_args, data.clone().expect("").line))
             }
             let retv = retv_opt.expect("");
             let mut base =retv.name.clone()+"(";

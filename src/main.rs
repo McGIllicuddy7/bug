@@ -11,7 +11,8 @@ fn main() {
     let mut i =0; 
     loop{
         let tprg = std::fs::read_to_string(&comp_que[i]).expect("testing expect");
-        let prg = program_to_ast(&tprg,&mut comp_que).expect("testing expect");
+        let name = comp_que[i].to_owned();
+        let prg = program_to_ast(&tprg,&mut comp_que, &name).expect("testing expect");
         let _ = compile(prg,&comp_que[i]).expect("testing expect");
         i += 1;
         if i>=comp_que.len(){

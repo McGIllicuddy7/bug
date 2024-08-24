@@ -127,7 +127,7 @@ fn validate_ast_node(node:&AstNode, types:&HashMap<String,Type>, functions:&mut 
             let lt = left.get_type(functions, types).expect("must have type");
             let rt = right.get_type(functions, types).expect("must have type");
             if !is_compatible_type(&lt, &rt){
-                return Err(format!("Error:imcompatable assignment types line:{} {:#?} and {:#?}",data.clone().expect("must have data").line, lt, rt));
+                return Err(format!("imcompatable assignment types line:{} {:#?} and {:#?}",data.clone().expect("must have data").line, lt, rt));
             }
             let out= Ok(AstNode::Assignment{left:Box::new(left), right: Box::new(right), data: data.clone() });
             return out;
@@ -137,13 +137,13 @@ fn validate_ast_node(node:&AstNode, types:&HashMap<String,Type>, functions:&mut 
         }
         AstNode::VariableDeclaration { name, var_type, value_assigned ,data}=>{
             if !is_root{
-                let out = Err(format!("Error: variable declarations disallowed inside of other expressions line:{}",data.clone().expect("should_exist").line ));
+                let out = Err(format!("variable declarations disallowed inside of other expressions line:{}",data.clone().expect("should_exist").line ));
                 return out;
             }
             if let Some(v) = value_assigned{
                 let tmp = validate_ast_node(v, types, functions, false, inside_loop, return_type)?;
                 if !is_compatible_type(var_type, &tmp.get_type(functions,types).expect("must have type")){
-                    let out = Err(format!("Error: incompatable assignment types types line: {} {:#?} and {:#?}", data.clone().expect("must have data").line, var_type, tmp.get_type(functions,types).expect("must have type")));
+                    let out = Err(format!("incompatable assignment types types line: {} {:#?} and {:#?}", data.clone().expect("must have data").line, var_type, tmp.get_type(functions,types).expect("must have type")));
                     return out;
                 }
                 return Ok(AstNode::VariableDeclaration{name:name.clone(), var_type:var_type.clone(), value_assigned:Some(Box::new(tmp)), data:data.clone()});
@@ -156,125 +156,234 @@ fn validate_ast_node(node:&AstNode, types:&HashMap<String,Type>, functions:&mut 
             let right =  validate_ast_node(right, types, functions, false,inside_loop, return_type.clone())?;
             let lt = left.get_type(functions, types).expect("must have type");
             let rt = right.get_type(functions, types).expect("must have type");
-            if !is_compatible_type(&lt, &rt){
-                return Err(format!("Error:imcompatable addition types line:{} {:#?} and {:#?}",data.clone().expect("must have data").line, lt, rt));
+            if !lt.is_basic_number() || !rt.is_basic_number(){
+                let out = AstNode::FunctionCall { function_name: "+".to_string(), args: vec![left,right], data: data.clone() };
+                return validate_ast_node(&out, types, functions, is_root, inside_loop, return_type);
+            } else{
+                if !is_compatible_type(&lt, &rt){
+                    return Err(format!("imcompatable addition types line:{} {:#?} and {:#?}",data.clone().expect("must have data").line, lt, rt));
+                }
+                let out= Ok(AstNode::Add{left:Box::new(left), right: Box::new(right), data: data.clone() });
+                return out;
             }
-            let out= Ok(AstNode::Add{left:Box::new(left), right: Box::new(right), data: data.clone() });
-            return out;
+  
         }
         AstNode::Sub { left, right, data }=>{
-           let left = validate_ast_node(left, types, functions, false,inside_loop, return_type.clone())?;
+            let left = validate_ast_node(left, types, functions, false,inside_loop, return_type.clone())?;
             let right =  validate_ast_node(right, types, functions, false,inside_loop, return_type.clone())?;
             let lt = left.get_type(functions, types).expect("must have type");
             let rt = right.get_type(functions, types).expect("must have type");
-            if !is_compatible_type(&lt, &rt){
-                return Err(format!("Error:imcompatable subtraction types line:{} {:#?} and {:#?}",data.clone().expect("must have data").line, lt, rt));
+            if !lt.is_basic_number() || !rt.is_basic_number(){
+                let out = AstNode::FunctionCall { function_name: "-".to_string(), args: vec![left,right], data: data.clone() };
+                return validate_ast_node(&out, types, functions, is_root, inside_loop, return_type);
+            } else{
+                if !is_compatible_type(&lt, &rt){
+                    return Err(format!("imcompatable addition types line:{} {:#?} and {:#?}",data.clone().expect("must have data").line, lt, rt));
+                }
+                let out= Ok(AstNode::Sub{left:Box::new(left), right: Box::new(right), data: data.clone() });
+                return out;
             }
-            let out= Ok(AstNode::Sub{ left:Box::new(left), right: Box::new(right), data: data.clone() });
-            return out;
         }
         AstNode::Mult { left, right, data }=>{
-           let left = validate_ast_node(left, types, functions, false,inside_loop, return_type.clone())?;
+            let left = validate_ast_node(left, types, functions, false,inside_loop, return_type.clone())?;
             let right =  validate_ast_node(right, types, functions, false,inside_loop, return_type.clone())?;
             let lt = left.get_type(functions, types).expect("must have type");
             let rt = right.get_type(functions, types).expect("must have type");
-            if !is_compatible_type(&lt, &rt){
-                return Err(format!("Error:imcompatable multiplication types line:{} {:#?} and {:#?}",data.clone().expect("must have data").line, lt, rt));
+            if !lt.is_basic_number() || !rt.is_basic_number(){
+                let out = AstNode::FunctionCall { function_name: "*".to_string(), args: vec![left,right], data: data.clone() };
+                return validate_ast_node(&out, types, functions, is_root, inside_loop, return_type);
+            } else{
+                if !is_compatible_type(&lt, &rt){
+                    return Err(format!("imcompatable addition types line:{} {:#?} and {:#?}",data.clone().expect("must have data").line, lt, rt));
+                }
+                let out= Ok(AstNode::Mult{left:Box::new(left), right: Box::new(right), data: data.clone() });
+                return out;
             }
-            let out= Ok(AstNode::Mult{ left:Box::new(left), right: Box::new(right), data: data.clone() });
-            return out;
         }
         AstNode::Div { left, right, data }=>{
-           let left = validate_ast_node(left, types, functions, false,inside_loop, return_type.clone())?;
+            let left = validate_ast_node(left, types, functions, false,inside_loop, return_type.clone())?;
             let right =  validate_ast_node(right, types, functions, false,inside_loop, return_type.clone())?;
             let lt = left.get_type(functions, types).expect("must have type");
             let rt = right.get_type(functions, types).expect("must have type");
-            if !is_compatible_type(&lt, &rt){
-                return Err(format!("Error:imcompatable division types line:{} {:#?} and {:#?}",data.clone().expect("must have data").line, lt, rt));
+            if !lt.is_basic_number() || !rt.is_basic_number(){
+                let out = AstNode::FunctionCall { function_name: "/".to_string(), args: vec![left,right], data: data.clone() };
+                return validate_ast_node(&out, types, functions, is_root, inside_loop, return_type);
+            } else{
+                if !is_compatible_type(&lt, &rt){
+                    return Err(format!("imcompatable addition types line:{} {:#?} and {:#?}",data.clone().expect("must have data").line, lt, rt));
+                }
+                let out= Ok(AstNode::Div{left:Box::new(left), right: Box::new(right), data: data.clone() });
+                return out;
             }
-            let out= Ok(AstNode::Div{ left:Box::new(left), right: Box::new(right), data: data.clone() });
-            return out;
         }
         AstNode::Equals { left, right, data }=>{
-           let left = validate_ast_node(left, types, functions, false,inside_loop, return_type.clone())?;
+            let left = validate_ast_node(left, types, functions, false,inside_loop, return_type.clone())?;
             let right =  validate_ast_node(right, types, functions, false,inside_loop, return_type.clone())?;
             let lt = left.get_type(functions, types).expect("must have type");
             let rt = right.get_type(functions, types).expect("must have type");
-            if !is_compatible_type(&lt, &rt){
-                return Err(format!("Error:imcompatable comparision types line:{} {:#?} and {:#?}",data.clone().expect("must have data").line, lt, rt));
+            if !lt.is_basic_number() || !rt.is_basic_number(){
+                let out = AstNode::FunctionCall { function_name: "==".to_string(), args: vec![left,right], data: data.clone() };
+                return validate_ast_node(&out, types, functions, is_root, inside_loop, return_type);
+            } else{
+                if !is_compatible_type(&lt, &rt){
+                    return Err(format!("imcompatable addition types line:{} {:#?} and {:#?}",data.clone().expect("must have data").line, lt, rt));
+                }
+                let out= Ok(AstNode::Equals{left:Box::new(left), right: Box::new(right), data: data.clone() });
+                return out;
             }
-            let out= Ok(AstNode::Equals{ left:Box::new(left), right: Box::new(right), data: data.clone() });
-            return out;
         }        
         AstNode::NotEquals { left, right, data }=>{
             let left = validate_ast_node(left, types, functions, false,inside_loop, return_type.clone())?;
             let right =  validate_ast_node(right, types, functions, false,inside_loop, return_type.clone())?;
             let lt = left.get_type(functions, types).expect("must have type");
             let rt = right.get_type(functions, types).expect("must have type");
-            if !is_compatible_type(&lt, &rt){
-                return Err(format!("Error:imcompatable comparision types line:{} {:#?} and {:#?}",data.clone().expect("must have data").line, lt, rt));
+            if !lt.is_basic_number() || !rt.is_basic_number(){
+                let out = AstNode::FunctionCall { function_name: "!=".to_string(), args: vec![left,right], data: data.clone() };
+                return validate_ast_node(&out, types, functions, is_root, inside_loop, return_type);
+            } else{
+                if !is_compatible_type(&lt, &rt){
+                    return Err(format!("imcompatable addition types line:{} {:#?} and {:#?}",data.clone().expect("must have data").line, lt, rt));
+                }
+                let out= Ok(AstNode::NotEquals{left:Box::new(left), right: Box::new(right), data: data.clone() });
+                return out;
             }
-            let out= Ok(AstNode::NotEquals{ left:Box::new(left), right: Box::new(right), data: data.clone() });
-            return out;
         }
         AstNode::GreaterThan { left, right, data }=>{
             let left = validate_ast_node(left, types, functions, false,inside_loop, return_type.clone())?;
             let right =  validate_ast_node(right, types, functions, false,inside_loop, return_type.clone())?;
             let lt = left.get_type(functions, types).expect("must have type");
             let rt = right.get_type(functions, types).expect("must have type");
-            if !is_compatible_type(&lt, &rt){
-                return Err(format!("Error:imcompatable comparision types line:{} {:#?} and {:#?}",data.clone().expect("must have data").line, lt, rt));
+            if !lt.is_basic_number() || !rt.is_basic_number(){
+                let out = AstNode::FunctionCall { function_name: ">".to_string(), args: vec![left,right], data: data.clone() };
+                return validate_ast_node(&out, types, functions, is_root, inside_loop, return_type);
+            } else{
+                if !is_compatible_type(&lt, &rt){
+                    return Err(format!("imcompatable addition types line:{} {:#?} and {:#?}",data.clone().expect("must have data").line, lt, rt));
+                }
+                let out= Ok(AstNode::GreaterThan{left:Box::new(left), right: Box::new(right), data: data.clone() });
+                return out;
             }
-            let out= Ok(AstNode::GreaterThan{ left:Box::new(left), right: Box::new(right), data: data.clone() });
-            return out;
         }
         AstNode::LessThan { left, right, data }=>{
             let left = validate_ast_node(left, types, functions, false,inside_loop, return_type.clone())?;
             let right =  validate_ast_node(right, types, functions, false,inside_loop, return_type.clone())?;
             let lt = left.get_type(functions, types).expect("must have type");
             let rt = right.get_type(functions, types).expect("must have type");
-            if !is_compatible_type(&lt, &rt){
-                return Err(format!("Error:imcompatable comparision types line:{} {:#?} and {:#?}",data.clone().expect("must have data").line, lt, rt));
+            if !lt.is_basic_number() || !rt.is_basic_number(){
+                let out = AstNode::FunctionCall { function_name: "<".to_string(), args: vec![left,right], data: data.clone() };
+                return validate_ast_node(&out, types, functions, is_root, inside_loop, return_type);
+            } else{
+                if !is_compatible_type(&lt, &rt){
+                    return Err(format!("imcompatable addition types line:{} {:#?} and {:#?}",data.clone().expect("must have data").line, lt, rt));
+                }
+                let out= Ok(AstNode::LessThan{left:Box::new(left), right: Box::new(right), data: data.clone() });
+                return out;
             }
-            let out= Ok(AstNode::LessThan{ left:Box::new(left), right: Box::new(right), data: data.clone() });
-            return out;
         }
         AstNode::GreaterOrEq { left, right, data }=>{
             let left = validate_ast_node(left, types, functions, false,inside_loop, return_type.clone())?;
             let right =  validate_ast_node(right, types, functions, false,inside_loop, return_type.clone())?;
             let lt = left.get_type(functions, types).expect("must have type");
             let rt = right.get_type(functions, types).expect("must have type");
-            if !is_compatible_type(&lt, &rt){
-                return Err(format!("Error:imcompatable comparision types line:{} {:#?} and {:#?}",data.clone().expect("must have data").line, lt, rt));
+            if !lt.is_basic_number() || !rt.is_basic_number(){
+                let out = AstNode::FunctionCall { function_name: ">=".to_string(), args: vec![left,right], data: data.clone() };
+                return validate_ast_node(&out, types, functions, is_root, inside_loop, return_type);
+            } else{
+                if !is_compatible_type(&lt, &rt){
+                    return Err(format!("imcompatable addition types line:{} {:#?} and {:#?}",data.clone().expect("must have data").line, lt, rt));
+                }
+                let out= Ok(AstNode::GreaterOrEq{left:Box::new(left), right: Box::new(right), data: data.clone() });
+                return out;
             }
-            let out= Ok(AstNode::GreaterOrEq{ left:Box::new(left), right: Box::new(right), data: data.clone() });
-            return out;
         }
         AstNode::LessOrEq { left, right, data }=>{
             let left = validate_ast_node(left, types, functions, false,inside_loop, return_type.clone())?;
             let right =  validate_ast_node(right, types, functions, false,inside_loop, return_type.clone())?;
             let lt = left.get_type(functions, types).expect("must have type");
             let rt = right.get_type(functions, types).expect("must have type");
-            if !is_compatible_type(&lt, &rt){
-                return Err(format!("Error:imcompatable comparision types line:{} {:#?} and {:#?}",data.clone().expect("must have data").line, lt, rt));
+            if !lt.is_basic_number() || !rt.is_basic_number(){
+                let out = AstNode::FunctionCall { function_name: "<=".to_string(), args: vec![left,right], data: data.clone() };
+                return validate_ast_node(&out, types, functions, is_root, inside_loop, return_type);
+            } else{
+                if !is_compatible_type(&lt, &rt){
+                    return Err(format!("imcompatable addition types line:{} {:#?} and {:#?}",data.clone().expect("must have data").line, lt, rt));
+                }
+                let out= Ok(AstNode::LessOrEq{left:Box::new(left), right: Box::new(right), data: data.clone() });
+                return out;
             }
-            let out= Ok(AstNode::LessOrEq{ left:Box::new(left), right: Box::new(right), data: data.clone() });
-            return out;
         }
         AstNode::Not { value, data }=>{
-            return Ok(node.clone());
+            let tmp = validate_ast_node(value, types, functions, is_root, inside_loop, return_type)?;
+            if !is_compatible_type(&tmp.get_type(functions, types).expect("should work"), &Type::BoolT){
+                return Err(format!("value in not must be boolean line:{}", data.clone().expect("data should exist").line));
+            }
+            return Ok(AstNode::Not { value: Box::new(tmp), data: data.clone() });
         }
         AstNode::If { condition, thing_to_do, r#else }=>{
-            return Ok(node.clone());
+            if !is_root{
+                return Err("cannot declare loop as non root".to_owned());
+            }
+            let cond = validate_ast_node(condition, types, functions, false, inside_loop, return_type.clone())?;
+            if !is_compatible_type(&cond.get_type(functions, types).expect(""), &Type::BoolT){
+                return Err(format!("condition must be turnable into bool line:{}", cond.get_data().expect("").line));
+            }
+            let mut new_body = vec![];
+            for i in thing_to_do{
+                let tmp = validate_ast_node(i, types, functions, true, true, return_type.clone())?;
+                new_body.push(tmp);
+            }
+            let el = if r#else.is_some(){
+                let mut tmp = vec![];
+                let t = r#else.clone().unwrap();
+                for i in &t{
+                    let val = validate_ast_node(&i, types, functions, is_root, inside_loop, return_type.clone())?;
+                    tmp.push(val)
+                }
+                Some(tmp)
+            } else{None};
+            return Ok(AstNode::If{ condition: Box::new(cond), thing_to_do: new_body , r#else:el});
         }
         AstNode::ForLoop { variable, condition, post_op, body }=>{
-            return Ok(node.clone());
+            let var = validate_ast_node(variable, types, functions, true, inside_loop,return_type.clone())?;
+            let cond = validate_ast_node(condition,types, functions, false, inside_loop, return_type.clone())?;
+            let op = validate_ast_node(post_op, types, functions, is_root, inside_loop, return_type.clone())?;
+            let bd = {
+                let mut bd_out = vec![];
+                for i in body{
+                    let tmp = validate_ast_node(i, types, functions, is_root, true, return_type.clone())?;
+                    bd_out.push(tmp);
+                }
+                bd_out
+            };
+            return Ok(AstNode::ForLoop { variable: Box::new(var), condition: Box::new(cond), post_op: Box::new(op), body: bd });
         }
         AstNode::Loop { condition, body }=>{
-            return Ok(node.clone());
+            if !is_root{
+                return Err("cannot declare loop as non root".to_owned());
+            }
+            let cond = validate_ast_node(condition, types, functions, false, inside_loop, return_type.clone())?;
+            if !is_compatible_type(&cond.get_type(functions, types).expect(""), &Type::BoolT){
+                return Err(format!("condition must be turnable into bool line:{}", cond.get_data().expect("").line));
+            }
+            let mut new_body = vec![];
+            for i in body{
+                let tmp = validate_ast_node(i, types, functions, true, true, return_type.clone())?;
+                new_body.push(tmp);
+            }
+            return Ok(AstNode::Loop { condition: Box::new(cond), body: new_body });
         }
         AstNode::Return { body }=>{
-            return Ok(node.clone());
+            if return_type.is_some(){
+                if is_compatible_type(&body.get_type(functions, types).expect(""),&return_type.clone().expect("")){
+                    let tmp = validate_ast_node(body, types, functions, is_root, inside_loop, return_type)?;
+                    return Ok(AstNode::Return { body: Box::new(tmp) });
+                } else{
+                    return Err(format!("incompable return types")); 
+                }
+            }
+            else{
+                return Err(format!("cannot return value from thing that cannot return"));
+            }
         }
         _=>{
             return Ok(node.clone());

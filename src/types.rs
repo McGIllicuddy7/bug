@@ -674,10 +674,29 @@ impl AstNode {
                 }
             },
             Self::FieldUsage {
-                base: _,
-                field_name: _,
+                base,
+                field_name,
             } => {
-                return None;
+                let base0 = base.get_type(function_table, types)?;
+                match base0{
+                    Type::StructT { name:_, components }=>{
+                        for i in &components{
+                            if i.0 == *field_name{
+                                return Some(i.1.clone());
+                            }
+                        }
+                        return None;
+                    }
+                    Type::SliceT { ptr_type:_ }=>{
+                        return Some(Type::IntegerT);
+                    }
+                    Type::ArrayT { size:_, array_type:_ }=>{
+                        return Some(Type::IntegerT);
+                    }
+                    _=>{
+                        return None;
+                    }
+                }
             }
             Self::ArrayAccess { variable, index:_ }=>{
                 return  Some(variable.get_type(function_table, types)?.get_array_type()?);
