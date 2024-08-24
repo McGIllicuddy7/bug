@@ -1,4 +1,5 @@
 
+use crate::get_function_by_args;
 use crate::is_compatible_type;
 use crate::AstNode;
 use std::collections::HashMap;
@@ -133,7 +134,20 @@ fn validate_ast_node(node:&AstNode, types:&HashMap<String,Type>, functions:&mut 
             return out;
         }
         AstNode::FunctionCall { function_name, args, data }=>{
-            return Ok(node.clone());
+            let args:Vec<Result<AstNode,String>>= args.iter().map(|i| validate_ast_node(i, types, functions, false, inside_loop, return_type.clone())).collect();
+            let args = {
+                let mut tmp_args = vec![];
+                for a in args{
+                    tmp_args.push(a?);
+                }
+                tmp_args
+            };
+            let arg_types:Vec<Type> = args.clone().iter().map(|i| i.get_type(functions, types).expect("should work")).collect();
+            if get_function_by_args(function_name, &arg_types, functions).is_some(){
+                return Ok(AstNode::FunctionCall { function_name: function_name.to_string(), args: args, data: data.clone() });
+            } else{
+                return Err(format!("could not find viable implementation of {} for arguments {:#?} line {}", function_name, arg_types,data.clone().expect("").line));
+            }
         }
         AstNode::VariableDeclaration { name, var_type, value_assigned ,data}=>{
             if !is_root{
