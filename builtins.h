@@ -12,3 +12,4 @@ void gc_any_ptr(void * ptr);
 void gc_String(void *s);
 void gc_any_ptr(void*);
 void user_put_str_String(String s);
+void * gc_malloc(size_t size, size_t count);

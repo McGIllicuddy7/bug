@@ -988,6 +988,10 @@ pub fn parse_expression(
         let inner = parse_expression(text, cursor, last, types, scope, function_table)?;
         *cursor = expr_end+1;
         out = Some(AstNode::Paren { internals: Box::new(inner) });
+     }else if text[*cursor] == "new"{
+        let vtype = parse_declared_type(text, cursor, types)?;
+        *cursor += 1;
+        out = Some(AstNode::OperatorNew { vtype: vtype });
      }else {
         if function_table.contains_key(text[*cursor].string) {
             let name = text[*cursor].string.to_owned();

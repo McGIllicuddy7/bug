@@ -473,6 +473,9 @@ pub enum AstNode {
     },
     Paren{
         internals:Box<AstNode>,
+    },
+    OperatorNew{
+        vtype:Type,
     }
 }
 
@@ -708,6 +711,16 @@ impl AstNode {
             Self::Paren { internals }=>{
                 return internals.get_type(function_table, types)
             }
+            Self::OperatorNew { vtype }=>{
+                match vtype{
+                    Type::ArrayT { size:_, array_type }=>{
+                        return Some(Type::SliceT { ptr_type: array_type.clone() });
+                    }
+                    _=>{
+                        return Some(Type::PointerT { ptr_type: Box::new(vtype.clone()) });
+                    }
+                }
+            }
         }
     }
     pub fn get_priority(&self) -> usize {
@@ -846,6 +859,9 @@ impl AstNode {
             }
             Self::BoundFunctionCall { variable:_, function_name:_, args:_ }=>{
                 return 1;
+            }
+            Self::OperatorNew { vtype:_ }=>{
+                return 0;
             }
         }
     }

@@ -319,22 +319,26 @@ pub fn compile_expression(tmp_counter:&mut usize,expr:&mut AstNode,expect_return
         AstNode::If { condition, thing_to_do, r#else }=>{
             let cond = "if ".to_owned()+&compile_expression(tmp_counter,  condition, true, stack, functions, types,indent,used_types)?;
             let mut to_do = String::from("{\n");
+            to_do += &(calc_indent(indent+1)+"gc_push_frame()");
             for i in thing_to_do{
                 let mut stack = String::new();
                 let base = &compile_expression(tmp_counter,i,false,&mut stack, functions,types,indent,used_types)?;
                 to_do += &stack;
                 to_do+= base;
             }
+            to_do += &(calc_indent(indent+1)+"gc_push_frame();\n");
             to_do += "}\n";
             let mut thing_else = String::new();
             if let Some(els) = r#else{
                 thing_else += "{\n";
+                thing_else +=   &(calc_indent(indent+1)+"gc_push_frame();\n");
                 for i in els{
                     let mut stack = String::new();
                     let base = &compile_expression(tmp_counter,i,false,&mut stack, functions,types,indent+1,used_types)?;
                     to_do += &stack;
                     to_do+= base;
                 }
+                thing_else +=   &(calc_indent(indent+1)+"gc_pop_frame();\n");
                 thing_else += "\n}";
             }
             *stack += &cond;
@@ -348,12 +352,14 @@ pub fn compile_expression(tmp_counter:&mut usize,expr:&mut AstNode,expect_return
         AstNode::Loop { condition, body }=>{
             let cond = "while".to_owned()+&compile_expression(tmp_counter,  condition, true, stack, functions, types,indent,used_types)?;
             let mut to_do = String::from("{\n");
+            to_do += &(calc_indent(indent)+"gc_push_frame();\n");
             for i in body{
                 let mut stack = String::new();
                 let base = &compile_expression(tmp_counter,i,false,&mut stack, functions,types,indent+1,used_types)?;
                 to_do += &stack;
                 to_do+= base;
             }
+            to_do += &(calc_indent(indent)+"gc_pop_frame();\n");
             to_do += "}\n";
             *stack += &cond;
             *stack += &to_do;
@@ -364,6 +370,7 @@ pub fn compile_expression(tmp_counter:&mut usize,expr:&mut AstNode,expect_return
             let var = compile_expression(tmp_counter, variable, expect_return, stack, functions, types,indent,used_types)?;
             let cond= calc_indent(indent)+ "while"+&compile_expression(tmp_counter,  condition, true, stack, functions, types,indent,used_types)?+"{\n";
             let mut to_do = String::new();
+            *stack += &(calc_indent(indent+1)+"gc_push_frame();\n");
             *stack += &var;
             *stack += &cond;
             for i in body{
@@ -372,6 +379,7 @@ pub fn compile_expression(tmp_counter:&mut usize,expr:&mut AstNode,expect_return
             }
             let post_op = calc_indent(indent)+&compile_expression(tmp_counter, post_op, expect_return, stack, functions, types,indent,used_types)?;
             to_do += &post_op;
+            *stack += &(calc_indent(indent+1)+"gc_pop_frame();\n");
             to_do += "}\n}\n";
             *stack += &to_do;
             return Ok("".to_owned());
@@ -419,6 +427,7 @@ pub fn compile_function(func:&mut Function, filename:&str, functions:&HashMap<St
         }
     }
     out += "){\n";
+    out += "    gc_push_frame();\n";
     let mut temp_counter = 0;
     for i in &mut func.program{
         let mut stack = String::new();
@@ -426,6 +435,7 @@ pub fn compile_function(func:&mut Function, filename:&str, functions:&HashMap<St
         out += &stack;
         out += base;
     }
+    out += "    gc_pop_frame();\n";
     out += "\n}\n";
     return Ok(out);
 }
