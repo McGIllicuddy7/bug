@@ -5,6 +5,7 @@ let test0:test = {0,0,0};
 
 pub fn main()->int{
    let s:string = "I love toast\n";
+   s[0];
    put_str(s);
 }
 

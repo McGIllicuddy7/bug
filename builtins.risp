@@ -1,1 +1,2 @@
 pub fn put_str(a:string)->void;
+

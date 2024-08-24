@@ -243,7 +243,6 @@ fn compress_quotes<'a>(tokens: &[Token<'a>]) -> Option<Vec<Token<'a>>> {
                     slice::from_raw_parts(start.string.as_ptr(), start.string.len() + count+tokens[*cursor].string.len()+1)
                 };
                 if let Ok(out_str) = &str::from_utf8(out) {
-                    println!("out_str:{}", out_str);
                     return Some(Token {
                         string: out_str,
                         line: start.line,
@@ -515,7 +514,6 @@ fn parse_declared_type(
 }
 
 pub fn parse_type(base_text: &[Token], types: &mut HashMap<String, Type>) -> Option<(String, Type,bool)> {
-    println!("base_text:{:#?}",base_text);
     if base_text.len() < 3 {
         println!("error requires at least three tokens to declare struct");
     }
@@ -1222,7 +1220,6 @@ pub fn parse_function_stub(
     _globals: &HashMap<String, (Type, usize)>,
     _function_table: &HashMap<String, FunctionTable>,
 ) -> Option<(String, Function,bool)> {
-     println!("function text:{:#?}", base_text);
     let is_pub = base_text[0] == "pub";
     let text = if is_pub{
         &base_text[1..]
@@ -1267,7 +1264,7 @@ pub fn parse_function_stub(
         is_pub,
     ));
 }
-pub fn get_public_members(program:&str,to_compile:&mut Vec<String>)->Option<Program>{
+pub fn get_public_members(program:&str,to_compile:&mut Vec<String>, types:&mut HashMap<String,Type>)->Option<Program>{
     let tokens = tokenize(program);
     //println!("{:#?}", tokens);
     let globals_result = extract_globals(&tokens);
@@ -1277,20 +1274,14 @@ pub fn get_public_members(program:&str,to_compile:&mut Vec<String>)->Option<Prog
         return None;
     }
     let globals = globals_result.expect("is ok by previous call");
-    let mut types: HashMap<String, Type> = HashMap::new();
     let mut pub_types:HashMap<String,Type> = HashMap::new();
-    types.insert(String::from("bool"), Type::BoolT);
-    types.insert(String::from("int"), Type::IntegerT);
-    types.insert(String::from("float"), Type::FloatT);
-    types.insert(String::from("string"), Type::StringT);
-    types.insert(String::from("void"), Type::VoidT);
     let mut scope: HashMap<String, (Type, usize)> = HashMap::new();
     let mut functions: HashMap<String, FunctionTable> = HashMap::new();
     let mut pub_functions:HashMap<String, FunctionTable> = HashMap::new();
     for i in &globals{
         match i{
             GlobalTypes::IncludeDirective { text }=>{
-                let pubs = parse_include_directive(*text,to_compile)?;
+                let pubs = parse_include_directive(*text,to_compile, types)?;
                 for i in pubs.0{
                     types.insert(i.0, i.1);
                 }
@@ -1315,7 +1306,7 @@ pub fn get_public_members(program:&str,to_compile:&mut Vec<String>)->Option<Prog
     for i in &globals {
         match i {
             GlobalTypes::StructDef { text } => {
-                let tmp = parse_type(*text, &mut types)?;
+                let tmp = parse_type(*text, types)?;
                 if types.contains_key(&tmp.0) {
                     println!("error {} redeclared", tmp.0);
                     return None;
@@ -1333,7 +1324,7 @@ pub fn get_public_members(program:&str,to_compile:&mut Vec<String>)->Option<Prog
     for i in &globals {
         match i {
             GlobalTypes::GlobalDef { text } => {
-                let tmp = parse_global(*text, &mut types)?;
+                let tmp = parse_global(*text, types)?;
                 if scope.contains_key(&tmp.0) {
                     println!("error {} redeclared", tmp.0);
                     return None;
@@ -1350,7 +1341,7 @@ pub fn get_public_members(program:&str,to_compile:&mut Vec<String>)->Option<Prog
     for i in &globals {
         match i {
             GlobalTypes::FunctionDef { text } => {
-                let tmp = parse_function_stub(*text, &mut types, &scope, &functions)?;
+                let tmp = parse_function_stub(*text, types, &scope, &functions)?;
                 if !functions.contains_key(&tmp.0){
                     let table = FunctionTable::new();
                     functions.insert(tmp.0.clone(), table);
@@ -1376,14 +1367,13 @@ pub fn get_public_members(program:&str,to_compile:&mut Vec<String>)->Option<Prog
         global_initializers,
     });
 }
-pub fn parse_include_directive<'a>(span:&[Token<'a>],to_compile:&mut Vec<String>)->Option<(HashMap<String,Type>,HashMap<String,FunctionTable>,String)>{
+pub fn parse_include_directive<'a>(span:&[Token<'a>],to_compile:&mut Vec<String>, types:&mut HashMap<String,Type>)->Option<(HashMap<String,Type>,HashMap<String,FunctionTable>,String)>{
     let file = span[1].string.to_owned()+".risp";
     let tprg = std::fs::read_to_string(&file).expect("testing expect");
-    let base_out = get_public_members(&tprg,to_compile)?;
+    let base_out = get_public_members(&tprg,to_compile, types)?;
     return Some((base_out.types, base_out.functions, span[1].string.to_owned()));
 }
 pub fn program_to_ast(program: &str,compile_queue:&mut Vec<String>,file:&str) -> Option<Program> {
-    println!("{}", program);
     let tokens = tokenize(program);
     let globals_result = extract_globals(&tokens);
     if globals_result.is_err() {
@@ -1406,7 +1396,7 @@ pub fn program_to_ast(program: &str,compile_queue:&mut Vec<String>,file:&str) ->
     for i in &globals{
         match i{
             GlobalTypes::IncludeDirective { text }=>{
-                let pubs = parse_include_directive(*text,compile_queue)?;
+                let pubs = parse_include_directive(*text,compile_queue,&mut types)?;
                 for i in pubs.0{
                     types.insert(i.0, i.1);
                 }

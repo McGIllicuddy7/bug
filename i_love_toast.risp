@@ -2,4 +2,3 @@ pub fn i_love_toast(a:int)->int{
    return 8+23*a;
 }
 
-pub fn put_str(a:string)->void;
