@@ -398,6 +398,13 @@ fn validate_ast_node(node:&AstNode, types:&HashMap<String,Type>, functions:&mut 
             else{
                 return Err(format!("cannot return value from thing that cannot return"));
             }
+        } 
+        AstNode::OperatorMake { vtype, size }=>{
+            let old = validate_ast_node(size, types, functions, false, inside_loop, return_type)?;
+            if old.get_type(functions, types).expect("should return type") != Type::IntegerT{
+                return Err(format!("make must have an integer for size"));
+            }
+            return Ok(AstNode::OperatorMake { vtype:vtype.clone(), size: Box::new(old) });
         }
         _=>{
             return Ok(node.clone());

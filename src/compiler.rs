@@ -1,5 +1,6 @@
 use crate::parser::*;
 use crate::types::Type;
+use std::fmt::format;
 use std::fs;
 use std::io::Write;
 use std::collections::HashSet;
@@ -405,6 +406,14 @@ pub fn compile_expression(tmp_counter:&mut usize,expr:&mut AstNode,expect_return
             let right = compile_expression(tmp_counter, thing_to_ref.as_mut(),false, stack, functions, types, indent,used_types)?;
             return Ok("&".to_owned()+&right);
         }
+        AstNode::OperatorNew { vtype }=>{
+            return Ok(format!("gc_alloc({})",vtype.get_size_bytes()));
+        }
+        AstNode::OperatorMake { vtype, size }=>{
+            let stype = Type::SliceT { ptr_type: Box::new(vtype.clone()) };
+            let sz = compile_expression(tmp_counter, size, true, stack, functions, types, indent, used_types)?;
+            return Ok(format!("(({}){{gc_alloc({}), {}}})",name_mangle_type(&stype),format!("{}*{}",vtype.get_size_bytes(),sz), sz));
+        }
         _=>{
             unreachable!();
         }
@@ -525,7 +534,7 @@ fn compile_gc_functions(types:HashSet<Type>)->String{
             }
             _=>{}
         }
-        out += "inline void ";
+        out += "void ";
         out += &(gc_function_name(i)+"(void* ptr){\n");
         out += &("  ".to_owned()+&(name_mangle_type(i)+"* var = ptr;\n"));
         match i{

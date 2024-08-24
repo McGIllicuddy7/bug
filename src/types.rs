@@ -81,6 +81,42 @@ impl Type{
         }
     }
    }
+   pub fn get_size_bytes(&self)->usize{
+        match self{
+            Self::BoolT=>{
+                1
+            }
+            Self::CharT=>{
+                1
+            }
+            Self::FloatT=>{
+                8
+            }
+            Self::IntegerT=>{
+                8
+            }
+            Self::PointerT { ptr_type:_ }=>{
+                8
+            }
+            Self::SliceT { ptr_type:_ }=>{
+                16
+            }
+            Self::StringT{}=>{
+                16
+            }
+            Self::ArrayT { size, array_type }=>{
+                size*array_type.get_size_bytes()
+            }
+            Self::VoidT=>{
+                0
+            }
+            Self::StructT { name:_, components }=>{
+                let mut size = 0;
+                for i in components{size += i.1.get_size_bytes();}
+                size
+            }
+        }
+   }
 }
 pub fn is_compatible_type(a: &Type, b: &Type) -> bool {
     match a {
@@ -476,7 +512,11 @@ pub enum AstNode {
     },
     OperatorNew{
         vtype:Type,
-    }
+    },
+    OperatorMake{
+        vtype:Type, 
+        size:Box<AstNode>,
+    },
 }
 
 impl AstNode {
@@ -721,6 +761,9 @@ impl AstNode {
                     }
                 }
             }
+            Self::OperatorMake { vtype , size:_}=>{
+                return Some(Type::SliceT { ptr_type: Box::new(vtype.clone()) });
+            }
         }
     }
     pub fn get_priority(&self) -> usize {
@@ -746,7 +789,7 @@ impl AstNode {
             Self::ArrayLiteral { nodes: _ } => {
                 return 0;
             }
-            Self::Paren { internals }=>{
+            Self::Paren { internals:_ }=>{
                 return 0;
             }
             Self::VariableUse {
@@ -863,6 +906,9 @@ impl AstNode {
             Self::OperatorNew { vtype:_ }=>{
                 return 0;
             }
+            Self::OperatorMake { vtype:_, size:_ }=>{
+                return 0;
+            }
         }
     }
     pub fn get_data(&self)->Option<&AstNodeData>{
@@ -917,6 +963,7 @@ impl AstNode {
             }
         }
     }
+    #[allow(unused)]
     pub fn get_data_mut(&mut self)->Option<&mut AstNodeData>{
         match self{
             Self::VariableUse{name:_, index:_, vtype:_, is_arg:_, data}=>{
@@ -1011,9 +1058,11 @@ impl Scope {
             count,
         }
     }
+    #[allow(unused)]
     pub fn push_scope(&mut self) {
         self.scope.push(HashMap::new());
     }
+    #[allow(unused)]
     pub fn pop_scope(&mut self) {
         self.scope.pop();
     }

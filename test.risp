@@ -1,12 +1,5 @@
-import toast.risp;
-import i_love_toast.risp;
-pub struct test {a:int b:int c:int};
-let test0:test = {0,0,0};
-
 pub fn main()->int{
-   let s:string = "I love toast\n";
-   s[0];
-   put_str(s);
+   let a:[]int = make(int,100);
 }
 
  

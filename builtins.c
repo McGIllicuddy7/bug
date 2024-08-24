@@ -4,6 +4,9 @@
 void user_put_str_String(String s){
     write(1, s.start, s.len);
 }
+void * gc_alloc(size_t size){
+    return calloc(size,1);
+}
 void gc_push_frame(){
     
 }

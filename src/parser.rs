@@ -989,9 +989,23 @@ pub fn parse_expression(
         *cursor = expr_end+1;
         out = Some(AstNode::Paren { internals: Box::new(inner) });
      }else if text[*cursor] == "new"{
+        *cursor += 1;
         let vtype = parse_declared_type(text, cursor, types)?;
         *cursor += 1;
         out = Some(AstNode::OperatorNew { vtype: vtype });
+     }else if text[*cursor] == "make"{
+        *cursor += 1;
+        if text[*cursor] !="("{
+            println!("error expected ( line: {}", text[*cursor].line);
+            return None;
+        }
+        let expr_end = calc_close_paren(text, *cursor)?;
+        *cursor += 1;
+        let vtype = parse_declared_type(text, cursor, types)?;
+        *cursor +=1;
+        let expr = parse_expression(text, cursor, expr_end,types, scope, function_table)?;
+        *cursor =expr_end+1;
+        out = Some(AstNode::OperatorMake { vtype, size: Box::new(expr) });
      }else {
         if function_table.contains_key(text[*cursor].string) {
             let name = text[*cursor].string.to_owned();
