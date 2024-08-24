@@ -106,7 +106,8 @@ pub fn compile_expression(tmp_counter:&mut usize,expr:&mut AstNode,expect_return
             }
         }
         AstNode::StringLiteral {value,}=>{
-            return Ok("\"".to_owned()+value);
+            println!("{value}");
+            return Ok(format!("make_string_from({},{})",value, value.len()-2));
         }
         AstNode::IntLiteral { value }=>{
             return Ok(format!("{value}"));
@@ -180,7 +181,7 @@ pub fn compile_expression(tmp_counter:&mut usize,expr:&mut AstNode,expect_return
                         return Ok(left_s+ "=" +&right_s+";")
                     }
                     Type::ArrayT { size, array_type:_ }=>{
-                        return Ok(left_s.clone()+ ".start=" +&right_s+";\n"+&calc_indent(indent)+&left_s+&format!(".len = {};\n", size));
+                        return Ok(left_s.clone()+ ".start=" +&right_s+";\n"+&calc_indent(indent)+&left_s+&format!(".len = {}", size));
                     }
                     _=>{
                         unreachable!()
@@ -188,22 +189,7 @@ pub fn compile_expression(tmp_counter:&mut usize,expr:&mut AstNode,expect_return
                 }  
 
             }
-            match left.get_type(functions, types).expect("should have type"){
-                Type::StringT=>{
-                    match right.as_ref(){
-                        AstNode::StringLiteral { value}=>{
-                            return Ok(left_s.clone()+ ".start=" +&right_s+";\n"+&calc_indent(indent)+&left_s+&format!(".len = {};\n", value.len()-2));
-                        }
-                        _=>{
-
-                        }
-                    }
-                }
-                _=>{
-
-                }
-            }
-            return Ok(calc_indent(indent)+&left_s+" = "+&right_s+";\n");
+            return Ok(calc_indent(indent)+&left_s+" = "+&(right_s+";"));
         }
         AstNode::Add { left, right, data:_ }=>{
             let left_s = compile_expression(tmp_counter, left, true, stack, functions, types,indent,used_types)?;
@@ -342,6 +328,7 @@ pub fn compile_expression(tmp_counter:&mut usize,expr:&mut AstNode,expect_return
                     let base = &compile_expression(tmp_counter,i,false,&mut stack, functions,types,indent+1,used_types)?;
                     thing_else += &stack;
                     thing_else+= base;
+                    thing_else += ";\n";
                 }
                 thing_else +=   &(calc_indent(indent+1)+"gc_pop_frame();\n");
                 thing_else += "\n}";
@@ -363,6 +350,7 @@ pub fn compile_expression(tmp_counter:&mut usize,expr:&mut AstNode,expect_return
                 let base = &compile_expression(tmp_counter,i,false,&mut stack, functions,types,indent+1,used_types)?;
                 to_do += &stack;
                 to_do+= base;
+                to_do += ";\n";
             }
             to_do += &(calc_indent(indent)+"gc_pop_frame();\n");
             to_do += "}\n";
@@ -383,6 +371,7 @@ pub fn compile_expression(tmp_counter:&mut usize,expr:&mut AstNode,expect_return
                 let base = &compile_expression(tmp_counter,i,false, &mut tmp_stack, functions,types,indent+1,used_types)?;
                 to_do += &tmp_stack;
                 to_do+= base;
+                to_do += ";\n";
             }
             let post_op = calc_indent(indent)+&compile_expression(tmp_counter, post_op, expect_return, stack, functions, types,indent,used_types)?;
             to_do += &post_op;
@@ -394,27 +383,30 @@ pub fn compile_expression(tmp_counter:&mut usize,expr:&mut AstNode,expect_return
         AstNode::ArrayAccess { variable, index }=>{
             let left = compile_expression(tmp_counter, variable, false, stack, functions, types, indent,used_types)?;
             let idx = compile_expression(tmp_counter, index, true, stack, functions, types, indent,used_types)?;
-            if expect_return{
-                return Ok(left+".start["+&idx+"];");
+            if !expect_return{
+                return Ok(left+".start["+&idx+"]");
             } else{
                 return Ok(left+".start["+&idx+"]");
             }
         }
         AstNode::FieldUsage { base, field_name }=>{
             let left = compile_expression(tmp_counter, base, false, stack, functions, types, indent,used_types)?;
+            if !expect_return{
+                return Ok(left+"."+&(field_name.clone()));
+            } 
             return Ok(left+"."+&field_name);
         }
         AstNode::Deref { thing_to_deref }=>{
             let right = compile_expression(tmp_counter, thing_to_deref.as_mut(),false, stack, functions, types, indent,used_types)?;
             if expect_return{
-                return Ok("*".to_owned()+&(right+";"));
+                return Ok("*".to_owned()+&(right));
             }
             return Ok("*".to_owned()+&right);
         }
         AstNode::TakeRef { thing_to_ref }=>{
             let right = compile_expression(tmp_counter, thing_to_ref.as_mut(),false, stack, functions, types, indent,used_types)?;
             if expect_return{
-                return Ok("&".to_owned()+&(right+";"));
+                return Ok("&".to_owned()+&(right));
             }
             return Ok("&".to_owned()+&right);
         }
@@ -455,6 +447,7 @@ pub fn compile_function(func:&mut Function, filename:&str, functions:&HashMap<St
         let base = &compile_expression(&mut temp_counter,i,false,&mut stack, functions,types,1,used_types)?;
         out += &stack;
         out += base;
+        out += ";\n";
     }
     out += "    gc_pop_frame();\n";
     out += "\n}\n";

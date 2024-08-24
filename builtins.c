@@ -2,11 +2,39 @@
 #include "unistd.h"
 #include <string.h>
 #include <assert.h>
+typedef struct{void * ptr;size_t size; bool reachable;}gc_allocation;
+typedef struct allocation_buffer{
+    gc_allocation allocations[1024];
+    struct allocation_buffer * next;
+    struct allocation_buffer * prev;
+}allocation_buffer;
+static allocation_buffer allocations = {0};
+typedef struct gc_frame{
+    struct gc_frame * next;
+    struct gc_frame * prev;
+}gc_frame;
+gc_allocation * find_allocation(allocation_buffer * buffer){
+    for(int i =0; i<1024; i++){
+        if (buffer->allocations[i].ptr == 0){
+            return &buffer->allocations[i];
+        }
+    }
+    if (!buffer->next){
+        buffer->next = malloc(sizeof(allocation_buffer));
+        buffer->next->prev = buffer;
+        return find_allocation(buffer->next);
+    } else{
+        return find_allocation(buffer->next);
+    }
+}
 void user_put_str_String(String s){
     write(1, s.start, s.len);
 }
 void * gc_alloc(size_t size){
-    return calloc(size,1);
+    void * out = calloc(size,1);
+    gc_allocation alc = {out, size,0};
+    *find_allocation(&allocations) = alc;
+    return out;
 }
 void gc_push_frame(){
     
@@ -54,4 +82,9 @@ String user_int_to_string_long(long a){
     char * out = gc_alloc(l);
     memcpy(out, buffer, l);
     return (String){out, l};
+}
+String make_string_from(const char * str, size_t len){
+    char * out = gc_alloc(len);
+    memcpy(out, str, len);
+    return (String){out, len};
 }

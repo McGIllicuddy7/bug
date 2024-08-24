@@ -240,7 +240,7 @@ fn compress_quotes<'a>(tokens: &[Token<'a>]) -> Option<Vec<Token<'a>>> {
         while *cursor < tokens.len() {
             if tokens[*cursor].string == "\"" && !last_was_slash {
                 let out = unsafe {
-                    slice::from_raw_parts(start.string.as_ptr(), start.string.len() + count+tokens[*cursor].string.len()+1)
+                    slice::from_raw_parts(start.string.as_ptr(), start.string.len() + count+tokens[*cursor].string.len())
                 };
                 if let Ok(out_str) = &str::from_utf8(out) {
                     return Some(Token {
@@ -1029,7 +1029,8 @@ pub fn parse_expression(
             });
             *cursor += 1;
         } else if text[*cursor].string.chars().collect::<Vec<char>>()[0] == '"'{
-            out = Some(AstNode::StringLiteral { value: text[*cursor].string[1..text[*cursor].string.len() ].to_owned()});
+
+            out = Some(AstNode::StringLiteral { value: text[*cursor].string.to_owned()});
             *cursor+=1;
         } else if types.contains_key(text[*cursor].string){
             let vtype = types.get(text[*cursor].string)?.clone();
