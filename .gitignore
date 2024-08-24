@@ -1,6 +1,6 @@
 /target
 /src/i-love-you.txt
-*.c 
 *.o
 *.out
 *.dSYM/
+output/

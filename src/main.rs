@@ -23,7 +23,7 @@ fn main() {
     print!("linking...");
     let mut cmd =   std::process::Command::new("gcc");
     for i in &comp_que{
-        let name = i[0..i.len()-5].to_owned()+".o";
+        let name = "output/".to_owned()+&i[0..i.len()-5]+".o";
         print!("{} ",name);
         cmd.arg(name);
     }
@@ -33,7 +33,7 @@ fn main() {
     print!("\ncleaning up...");
     let mut cmd = std::process::Command::new("rm");
     for i in &comp_que{
-        let name = i[0..i.len()-5].to_owned()+".o";
+        let name = "output".to_owned()+&i[0..i.len()-5]+".o";
         print!("{name} ");
         cmd.arg(name);
     }

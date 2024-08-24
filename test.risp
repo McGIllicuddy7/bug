@@ -1,15 +1,11 @@
-pub struct test {a:int b:int c:int};
 import toast.risp;
 import i_love_toast.risp;
+pub struct test {a:int b:int c:int};
 let test0:test = {0,0,0};
 
 pub fn main()->int{
-   let b:[]int = {0,0,0,0,0,0,0,0};
-   for(let i:int =0; i<b.len; i= i+1){
-      test2(&b[i]);
-   }
-   let count:int = sum(b);
-   return count;
+   let s:string = "I love toast\n";
+   put_str(s);
 }
 
  

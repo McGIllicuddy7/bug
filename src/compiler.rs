@@ -106,7 +106,7 @@ pub fn compile_expression(tmp_counter:&mut usize,expr:&mut AstNode,expect_return
             }
         }
         AstNode::StringLiteral {value,}=>{
-            return Ok(value.clone());
+            return Ok("\"".to_owned()+value+"\"");
         }
         AstNode::IntLiteral { value }=>{
             return Ok(format!("{value}"));
@@ -490,7 +490,8 @@ pub fn handle_dependencies(map:&HashMap<String,Type>)->Vec<(String,Type)>{
 }
 pub fn compile(prog:Program, base_filename:&str)->Result<(),String>{
     println!("compiling file: {}", base_filename);
-    let filename = &base_filename[0..base_filename.len()-5];
+    let fname = "output/".to_owned()+&base_filename[0..base_filename.len()-5];
+    let filename = &fname;
     let mut out = String::new();
     let mut typedecs = "".to_owned();
     let progtypes = handle_dependencies(&prog.types);
