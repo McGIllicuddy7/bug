@@ -493,7 +493,6 @@ pub fn compile(prog:Program, base_filename:&str)->Result<(),String>{
     let filename = &base_filename[0..base_filename.len()-5];
     let mut out = String::new();
     let mut typedecs = "".to_owned();
-    typedecs += "typedef struct {char * start; size_t length;}String;\n";
     let progtypes = handle_dependencies(&prog.types);
     for i in &progtypes{
         typedecs += &compile_type(i.0.clone(), i.1.clone())?;
@@ -518,7 +517,7 @@ pub fn compile(prog:Program, base_filename:&str)->Result<(),String>{
     }
     let out_file_name = filename.to_owned()+".c";
     let mut fout = fs::File::create(&out_file_name).expect("testing expect");
-    out += "#include <stdio.h>\n";
+    out += "#include \"prog_builtins.h\"\n";
     out += &typedecs;
     out += &func_decs;
     out += &statics;
