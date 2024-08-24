@@ -19,6 +19,7 @@ fn main() {
             break;
         }
     }
+    let _= std::process::Command::new("gcc").arg("-c").arg("-std=c2x").arg("builtins.c").output();
     print!("linking...");
     let mut cmd =   std::process::Command::new("gcc");
     for i in &comp_que{
@@ -26,6 +27,8 @@ fn main() {
         print!("{} ",name);
         cmd.arg(name);
     }
+    cmd.arg("builtins.o".to_owned());
+    print!("builtins.o");
     let _ = cmd.output().expect("input should be ok");
     print!("\ncleaning up...");
     let mut cmd = std::process::Command::new("rm");
@@ -34,5 +37,6 @@ fn main() {
         print!("{name} ");
         cmd.arg(name);
     }
+    cmd.arg("builtins.o");
     let _= cmd.output().expect("command should work");
 }

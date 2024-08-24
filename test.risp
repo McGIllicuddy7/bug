@@ -6,7 +6,7 @@ let test0:test = {0,0,0};
 pub fn main()->int{
    let b:[]int = {0,0,0,0,0,0,0,0};
    for(let i:int =0; i<b.len; i= i+1){
-      test2(&b[i]);
+      test2(b[i]);
    }
    let count:int = sum(b);
    return count;
