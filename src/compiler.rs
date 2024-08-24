@@ -1,6 +1,5 @@
 use crate::parser::*;
 use crate::types::Type;
-use std::fmt::format;
 use std::fs;
 use std::io::Write;
 use std::collections::HashSet;
@@ -396,7 +395,7 @@ pub fn compile_expression(tmp_counter:&mut usize,expr:&mut AstNode,expect_return
             let left = compile_expression(tmp_counter, variable, false, stack, functions, types, indent,used_types)?;
             let idx = compile_expression(tmp_counter, index, true, stack, functions, types, indent,used_types)?;
             if expect_return{
-                return Ok(left+".start["+&idx+"]");
+                return Ok(left+".start["+&idx+"];");
             } else{
                 return Ok(left+".start["+&idx+"]");
             }
@@ -407,10 +406,16 @@ pub fn compile_expression(tmp_counter:&mut usize,expr:&mut AstNode,expect_return
         }
         AstNode::Deref { thing_to_deref }=>{
             let right = compile_expression(tmp_counter, thing_to_deref.as_mut(),false, stack, functions, types, indent,used_types)?;
+            if expect_return{
+                return Ok("*".to_owned()+&(right+";"));
+            }
             return Ok("*".to_owned()+&right);
         }
         AstNode::TakeRef { thing_to_ref }=>{
             let right = compile_expression(tmp_counter, thing_to_ref.as_mut(),false, stack, functions, types, indent,used_types)?;
+            if expect_return{
+                return Ok("&".to_owned()+&(right+";"));
+            }
             return Ok("&".to_owned()+&right);
         }
         AstNode::OperatorNew { vtype }=>{

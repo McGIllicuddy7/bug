@@ -410,7 +410,6 @@ fn validate_ast_node(node:&AstNode, types:&HashMap<String,Type>, functions:&mut 
             return Ok(node.clone());
         }
     }
-    todo!();
 }
 #[allow(unused)]
 pub fn validate_ast(prg:Program)->Result<Program, String>{
