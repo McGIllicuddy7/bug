@@ -1,1 +1,3 @@
 pub fn put_str(a:string)->void;
+pub fn +(a:string b:string)->string;
+pub fn int_to_string(a:int)->string;

@@ -1,5 +1,16 @@
 pub fn main()->int{
    let a:[]int = make(int,100);
+   for(let i:int = 0; i<a.len; i = i+1){
+      a[i] = 1+2;
+      a[i] = i;
+   }
+   let msg:string = "";
+   let new_line:string = "\n";
+   for(let i:int =0; i<a.len; i= i+1){
+      msg = msg + int_to_string(a[i]);
+      msg = msg+new_line;
+   }
+   put_str(msg);
 }
 
  

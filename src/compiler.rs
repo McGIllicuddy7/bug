@@ -107,7 +107,7 @@ pub fn compile_expression(tmp_counter:&mut usize,expr:&mut AstNode,expect_return
             }
         }
         AstNode::StringLiteral {value,}=>{
-            return Ok("\"".to_owned()+value+"\"");
+            return Ok("\"".to_owned()+value);
         }
         AstNode::IntLiteral { value }=>{
             return Ok(format!("{value}"));
@@ -153,7 +153,12 @@ pub fn compile_expression(tmp_counter:&mut usize,expr:&mut AstNode,expect_return
             }
             let retv = retv_opt.expect("");
             let mut base =retv.name.clone()+"(";
+            let mut start = true;
             for i in args{
+                if !start{
+                    base += ",";
+                }
+                start = false;
                 base += &compile_expression(tmp_counter,i, true,stack,functions,types,indent,used_types)?;
             }
             base += ");\n";
@@ -188,7 +193,7 @@ pub fn compile_expression(tmp_counter:&mut usize,expr:&mut AstNode,expect_return
                 Type::StringT=>{
                     match right.as_ref(){
                         AstNode::StringLiteral { value}=>{
-                            return Ok(left_s.clone()+ ".start=" +&right_s+";\n"+&calc_indent(indent)+&left_s+&format!(".len = {};\n", value.len()));
+                            return Ok(left_s.clone()+ ".start=" +&right_s+";\n"+&calc_indent(indent)+&left_s+&format!(".len = {};\n", value.len()-2));
                         }
                         _=>{
 
@@ -323,9 +328,9 @@ pub fn compile_expression(tmp_counter:&mut usize,expr:&mut AstNode,expect_return
             to_do += &(calc_indent(indent+1)+"gc_push_frame()");
             for i in thing_to_do{
                 let mut stack = String::new();
-                let base = &compile_expression(tmp_counter,i,false,&mut stack, functions,types,indent,used_types)?;
+                let base = compile_expression(tmp_counter,i,false,&mut stack, functions,types,indent,used_types)?;
                 to_do += &stack;
-                to_do+= base;
+                to_do+= &base;
             }
             to_do += &(calc_indent(indent+1)+"gc_push_frame();\n");
             to_do += "}\n";
@@ -336,8 +341,8 @@ pub fn compile_expression(tmp_counter:&mut usize,expr:&mut AstNode,expect_return
                 for i in els{
                     let mut stack = String::new();
                     let base = &compile_expression(tmp_counter,i,false,&mut stack, functions,types,indent+1,used_types)?;
-                    to_do += &stack;
-                    to_do+= base;
+                    thing_else += &stack;
+                    thing_else+= base;
                 }
                 thing_else +=   &(calc_indent(indent+1)+"gc_pop_frame();\n");
                 thing_else += "\n}";
@@ -375,7 +380,9 @@ pub fn compile_expression(tmp_counter:&mut usize,expr:&mut AstNode,expect_return
             *stack += &var;
             *stack += &cond;
             for i in body{
-                let base = &compile_expression(tmp_counter,i,false, stack, functions,types,indent+1,used_types)?;
+                let mut tmp_stack = String::new();
+                let base = &compile_expression(tmp_counter,i,false, &mut tmp_stack, functions,types,indent+1,used_types)?;
+                to_do += &tmp_stack;
                 to_do+= base;
             }
             let post_op = calc_indent(indent)+&compile_expression(tmp_counter, post_op, expect_return, stack, functions, types,indent,used_types)?;
@@ -391,7 +398,7 @@ pub fn compile_expression(tmp_counter:&mut usize,expr:&mut AstNode,expect_return
             if expect_return{
                 return Ok(left+".start["+&idx+"]");
             } else{
-                return Ok(left+".start["+&idx+"];\n");
+                return Ok(left+".start["+&idx+"]");
             }
         }
         AstNode::FieldUsage { base, field_name }=>{
@@ -524,12 +531,24 @@ pub fn gc_function_name(t:&Type)->String{
 fn compile_gc_functions(types:HashSet<Type>)->String{
     let mut out = String::new();
     for i in &types{
-        out += "inline void ";
+        out += "void ";
         out += &(gc_function_name(i)+"(void*);\n");
     }
     for i in &types{
         match i{
             Type::StringT{}=>{
+                continue;
+            }
+            Type::IntegerT{}=>{
+                continue;
+            }
+            Type::BoolT=>{
+                continue;
+            }
+            Type::CharT=>{
+                continue;
+            }
+            Type::FloatT=>{
                 continue;
             }
             _=>{}
