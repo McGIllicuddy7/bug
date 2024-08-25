@@ -234,13 +234,12 @@ fn handle_numbers<'a>(tokens: &[Token<'a>]) -> Vec<Token<'a>> {
 fn compress_quotes<'a>(tokens: &[Token<'a>]) -> Option<Vec<Token<'a>>> {
     fn str_compress<'a>(tokens: &[Token<'a>], cursor: &mut usize) -> Option<Token<'a>> {
         let start = tokens[*cursor].clone();
-        let mut count = 0;
         *cursor += 1;
         let mut last_was_slash = false;
         while *cursor < tokens.len() {
             if tokens[*cursor].string == "\"" && !last_was_slash {
                 let out = unsafe {
-                    slice::from_raw_parts(start.string.as_ptr(), start.string.len() + count+tokens[*cursor].string.len())
+                    slice::from_raw_parts(start.string.as_ptr(), tokens[*cursor+1].string.as_ptr().offset_from( start.string.as_ptr()) as usize)
                 };
                 if let Ok(out_str) = &str::from_utf8(out) {
                     return Some(Token {
@@ -251,8 +250,9 @@ fn compress_quotes<'a>(tokens: &[Token<'a>]) -> Option<Vec<Token<'a>>> {
             } else {
                 if tokens[*cursor].string == "\\" && !last_was_slash {
                     last_was_slash = true;
+                } else{
+                    last_was_slash = false;
                 }
-                count += tokens[*cursor].string.len();
             }
             *cursor += 1;
         }
