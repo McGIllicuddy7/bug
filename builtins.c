@@ -6,6 +6,15 @@
 #include <stdbool.h>
 #define false 0
 #define true 1
+static ssize_t allocation_count = 0;
+void * mem_alloc(size_t size){
+    allocation_count++;
+    return malloc(size);
+}
+void mem_free(void * to_free){
+    allocation_count--;
+    free(to_free);
+}
 typedef struct{void * ptr;size_t size; bool reachable;}gc_allocation;
 typedef struct allocation_buffer{
     gc_allocation allocations[1024];
@@ -43,10 +52,6 @@ void user_put_str_String(String s){
 }
 void gc_collect(){
     static int counter = 0;
-    if(counter<5){
-        counter ++;
-        return;
-    }
     counter = 0;
     gc_frame * current = current_frame;
     while(current){
@@ -61,8 +66,8 @@ void gc_collect(){
         for(int i =0; i<1024; i++){
             gc_allocation * a = &cur->allocations[i];
             if(!a->reachable && a->ptr){
-                //printf("freed %p\n", a->ptr);
-		free(a->ptr);
+                //printf("mem_freed %p\n", a->ptr);
+		    mem_free(a->ptr);
                 a->ptr = 0;
                 a->size = 0;
             }
@@ -76,7 +81,7 @@ void * gc_alloc(size_t size){
     if (size<16){
         size = 16;
     }
-    void * out = malloc(size);
+    void * out = mem_alloc(size);
     gc_allocation alc = {out, size,1};
     //printf("allocated %p\n", out); 
     *find_allocation(&allocations) = alc;
@@ -146,8 +151,7 @@ void gc_bool(void * ptr){
 }
 String operator_plus_String_String(String a, String b){
     size_t out_l = a.len+b.len;
-    char * out_buff = gc_alloc(out_l);
-    printf("out_buff:%p\n",out_buff);
+    const char * out_buff = gc_alloc(out_l);
     memcpy(out_buff, a.start, a.len);
     memcpy(out_buff+a.len, b.start, b.len);
     String out =  (String){out_buff, out_l};
@@ -164,4 +168,7 @@ String user_int_to_string_long(long a){
 String make_string_from(const char * str, size_t len){
     char * out = str;
     return (String){out, len};
+}
+ssize_t get_allocation_count(){
+    return allocation_count;
 }
