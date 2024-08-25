@@ -1,12 +1,22 @@
-struct ll{next:^ll data:string};
+struct ll{
+   next:^ll 
+   data:string
+};
 pub fn main()->int{
    let a = new ll;
    (^a).data = "hello";
-   for(let i = 0; i<10; i = i+1){
+   for(let i = 0; i<52; i = i+1){
       let b:^ll = new ll;
       (^b).next = a;
       (^b).data = int_to_string(i);
       a = b;
+   }
+   a = false;
+   for(let i = 0; i<1048; i = i+1){
+      let b:^ll = new ll;
+      (^b).next = a;
+      (^b).data = int_to_string(i);
+      a = b; 
    }
    let cur = a;
    while(cur){

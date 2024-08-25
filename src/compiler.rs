@@ -592,8 +592,10 @@ fn compile_gc_functions(types:HashSet<Type>)->String{
         out += &("  ".to_owned()+&(name_mangle_type(i)+"* var = ptr;\n"));
         match i{
             Type::PointerT { ptr_type }=>{
+                out += "   if(!(*var)){return;}\n";
                 out += "   gc_any_ptr(*var);\n";
                 out += "    ";
+
                 out += &(gc_function_name(ptr_type)+"(*var);\n");
             }
             Type::SliceT { ptr_type}=>{

@@ -66,12 +66,15 @@ void gc_collect(){
         current = current->prev;
     }
     allocation_buffer * cur = &allocations;
+    size_t allocation_count = 0;
+    size_t byte_count =0;
     while(cur){
         for(int i =0; i<BUFFER_ALLOCATION_COUNT; i++){
             gc_allocation * a = &cur->allocations[i];
             if(!a->reachable && a->ptr){
-                //printf("mem_freed %p\n", a->ptr);
-		    mem_free(a->ptr);
+                allocation_count +=1;
+                byte_count += a->size;
+		        mem_free(a->ptr);
                 a->ptr = 0;
                 a->size = 0;
             }
@@ -79,6 +82,7 @@ void gc_collect(){
         }
         cur = cur->next;
     }
+    printf("collected %zu bytes in %zu allocations\n", byte_count, allocation_count);
 }
 
 void * gc_alloc(size_t size){
@@ -129,7 +133,7 @@ void gc_register_ptr(void * ptr, void (*collect_fn)(void *)){
 void gc_any_ptr(void * ptr){
     allocation_buffer *current =  &allocations;
     while(current){
-        for(int i =0; i<1024; i++){
+        for(int i =0; i<BUFFER_ALLOCATION_COUNT; i++){
             gc_allocation * a = &current->allocations[i];
             if (ptr>=a->ptr && ptr<a->ptr+a->size){
                 a->reachable = true;
