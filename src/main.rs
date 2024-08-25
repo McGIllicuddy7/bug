@@ -7,10 +7,10 @@ use crate::parser::*;
 use crate::compiler::*;
 fn main() {
     std::env::set_var("RUST_BACKTRACE", "1");
-    let mut comp_que = vec!["test.risp".to_owned()];
+    let mut comp_que = vec!["test.bug".to_owned()];
     let mut i =0; 
     loop{
-        let tprg = "import builtins.risp;\n".to_owned()+&std::fs::read_to_string(&comp_que[i]).expect("testing expect");
+        let tprg = "import builtins.bug;\n".to_owned()+&std::fs::read_to_string(&comp_que[i]).expect("testing expect");
         let name = comp_que[i].to_owned();
         let prg = program_to_ast(&tprg,&mut comp_que, &name).expect("testing expect");
         let _ = compile(prg,&comp_que[i]).expect("testing expect");
