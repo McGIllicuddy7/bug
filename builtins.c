@@ -82,7 +82,10 @@ void gc_collect(){
         }
         cur = cur->next;
     }
-    printf("collected %zu bytes in %zu allocations\n", byte_count, allocation_count);
+    if(allocation_count>0){
+        printf("collected %zu bytes in %zu allocations\n", byte_count, allocation_count);
+    }
+
 }
 
 void * gc_alloc(size_t size){
