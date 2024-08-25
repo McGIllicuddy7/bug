@@ -7,6 +7,8 @@
 #define false 0
 #define true 1
 static ssize_t allocation_count = 0;
+static bool should_collect = false;
+#define BUFFER_ALLOCATION_COUNT 512
 void * mem_alloc(size_t size){
     allocation_count++;
     return malloc(size);
@@ -17,7 +19,7 @@ void mem_free(void * to_free){
 }
 typedef struct{void * ptr;size_t size; bool reachable;}gc_allocation;
 typedef struct allocation_buffer{
-    gc_allocation allocations[1024];
+    gc_allocation allocations[BUFFER_ALLOCATION_COUNT];
     struct allocation_buffer * next;
     struct allocation_buffer * prev;
 }allocation_buffer;
@@ -34,13 +36,14 @@ typedef struct gc_frame{
 static allocation_buffer allocations = {0};
 static gc_frame * current_frame = 0;
 gc_allocation * find_allocation(allocation_buffer * buffer){
-    for(int i =0; i<1024; i++){
+    for(int i =0; i<BUFFER_ALLOCATION_COUNT; i++){
         if (buffer->allocations[i].ptr == 0){
             return &buffer->allocations[i];
         }
     }
     if (!buffer->next){
-        buffer->next = calloc(sizeof(allocation_buffer),0);
+        should_collect = true;
+        buffer->next = calloc(sizeof(allocation_buffer),1);
         buffer->next->prev = buffer;
         return find_allocation(buffer->next);
     } else{
@@ -51,8 +54,9 @@ void user_put_str_String(String s){
     write(1, s.start, s.len);
 }
 void gc_collect(){
-    static int counter = 0;
-    counter = 0;
+    if (!should_collect&&current_frame != 0){
+        return;
+    }
     gc_frame * current = current_frame;
     while(current){
         for(int i =0; i<current->next_ptr; i++){
@@ -63,7 +67,7 @@ void gc_collect(){
     }
     allocation_buffer * cur = &allocations;
     while(cur){
-        for(int i =0; i<1024; i++){
+        for(int i =0; i<BUFFER_ALLOCATION_COUNT; i++){
             gc_allocation * a = &cur->allocations[i];
             if(!a->reachable && a->ptr){
                 //printf("mem_freed %p\n", a->ptr);
