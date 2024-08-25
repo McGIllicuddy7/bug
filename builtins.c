@@ -7,7 +7,7 @@
 #define false 0
 #define true 1
 static ssize_t allocation_count = 0;
-static bool should_collect = false;
+static size_t dropped_ptr_count = 0;
 #define BUFFER_ALLOCATION_COUNT 512
 void * mem_alloc(size_t size){
     allocation_count++;
@@ -42,7 +42,6 @@ gc_allocation * find_allocation(allocation_buffer * buffer){
         }
     }
     if (!buffer->next){
-        should_collect = true;
         buffer->next = calloc(sizeof(allocation_buffer),1);
         buffer->next->prev = buffer;
         return find_allocation(buffer->next);
@@ -54,9 +53,10 @@ void user_put_str_String(String s){
     write(1, s.start, s.len);
 }
 void gc_collect(){
-    if (!should_collect&&current_frame != 0){
+    if (dropped_ptr_count<64&&current_frame != 0){
         return;
     }
+    dropped_ptr_count = 0;
     gc_frame * current = current_frame;
     while(current){
         for(int i =0; i<current->next_ptr; i++){
@@ -115,6 +115,7 @@ void gc_pop_frame(){
     if(prev->buffer != prev->smol_size){
         free(prev->buffer);
     }
+    dropped_ptr_count += prev->next_ptr;
     current_frame = prev->prev;
     free(prev);
     gc_collect();
