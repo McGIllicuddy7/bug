@@ -172,3 +172,6 @@ String make_string_from(const char * str, size_t len){
 ssize_t get_allocation_count(){
     return allocation_count;
 }
+long user_mod_long_long(long a, long b){
+    return a%b;
+}

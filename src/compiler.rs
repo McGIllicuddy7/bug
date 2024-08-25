@@ -173,7 +173,7 @@ pub fn compile_expression(tmp_counter:&mut usize,expr:&mut AstNode,expect_return
         }
         AstNode::Assignment { left, right, data:_ }=>{
             let left_s = compile_expression(tmp_counter, left, false, stack, functions, types,indent,used_types)?;
-            let right_s = compile_expression(tmp_counter, right, true, stack, functions, types,indent,used_types)?;
+            let right_s = compile_expression(tmp_counter, right, true, stack, functions, types,0,used_types)?;
             if left.get_type(functions, types).expect("should have type").is_array(){
                 let s = right.get_type(functions, types).expect("right should have type");
                 match s{
@@ -327,7 +327,7 @@ pub fn compile_expression(tmp_counter:&mut usize,expr:&mut AstNode,expect_return
         AstNode::If { condition, thing_to_do, r#else }=>{
             let cond = "if ".to_owned()+&compile_expression(tmp_counter,  condition, true, stack, functions, types,indent,used_types)?;
             let mut to_do = String::from("{\n");
-            to_do += &(calc_indent(indent+1)+"gc_push_frame()");
+            to_do += &(calc_indent(indent+1)+"gc_push_frame();\n");
             for i in thing_to_do{
                 let mut stack = String::new();
                 let base = compile_expression(tmp_counter,i,false,&mut stack, functions,types,indent,used_types)?;

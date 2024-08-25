@@ -1,5 +1,5 @@
 pub fn main()->int{
-   for(let i:int =0; i<4096; i= i+1){
+   for(let i:int =0; i<4096*32; i= i+1){
       let tmp:string = "";
       tmp = tmp + "hello "+"toast ";
       tmp = tmp+ "i "+"love "+"you\n";
