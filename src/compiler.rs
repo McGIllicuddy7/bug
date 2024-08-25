@@ -164,6 +164,7 @@ pub fn compile_expression(tmp_counter:&mut usize,expr:&mut AstNode,expect_return
             base += ");\n";
             if expect_return{
                 *stack+= &(calc_indent(indent)+&format!("{} tmp{} = {}", &name_mangle_type(&retv.return_type),*tmp_counter,&base ));
+                *stack += &(calc_indent(indent)+&format!("gc_register_ptr(&tmp{}, {});\n",*tmp_counter, gc_function_name(&retv.return_type)));
                 let fmt = calc_indent(indent)+&format!("tmp{}",*tmp_counter);
                 *tmp_counter+=1;
                 return Ok(fmt);
@@ -213,8 +214,9 @@ pub fn compile_expression(tmp_counter:&mut usize,expr:&mut AstNode,expect_return
             let right_s = compile_expression(tmp_counter, right, true, stack, functions, types,indent,used_types)?;
             let pushv = calc_indent(indent)+&format!("{} tmp{} = {}+{};\n",&name_mangle_type(&left.get_type(functions,types).expect("")),*tmp_counter,left_s,right_s);
             let stack_var_name = format!("tmp{}", tmp_counter);
-            *tmp_counter +=1;
             *stack +=&pushv;
+            *stack += &(calc_indent(indent)+&format!("gc_register_ptr(&tmp{}, {});\n",*tmp_counter, gc_function_name(&left.get_type(functions, types).expect(""))));
+            *tmp_counter +=1;
             return Ok(stack_var_name);
         } 
         AstNode::Sub { left, right, data:_ }=>{
@@ -222,8 +224,9 @@ pub fn compile_expression(tmp_counter:&mut usize,expr:&mut AstNode,expect_return
             let right_s = compile_expression(tmp_counter, right, true, stack, functions, types,indent,used_types)?;
             let pushv = calc_indent(indent)+&format!("{} tmp{} = {}-{};\n",&name_mangle_type(&left.get_type(functions,types).expect("")),*tmp_counter,left_s,right_s);
             let stack_var_name = format!("tmp{}", tmp_counter);
-            *tmp_counter +=1;
             *stack +=&pushv;
+            *stack += &(calc_indent(indent)+&format!("gc_register_ptr(&tmp{}, {});\n",*tmp_counter, gc_function_name(&left.get_type(functions, types).expect(""))));
+            *tmp_counter +=1;
             return Ok(stack_var_name);
         } 
         AstNode::Mult { left, right, data:_ }=>{
@@ -231,8 +234,9 @@ pub fn compile_expression(tmp_counter:&mut usize,expr:&mut AstNode,expect_return
             let right_s = compile_expression(tmp_counter, right, true, stack, functions, types,indent,used_types)?;
             let pushv = calc_indent(indent)+&format!("{} tmp{} = {}*{};\n",&name_mangle_type(&left.get_type(functions,types).expect("")),*tmp_counter,left_s,right_s);
             let stack_var_name = format!("tmp{}", tmp_counter);
-            *tmp_counter +=1;
             *stack +=&pushv;
+            *stack += &(calc_indent(indent)+&format!("gc_register_ptr(&tmp{}, {});\n",*tmp_counter, gc_function_name(&left.get_type(functions, types).expect(""))));
+            *tmp_counter +=1;
             return Ok(stack_var_name);
         } 
         AstNode::Div{ left, right, data:_ }=>{
@@ -240,8 +244,9 @@ pub fn compile_expression(tmp_counter:&mut usize,expr:&mut AstNode,expect_return
             let right_s = compile_expression(tmp_counter, right, true, stack, functions, types,indent,used_types)?;
             let pushv = calc_indent(indent)+&format!("{} tmp{} = {}/{};\n",&name_mangle_type(&left.get_type(functions,types).expect("")),*tmp_counter,left_s,right_s);
             let stack_var_name = format!("tmp{}", tmp_counter);
-            *tmp_counter +=1;
             *stack +=&pushv;
+            *stack += &(calc_indent(indent)+&format!("gc_register_ptr(&tmp{}, {});\n",*tmp_counter, gc_function_name(&left.get_type(functions, types).expect(""))));
+            *tmp_counter +=1;
             return Ok(stack_var_name);
         } 
         AstNode::Equals{ left, right, data:_ }=>{
