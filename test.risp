@@ -2,7 +2,7 @@ pub fn main()->int{
    for(let i:int =0; i<4096; i= i+1){
       let tmp:string = "";
       tmp = tmp + "hello "+"toast ";
-      tmp = tmp+ "i "+"love "+"you";
+      tmp = tmp+ "i "+"love "+"you\n";
       put_str(tmp);
    }
    return 0;

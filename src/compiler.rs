@@ -641,7 +641,7 @@ pub fn compile(prog:Program, base_filename:&str)->Result<(),String>{
     out += &statics;
     out += &functions;
     if prog.functions.contains_key("main"){
-    out += "int main(int argc,const char ** argv){\n    long result = user_main();\n    printf(\"exited with %ld\\n\",result);\n    assert(get_allocation_count() == 0);\n}";
+    out += "int main(int argc,const char ** argv){\n    long result = user_main();\n    printf(\"exited with %ld\\n\",result);\n   gc_collect(); assert(get_allocation_count() == 0);\n}";
     }
     fout.write(out.as_bytes()).expect("tesing expect");
     drop(fout);

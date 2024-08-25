@@ -23,3 +23,4 @@ String operator_plus_String_String(String a, String b);
 String user_int_to_string_long(long a);
 String make_string_from(const char * str, size_t len);
 ssize_t get_allocation_count();
+void gc_collect();
