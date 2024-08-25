@@ -142,7 +142,8 @@ void gc_long(void * ptr){
 
 }
 void gc_String(void * ptr){
-
+    String s= *(String *)(ptr);
+    gc_any_ptr((void *)s.start);
 }
 void gc_double(void * ptr){
 

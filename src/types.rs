@@ -40,6 +40,9 @@ pub enum Type {
     SliceT {
         ptr_type: Box<Type>,
     },
+    PartiallyDefined{
+        name:String
+    }
 }
 impl Type{
     pub fn get_array_type(&self)->Option<Type>{
@@ -115,6 +118,28 @@ impl Type{
                 for i in components{size += i.1.get_size_bytes();}
                 size
             }
+            Self::PartiallyDefined { name:_ }=>{
+                0
+            }
+        }
+   }
+   pub fn is_partially_defined(&self)->bool{
+        match self{
+            Type::PartiallyDefined { name:_ }=>{
+                true
+            }
+            Type::PointerT { ptr_type }=>{
+                ptr_type.is_partially_defined()
+            }
+            Type::ArrayT { size:_, array_type }=>{
+                array_type.is_partially_defined()
+            }
+            Type::SliceT { ptr_type }=>{
+                ptr_type.is_partially_defined()
+            }
+            _=>{
+                false
+            }
         }
    }
 }
@@ -188,6 +213,9 @@ pub fn is_compatible_type(a: &Type, b: &Type) -> bool {
                         return aname == name;
                     }
                 }
+                Type::PartiallyDefined { name }=>{
+                    return aname == name;
+                }
                 _ => {
                     return false;
                 }
@@ -198,6 +226,9 @@ pub fn is_compatible_type(a: &Type, b: &Type) -> bool {
             match b {
                 Type::PointerT { ptr_type } => {
                     return is_compatible_type(&at, &ptr_type);
+                }
+                Type::BoolT{}=>{
+                    return true;
                 }
                 _ => {
                     return false;
@@ -237,6 +268,20 @@ pub fn is_compatible_type(a: &Type, b: &Type) -> bool {
                     return is_compatible_type(&at, ptr_type);
                 }
                 _ => {
+                    return false;
+                }
+            }
+        }
+        Type::PartiallyDefined { name }=>{
+            let aname = name;
+            match b{
+                Type::StructT { name, components:_ }=>{
+                    return aname == name;
+                }
+                Type::PartiallyDefined { name }=>{
+                    return aname == name;
+                }
+                _=>{
                     return false;
                 }
             }
@@ -305,6 +350,9 @@ pub fn is_equal_type(a:&Type, b:&Type)->bool{
                         return aname == name;
                     }
                 }
+                Type::PartiallyDefined { name }=>{
+                    return aname == name;
+                }
                 _ => {
                     return false;
                 }
@@ -348,6 +396,20 @@ pub fn is_equal_type(a:&Type, b:&Type)->bool{
                     return is_equal_type(&at, ptr_type);
                 }
                 _ => {
+                    return false;
+                }
+            }
+        }
+        Type::PartiallyDefined { name }=>{
+            let aname = name;
+            match b {
+                Type::StructT { name, components:_ }=>{
+                    return name == aname;
+                }
+                Type::PartiallyDefined { name }=>{
+                    return aname == name;
+                }
+                _=>{
                     return false;
                 }
             }
@@ -701,8 +763,15 @@ impl AstNode {
                         }
                         Type::StructT { name:_, components }=>{
                             for i in &components{
-                                if *i.0 == *field_name{
-                                    return Some( i.1.clone());
+                                if *i.0.clone() == *field_name{
+                                    match i.1.clone(){
+                                        Type::PartiallyDefined { name }=>{
+                                            return Some(types[&name].clone());
+                                        }_=>{
+                                            return Some( i.1.clone());
+                                        }
+                                    }
+
                                 }
                             }
                             return None;
@@ -1137,6 +1206,9 @@ pub fn name_mangle_type(var:&Type)->String{
         Type::StructT { name, components:_ }=>{
             return String::from("u_")+&name;
         }
+        Type::PartiallyDefined { name }=>{
+            return String::from("u_")+&name;
+        }
     }
 }
 pub fn name_mangle_type_for_names(var:&Type)->String{
@@ -1171,9 +1243,54 @@ pub fn name_mangle_type_for_names(var:&Type)->String{
         Type::StructT { name, components:_ }=>{
             return String::from("u_")+&name;
         }
+        Type::PartiallyDefined { name }=>{
+            return String::from("u_")+&name;
+        }
     }
 }
-
+pub fn name_mangle_type_for_struct(var:&Type)->String{
+    let out = 
+    match var{
+        Type::BoolT=>{
+            String::from("bool")
+        }
+        Type::FloatT=>{
+            String::from("double")
+        }
+        Type::IntegerT=>{
+            String::from("long")
+        }
+        Type::StringT=>{
+                String::from("String")
+        }
+        Type::VoidT=>{
+            String::from("void")
+        }
+        Type::CharT=>{
+             String::from("char")
+        }
+        Type::PointerT { ptr_type }=>{
+            name_mangle_type(ptr_type)+"*"
+        }
+        Type::ArrayT { size:_, array_type }=>{
+            name_mangle_type(array_type)+"Slice_t"
+        }
+        Type::SliceT { ptr_type }=>{
+            name_mangle_type(ptr_type)+"Slice_t"
+        }
+        Type::StructT { name, components:_ }=>{
+             String::from("u_")+&name
+        }
+        Type::PartiallyDefined { name }=>{
+            String::from("u_")+&name
+        }
+    };
+    return if var.is_partially_defined(){
+        "struct ".to_owned()+&out
+    } else{
+        out
+    }
+}
 pub fn name_mangle_function(var:&Function, _filename:&str)->String{
     let mut args = String::new();
     let name = var.name.to_owned();

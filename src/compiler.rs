@@ -29,7 +29,7 @@ pub fn compile_function_table_header(_name:&String, data:&FunctionTable,filename
     return Ok(out);
 }
 
-pub fn compile_type(_name:String, data:Type)->Result<String, String>{
+pub fn compile_type(_aname:String, data:Type)->Result<String, String>{
     match &data{
         Type::SliceT { ptr_type:_}=>{
 
@@ -42,16 +42,16 @@ pub fn compile_type(_name:String, data:Type)->Result<String, String>{
         }
     }
     let mut out =String::from("");
-    let name = format!("typedef struct {{\n");
+    let name = format!("typedef struct {}{{\n",name_mangle_type(&data));
     let end = format!("}}{};\n", name_mangle_type(&data));
     let mut vars = String::new();
     match &data{
         Type::SliceT { ptr_type }=>{
-            vars = format!("    {} * start; size_t len;\n", name_mangle_type(&ptr_type));
+            vars = format!("    {} * start; size_t len;\n", name_mangle_type_for_struct(&ptr_type));
         }
         Type::StructT { name:_, components }=>{
             for i in components{
-                vars += &format!("    {} {};\n",&name_mangle_type(&i.1), &i.0);
+                    vars += &format!("    {} {};\n",&name_mangle_type_for_struct(&i.1), &i.0); 
             }
         }
         _=>{
@@ -361,11 +361,14 @@ pub fn compile_expression(tmp_counter:&mut usize,expr:&mut AstNode,expect_return
             return Ok("".to_owned());
         } 
         AstNode::Return { body }=>{
+            for _ in 0..indent{
+                *stack += &(calc_indent(indent)+"gc_pop_frame();\n");
+            }
             return Ok(calc_indent(indent)+"return "+&compile_expression(tmp_counter, body, expect_return, stack, functions, types,indent,used_types)?+";");
         }
         AstNode::Loop { condition, body }=>{
-            let cond = "while".to_owned()+&compile_expression(tmp_counter,  condition, true, stack, functions, types,indent,used_types)?;
-            let mut to_do = String::from("{\n");
+            let cond = "while(".to_owned()+&compile_expression(tmp_counter,  condition, true, stack, functions, types,indent,used_types)?;
+            let mut to_do = String::from("){\n");
             to_do += &(calc_indent(indent)+"gc_push_frame();\n");
             for i in body{
                 let mut stack = String::new();
@@ -421,16 +424,16 @@ pub fn compile_expression(tmp_counter:&mut usize,expr:&mut AstNode,expect_return
         AstNode::Deref { thing_to_deref }=>{
             let right = compile_expression(tmp_counter, thing_to_deref.as_mut(),false, stack, functions, types, indent,used_types)?;
             if expect_return{
-                return Ok("*".to_owned()+&(right));
+                return Ok("(*".to_owned()+&(right)+")");
             }
-            return Ok("*".to_owned()+&right);
+            return Ok("(*".to_owned()+&right+")");
         }
         AstNode::TakeRef { thing_to_ref }=>{
             let right = compile_expression(tmp_counter, thing_to_ref.as_mut(),false, stack, functions, types, indent,used_types)?;
             if expect_return{
-                return Ok("&".to_owned()+&(right));
+                return Ok("(&".to_owned()+&(right)+")");
             }
-            return Ok("&".to_owned()+&right);
+            return Ok("(&".to_owned()+&right+")");
         }
         AstNode::OperatorNew { vtype }=>{
             return Ok(format!("gc_alloc({})",vtype.get_size_bytes()));
@@ -551,8 +554,16 @@ pub fn gc_function_name(t:&Type)->String{
 fn compile_gc_functions(types:HashSet<Type>)->String{
     let mut out = String::new();
     for i in &types{
-        out += "void ";
-        out += &(gc_function_name(i)+"(void*);\n");
+        match i{
+            Type::StringT=>{
+                continue;
+            }
+            _=>{
+                out += "void ";
+                out += &(gc_function_name(i)+"(void*);\n");
+            }
+        }
+  
     }
     for i in &types{
         match i{
@@ -573,6 +584,9 @@ fn compile_gc_functions(types:HashSet<Type>)->String{
             }
             _=>{}
         }
+        if i.is_partially_defined(){
+            continue;
+        }
         out += "void ";
         out += &(gc_function_name(i)+"(void* ptr){\n");
         out += &("  ".to_owned()+&(name_mangle_type(i)+"* var = ptr;\n"));
@@ -589,12 +603,11 @@ fn compile_gc_functions(types:HashSet<Type>)->String{
                 out += &(gc_function_name(ptr_type)+"(&var->start[i]);}\n");
             }
             Type::StructT { name:_, components }=>{
-                out += "    gc_any_ptr(*var)\n";
                 for i in components{
                     out += "    ";
                     out += &gc_function_name(&i.1);
                     out += "(";
-                    out += "var->";
+                    out += "&var->";
                     out += &i.0;
                     out += ");\n";
 
@@ -605,6 +618,51 @@ fn compile_gc_functions(types:HashSet<Type>)->String{
             }
         }
         out += "}\n";
+    }
+    return out;
+}
+fn get_all_types_contained(t:&Type)->Vec<Type>{
+    let mut out = vec![];
+    match t{
+        Type::ArrayT { size:_, array_type }=>{
+            out.push(get_all_types_contained(array_type));
+        }
+        Type::PointerT { ptr_type }=>{
+            out.push(get_all_types_contained(ptr_type));
+        }
+        Type::SliceT { ptr_type }=>{
+            out.push(get_all_types_contained(ptr_type)); 
+        }
+        Type::StructT { name:_, components }=>{
+            for i in components{
+                out.push(get_all_types_contained(&i.1));
+            }
+        }
+        Type::PartiallyDefined { name:_ }=>{
+            return vec![];
+        }
+        _=>{
+            
+        }
+    }
+    out.push(vec![t.clone()]);
+    return out.into_iter().flatten().collect();
+}
+fn recurse_used_types(types:&HashSet<Type>)->HashSet<Type>{
+    let mut out = HashSet::new();
+    for i in types{
+        let j = get_all_types_contained(i);
+        for k in j{
+            match k{
+                Type::PartiallyDefined { name:_ }=>{
+                    continue;
+                }
+                _=>{
+
+                }
+            }
+            out.insert(k);
+        }
     }
     return out;
 }
@@ -639,6 +697,7 @@ pub fn compile(prog:Program, base_filename:&str)->Result<(),String>{
     }
     let out_file_name = filename.to_owned()+".c";
     let mut fout = fs::File::create(&out_file_name).expect("testing expect");
+    used_types = recurse_used_types(&used_types);
     typedecs += &compile_gc_functions(used_types);
     out += "#include \"../builtins.h\"\n";
     out += &typedecs;

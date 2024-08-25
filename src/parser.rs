@@ -279,7 +279,7 @@ pub fn tokenize<'a>(program: &'a str) -> Vec<Token<'a>> {
         for j in tokens {
             out.push(Token {
                 string: j,
-                line: i + 1,
+                line: i ,
             });
         }
     }
@@ -527,6 +527,7 @@ pub fn parse_type(base_text: &[Token], types: &mut HashMap<String, Type>) -> Opt
         println!("expected struct declaration line{}", text.get(1)?.line);
     }
     let name = String::from(text.get(1)?.string);
+    types.insert(name.clone(), Type::PartiallyDefined { name: name.clone() });
     let mut out_types = vec![];
     let mut idx = 3;
     while idx < text.len() - 1 {
@@ -550,6 +551,7 @@ pub fn parse_type(base_text: &[Token], types: &mut HashMap<String, Type>) -> Opt
         }
         out_types.push((String::from(ident_name.string), comp_type.unwrap().clone()));
     }
+    types.remove(&name.clone());
     return Some((
         name.clone(),
         Type::StructT {
@@ -985,7 +987,7 @@ pub fn parse_expression(
      else if text[*cursor] == "("{
         let expr_end = calc_close_paren(text, *cursor).expect("parens must close");
         *cursor +=1;
-        let inner = parse_expression(text, cursor, last, types, scope, function_table)?;
+        let inner = parse_expression(text, cursor, expr_end, types, scope, function_table)?;
         *cursor = expr_end+1;
         out = Some(AstNode::Paren { internals: Box::new(inner) });
      }else if text[*cursor] == "new"{
