@@ -739,24 +739,28 @@ pub fn parse_expression(
         *cursor += 1;
         out = Some(AstNode::ArrayLiteral { nodes: vout });
     } else if text[*cursor] == "let" {
+        let start = &text[*cursor];
         let name = text[*cursor + 1].string.to_owned();
-        *cursor += 3;
-        let vtype = parse_declared_type(text, cursor, types)?;
-        scope.declare_variable(vtype.clone(), name.clone());
+        *cursor += 2;
+        let mut vtype =if text[*cursor] == ":"{ *cursor +=1 ;parse_declared_type(text, cursor, types)?} else {Type::VoidT};
         if text[*cursor] != ";" {
             let mut tmp_out = parse_expression(text, cursor, last, types, scope, function_table)?;
             match &mut tmp_out {
-                AstNode::Assignment { left, right: _ ,data:_} => {
+                AstNode::Assignment { left, right ,data:_} => {
+                    vtype =right.get_type(function_table,types)?.clone();
+                    scope.declare_variable(vtype.clone(), name.clone());
                     let v = scope.variable_idx(name.clone())?;
                     *left = Box::new(AstNode::VariableUse {
                         name: name.clone(),
                         index: v.1.clone(),
-                        vtype: v.0.clone(),
+                        vtype: vtype.clone(),
                         is_arg: v.2.clone(),
                         data:Some(AstNodeData { line: text[*cursor-2].line, temporary_index: None })
                     });
                 }
-                _ => {}
+                _ => {
+                    println!("expected assignment for variable line:{}", start.line);
+                }
             }
             out = Some(AstNode::VariableDeclaration {
                 name,
@@ -765,6 +769,10 @@ pub fn parse_expression(
                 data:Some(AstNodeData{line:text[*cursor-2].line, temporary_index:None})
             });
         } else {
+            scope.declare_variable(vtype.clone(), name.clone());
+            if vtype == Type::VoidT{
+                println!("cannot determine type without annotation line:{}", start.line);
+            }
             out = Some(AstNode::VariableDeclaration {
                 name,
                 var_type: vtype,
