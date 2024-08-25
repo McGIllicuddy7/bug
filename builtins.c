@@ -151,7 +151,7 @@ void gc_bool(void * ptr){
 }
 String operator_plus_String_String(String a, String b){
     size_t out_l = a.len+b.len;
-    const char * out_buff = gc_alloc(out_l);
+    char * out_buff = gc_alloc(out_l);
     memcpy(out_buff, a.start, a.len);
     memcpy(out_buff+a.len, b.start, b.len);
     String out =  (String){out_buff, out_l};
@@ -166,7 +166,7 @@ String user_int_to_string_long(long a){
     return (String){out, l};
 }
 String make_string_from(const char * str, size_t len){
-    char * out = str;
+    const char * out = str;
     return (String){out, len};
 }
 ssize_t get_allocation_count(){
