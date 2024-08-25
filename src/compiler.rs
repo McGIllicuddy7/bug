@@ -172,8 +172,8 @@ pub fn compile_expression(tmp_counter:&mut usize,expr:&mut AstNode,expect_return
             }
         }
         AstNode::Assignment { left, right, data:_ }=>{
-            let left_s = compile_expression(tmp_counter, left, false, stack, functions, types,1,used_types)?;
-            let right_s = compile_expression(tmp_counter, right, true, stack, functions, types,1,used_types)?;
+            let left_s = compile_expression(tmp_counter, left, false, stack, functions, types,indent,used_types)?;
+            let right_s = compile_expression(tmp_counter, right, true, stack, functions, types,indent,used_types)?;
             if left.get_type(functions, types).expect("should have type").is_array(){
                 let s = right.get_type(functions, types).expect("right should have type");
                 match s{
@@ -188,6 +188,23 @@ pub fn compile_expression(tmp_counter:&mut usize,expr:&mut AstNode,expect_return
                     }
                 }  
 
+            }
+            else {
+                match left.as_ref(){
+                    AstNode::ArrayAccess { variable, index:_ }=>{
+                        match variable.get_type(functions, types).expect(""){
+                            Type::StringT=>{
+
+                            }
+                            _=>{
+
+                            }
+                        }
+                    }
+                    _=>{
+
+                    }
+                }
             }
             return Ok(calc_indent(indent)+&left_s+" = "+&(right_s+";"));
         }
@@ -363,9 +380,9 @@ pub fn compile_expression(tmp_counter:&mut usize,expr:&mut AstNode,expect_return
             let var = compile_expression(tmp_counter, variable, expect_return, stack, functions, types,indent,used_types)?;
             let cond= calc_indent(indent)+ "while"+&compile_expression(tmp_counter,  condition, true, stack, functions, types,indent,used_types)?+"{\n";
             let mut to_do = String::new();
-            *stack += &(calc_indent(indent+1)+"gc_push_frame();\n");
             *stack += &var;
             *stack += &cond;
+            *stack += &(calc_indent(indent+1)+"gc_push_frame();\n");
             for i in body{
                 let mut tmp_stack = String::new();
                 let base = &compile_expression(tmp_counter,i,false, &mut tmp_stack, functions,types,indent+1,used_types)?;
@@ -375,7 +392,7 @@ pub fn compile_expression(tmp_counter:&mut usize,expr:&mut AstNode,expect_return
             }
             let post_op = calc_indent(indent)+&compile_expression(tmp_counter, post_op, expect_return, stack, functions, types,indent,used_types)?;
             to_do += &post_op;
-            *stack += &(calc_indent(indent+1)+"gc_pop_frame();\n");
+            to_do += &(calc_indent(indent+1)+"gc_pop_frame();\n");
             to_do += "}\n}\n";
             *stack += &to_do;
             return Ok("".to_owned());
