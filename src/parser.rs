@@ -1322,8 +1322,8 @@ pub fn get_public_members(program:&str,to_compile:&mut Vec<String>, types:&mut H
                         functions.get_mut(&i.0)?.push(j);
                     }
                 }
-                if !to_compile.contains(&(pubs.2.clone()+".risp")){
-                    to_compile.push(pubs.2+".risp");
+                if !to_compile.contains(&(pubs.2.clone()+".bug")){
+                    to_compile.push(pubs.2+".bug");
                 }
 
             } 
@@ -1397,7 +1397,7 @@ pub fn get_public_members(program:&str,to_compile:&mut Vec<String>, types:&mut H
     });
 }
 pub fn parse_include_directive<'a>(span:&[Token<'a>],to_compile:&mut Vec<String>, types:&mut HashMap<String,Type>)->Option<(HashMap<String,Type>,HashMap<String,FunctionTable>,String)>{
-    let file = span[1].string.to_owned()+".risp";
+    let file = span[1].string.to_owned()+".bug";
     let tprg = std::fs::read_to_string(&file).expect("testing expect");
     let base_out = get_public_members(&tprg,to_compile, types)?;
     return Some((base_out.types, base_out.functions, span[1].string.to_owned()));
@@ -1437,8 +1437,8 @@ pub fn program_to_ast(program: &str,compile_queue:&mut Vec<String>,file:&str) ->
                         functions.get_mut(&i.0)?.push(j);
                     }
                 }
-                if !compile_queue.contains(&(pubs.2.clone()+".risp")){
-                    compile_queue.push(pubs.2+".risp");
+                if !compile_queue.contains(&(pubs.2.clone()+".bug")){
+                    compile_queue.push(pubs.2+".bug");
                 }
             } 
             _=>{

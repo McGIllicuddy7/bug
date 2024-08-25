@@ -670,7 +670,7 @@ fn recurse_used_types(types:&HashSet<Type>)->HashSet<Type>{
 }
 pub fn compile(prog:Program, base_filename:&str)->Result<(),String>{
     println!("compiling file: {}", base_filename);
-    let fname = "output/".to_owned()+&base_filename[0..base_filename.len()-5];
+    let fname = "output/".to_owned()+&base_filename[0..base_filename.len()-4];
     let filename = &fname;
     let mut out = String::new();
     let mut typedecs = "".to_owned();
