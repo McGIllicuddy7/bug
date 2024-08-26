@@ -210,7 +210,7 @@ String user_int_to_string_long(long a){
     return (String){out, l};
 }
 String make_string_from(const char * str, size_t len){
-    const char * out = gc_alloc(len);
+    char * out = gc_alloc(len);
     memcpy(out, str, len);
     return (String){out, len};
 }

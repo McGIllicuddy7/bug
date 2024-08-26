@@ -1124,6 +1124,9 @@ pub fn parse_scope(
         );
         return None;
     }
+    if text[*cursor+1] == "}"{
+        return Some(vec![]);
+    }
     let end = calc_close_scope(text, *cursor).expect("scope must end");
     let mut out = vec![];
     if *cursor + 1 == end {

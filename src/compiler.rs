@@ -115,8 +115,8 @@ pub fn compile_expression(tmp_counter:&mut usize,expr:&mut AstNode,expect_return
         AstNode::FloatLiteral { value }=>{
             return Ok(format!("{value}"));
         }
-        AstNode::StructLiteral { vtype:_,nodes }=>{
-            let mut out = String::from("{");
+        AstNode::StructLiteral { vtype,nodes }=>{
+            let mut out = format!("({}){{", name_mangle_type(vtype));
             for i in nodes{
                 out += &compile_expression(tmp_counter, i, true,stack,functions,types,indent+1,used_types)?;
                 out += ",";
