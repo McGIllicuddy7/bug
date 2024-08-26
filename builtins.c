@@ -29,8 +29,8 @@ static gc_frame * current_frame = 0;
 static allocation_buffer allocations = {0};
 static ssize_t allocation_count = 0;
 static size_t dropped_ptr_count = 0;
-static size_t min_heap_ptr = SIZE_MAX;
-static size_t max_heap_ptr = 0;
+static void * stack_min = 0;
+static void * stack_max = 0;
 void * mem_alloc(size_t size){
     allocation_count++;
     void * out = calloc(size,1);
@@ -60,9 +60,27 @@ void gc_pop_frame(){
     dropped_ptr_count += prev->next_ptr;
     current_frame = prev->prev;
     free(prev);
+    if(current_frame){
+        stack_min = current_frame->buffer[current_frame->next_ptr-1].ptr;
+    } else{
+        stack_min = 0;
+    }
+
     gc_collect();
 }
 void gc_register_ptr(void * ptr, void (*collect_fn)(void *)){
+    if (stack_max == 0){
+        stack_max = ptr;
+    }
+    if(stack_min == 0){
+        stack_min = ptr;
+    }
+    if(ptr>stack_max){
+        stack_max = ptr;
+    }
+    if(ptr<stack_min){
+        stack_min = ptr;
+    }
     if(current_frame->next_ptr>current_frame->sz){
         current_frame->sz *=2;
         if(current_frame->buffer == current_frame->smol_size){
@@ -91,18 +109,10 @@ gc_allocation * find_allocation(allocation_buffer * buffer){
     }
 }
 void gc_collect(){
-    dropped_ptr_count = 0;
-    allocation_buffer * cur = &allocations;
-     while(cur){
-        for(int i =0; i<BUFFER_ALLOCATION_COUNT; i++){
-            gc_allocation * a = &cur->allocations[i];
-            if(a->ptr){
-                allocation_header *al = a->ptr;
-                al->reachable = false;
-            }
-        }
-        cur = cur->next;
+    if(dropped_ptr_count <64 && current_frame != 0){
+        return;
     }
+    dropped_ptr_count = 0;
     gc_frame * current = current_frame;
     while(current){
         for(int i =0; i<current->next_ptr; i++){
@@ -111,7 +121,7 @@ void gc_collect(){
         }
         current = current->prev;
     }
-    cur = &allocations;
+    allocation_buffer * cur = &allocations;
     size_t allocation_count = 0;
     size_t byte_count =0;
     while(cur){
@@ -126,6 +136,8 @@ void gc_collect(){
                     a->ptr = 0;
                     a->size = 0;
                     mem_free(ptr);
+                } else{
+                    al->reachable = false;
                 }
             }
         }
@@ -153,6 +165,9 @@ void * gc_alloc(size_t size){
 
 bool gc_any_ptr(void * ptr){
     if(ptr == 0){
+        return true;
+    }
+    if(ptr<=stack_max && ptr>=stack_min){
         return true;
     }
     allocation_header * base = ptr;
