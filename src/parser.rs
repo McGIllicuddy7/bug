@@ -943,6 +943,7 @@ pub fn parse_expression(
             condition: Box::new(cond), 
             body: new_scope,
         });
+        *cursor += 1;
         return out;
     }  else if text[*cursor] == "for" {
         *cursor += 1;
@@ -964,6 +965,7 @@ pub fn parse_expression(
         *cursor += 1;
         let new_scope = parse_scope(text, cursor, types, scope, function_table).expect("bruh");
         out = Some(AstNode::ForLoop { variable, condition, post_op, body:new_scope });
+        *cursor += 1;
         return out;
     } else if text[*cursor] == "."{
         *cursor += 1;
@@ -1093,6 +1095,9 @@ pub fn parse_expression(
 }
 
 fn calc_expr_end(text: &[Token], end: usize, cursor: usize) -> Option<usize> {
+    if end == cursor{
+        return Some(end);
+    }
     if cursor == text.len() {
         return Some(cursor);
     }
@@ -1106,6 +1111,7 @@ fn calc_expr_end(text: &[Token], end: usize, cursor: usize) -> Option<usize> {
         }
         indx += 1;
     }
+    println!("returned none: calc expr_end{:#?}", &text[cursor..end]);
     return None;
 }
 
@@ -1134,7 +1140,7 @@ pub fn parse_scope(
     }
     *cursor += 1;
     while *cursor < end {
-        let mut expr_end = calc_expr_end(text, end, *cursor).expect("expression must end");
+        let mut expr_end = calc_expr_end(text, end-1, *cursor).expect("expression must end");
         if *cursor == start {
             expr_end += 1;
         }
