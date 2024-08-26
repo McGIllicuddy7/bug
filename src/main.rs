@@ -24,7 +24,7 @@ fn main() {
     print!("linking...");
     let mut cmd =   std::process::Command::new("gcc");
     for i in &comp_que{
-        let name = "".to_owned()+&i[0..i.len()-5]+".o";
+        let name = "".to_owned()+&i[0..i.len()-4]+".o";
         print!("{} ",name);
         cmd.arg(name);
     }
