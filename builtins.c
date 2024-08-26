@@ -6,19 +6,15 @@
 #include <stdbool.h>
 #define false 0
 #define true 1
-static ssize_t allocation_count = 0;
-static size_t dropped_ptr_count = 0;
 #define BUFFER_ALLOCATION_COUNT 512
-void * mem_alloc(size_t size){
-    allocation_count++;
-    return calloc(size,1);
-}
-void mem_free(void * to_free){
-    allocation_count--;
-    free(to_free);
-}
+
 typedef struct{void * ptr;size_t size;}gc_allocation;
 typedef struct {size_t reachable;}allocation_header;
+typedef struct allocation_buffer{
+    gc_allocation allocations[BUFFER_ALLOCATION_COUNT];
+    struct allocation_buffer * next;
+    struct allocation_buffer * prev;
+}allocation_buffer;
 typedef struct {void * ptr; void (*mark)(void *);}gc_ptr;
 typedef struct gc_frame{
     gc_ptr *buffer;
@@ -28,7 +24,27 @@ typedef struct gc_frame{
     struct gc_frame * next;
     struct gc_frame * prev;
 }gc_frame;
+
 static gc_frame * current_frame = 0;
+static allocation_buffer allocations = {0};
+static ssize_t allocation_count = 0;
+static size_t dropped_ptr_count = 0;
+static size_t min_heap_ptr = SIZE_MAX;
+static size_t max_heap_ptr = 0;
+void * mem_alloc(size_t size){
+    allocation_count++;
+    void * out = calloc(size,1);
+    if ((size_t)out>max_heap_ptr){
+        max_heap_ptr = (size_t)out;
+    } if((size_t)out<min_heap_ptr){
+        min_heap_ptr = (size_t)out;
+    }
+    return out;
+}
+void mem_free(void * to_free){
+    allocation_count--;
+    free(to_free);
+}
 void gc_push_frame(){
     gc_frame * nw = malloc(sizeof(gc_frame));
     nw->buffer = nw->smol_size;
@@ -64,9 +80,63 @@ void gc_register_ptr(void * ptr, void (*collect_fn)(void *)){
     current_frame->buffer[current_frame->next_ptr] =(gc_ptr){ptr, collect_fn};
     current_frame->next_ptr ++;
 }
-void gc_collect(){
-    
+
+gc_allocation * find_allocation(allocation_buffer * buffer){
+    for(int i =0; i<BUFFER_ALLOCATION_COUNT; i++){
+        if (buffer->allocations[i].ptr == 0){
+            return &buffer->allocations[i];
+        }
+    }
+    if (!buffer->next){
+        buffer->next = calloc(sizeof(allocation_buffer),1);
+        buffer->next->prev = buffer;
+        return find_allocation(buffer->next);
+    } else{
+        return find_allocation(buffer->next);
+    }
 }
+void gc_collect(){
+    if (dropped_ptr_count<64&&current_frame != 0){
+        return;
+    }
+    dropped_ptr_count = 0;
+    gc_frame * current = current_frame;
+    while(current){
+        for(int i =0; i<current->next_ptr; i++){
+            gc_ptr tmp = current->buffer[i];
+            tmp.mark(tmp.ptr);
+        }
+        current = current->prev;
+    }
+    allocation_buffer * cur = &allocations;
+    size_t allocation_count = 0;
+    size_t byte_count =0;
+    while(cur){
+        for(int i =0; i<BUFFER_ALLOCATION_COUNT; i++){
+            gc_allocation * a = &cur->allocations[i];
+            if(a->ptr){
+                allocation_header *al = a->ptr;
+                if(!al->reachable){
+                    allocation_count +=1;
+                    byte_count += a->size;
+                    void * ptr = a->ptr;
+                    a->ptr = 0;
+                    a->size = 0;
+                    free(ptr);
+                } else{
+                    al->reachable = false;
+                }
+
+            }
+        }
+        cur = cur->next;
+    }
+    if(allocation_count>0){
+        printf("collected %zu bytes in %zu allocations\n", byte_count, allocation_count);
+    }
+
+}
+
 void * gc_alloc(size_t size){
     if (size<8){
         size = 8;
@@ -74,14 +144,23 @@ void * gc_alloc(size_t size){
     allocation_header * base = mem_alloc(size+sizeof(allocation_header));
     base->reachable = 0;
     void * out = &base[1];
-    gc_allocation alc = {out, size};
+    gc_allocation alc = {base, size};
     //printf("allocated %p\n", out); 
+    *find_allocation(&allocations) = alc;
     return out;
 }
 
 
 bool gc_any_ptr(void * ptr){
-    assert(false);
+    if(ptr == 0){
+        return true;
+    }
+    allocation_header * base = ptr;
+    if(base[-1].reachable){
+        return true;
+    }
+    base[-1].reachable = true;
+    return false;
 }
 void gc_long(void * ptr){
 
