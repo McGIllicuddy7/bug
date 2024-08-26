@@ -593,13 +593,14 @@ fn compile_gc_functions(types:HashSet<Type>)->String{
         match i{
             Type::PointerT { ptr_type }=>{
                 out += "   if(!(*var)){return;}\n";
-                out += "   gc_any_ptr(*var);\n";
+                out += "   bool hit =gc_any_ptr(*var);\n   if(hit){return;}\n";
                 out += "    ";
 
                 out += &(gc_function_name(ptr_type)+"(*var);\n");
             }
             Type::SliceT { ptr_type}=>{
-                out += "   gc_any_ptr(var->start);\n";
+                out += "   bool hit = gc_any_ptr(var->start);\n";
+                out += "   if(hit){return;}\n";
                 out += "    for(int i =0; i<var->len; i++){";
                 out += "    "; 
                 out += &(gc_function_name(ptr_type)+"(&var->start[i]);}\n");

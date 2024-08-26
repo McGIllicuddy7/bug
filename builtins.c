@@ -11,18 +11,14 @@ static size_t dropped_ptr_count = 0;
 #define BUFFER_ALLOCATION_COUNT 512
 void * mem_alloc(size_t size){
     allocation_count++;
-    return malloc(size);
+    return calloc(size,1);
 }
 void mem_free(void * to_free){
     allocation_count--;
     free(to_free);
 }
-typedef struct{void * ptr;size_t size; bool reachable;}gc_allocation;
-typedef struct allocation_buffer{
-    gc_allocation allocations[BUFFER_ALLOCATION_COUNT];
-    struct allocation_buffer * next;
-    struct allocation_buffer * prev;
-}allocation_buffer;
+typedef struct{void * ptr;size_t size;}gc_allocation;
+typedef struct {size_t reachable;}allocation_header;
 typedef struct {void * ptr; void (*mark)(void *);}gc_ptr;
 typedef struct gc_frame{
     gc_ptr *buffer;
@@ -32,72 +28,7 @@ typedef struct gc_frame{
     struct gc_frame * next;
     struct gc_frame * prev;
 }gc_frame;
-
-static allocation_buffer allocations = {0};
 static gc_frame * current_frame = 0;
-gc_allocation * find_allocation(allocation_buffer * buffer){
-    for(int i =0; i<BUFFER_ALLOCATION_COUNT; i++){
-        if (buffer->allocations[i].ptr == 0){
-            return &buffer->allocations[i];
-        }
-    }
-    if (!buffer->next){
-        buffer->next = calloc(sizeof(allocation_buffer),1);
-        buffer->next->prev = buffer;
-        return find_allocation(buffer->next);
-    } else{
-        return find_allocation(buffer->next);
-    }
-}
-void user_put_str_String(String s){
-    write(1, s.start, s.len);
-}
-void gc_collect(){
-    if (dropped_ptr_count<64&&current_frame != 0){
-        return;
-    }
-    dropped_ptr_count = 0;
-    gc_frame * current = current_frame;
-    while(current){
-        for(int i =0; i<current->next_ptr; i++){
-            gc_ptr tmp = current->buffer[i];
-            tmp.mark(tmp.ptr);
-        }
-        current = current->prev;
-    }
-    allocation_buffer * cur = &allocations;
-    size_t allocation_count = 0;
-    size_t byte_count =0;
-    while(cur){
-        for(int i =0; i<BUFFER_ALLOCATION_COUNT; i++){
-            gc_allocation * a = &cur->allocations[i];
-            if(!a->reachable && a->ptr){
-                allocation_count +=1;
-                byte_count += a->size;
-		        mem_free(a->ptr);
-                a->ptr = 0;
-                a->size = 0;
-            }
-            a->reachable = false;
-        }
-        cur = cur->next;
-    }
-    if(allocation_count>0){
-        printf("collected %zu bytes in %zu allocations\n", byte_count, allocation_count);
-    }
-
-}
-
-void * gc_alloc(size_t size){
-    if (size<16){
-        size = 16;
-    }
-    void * out = mem_alloc(size);
-    gc_allocation alc = {out, size,1};
-    //printf("allocated %p\n", out); 
-    *find_allocation(&allocations) = alc;
-    return out;
-}
 void gc_push_frame(){
     gc_frame * nw = malloc(sizeof(gc_frame));
     nw->buffer = nw->smol_size;
@@ -133,18 +64,24 @@ void gc_register_ptr(void * ptr, void (*collect_fn)(void *)){
     current_frame->buffer[current_frame->next_ptr] =(gc_ptr){ptr, collect_fn};
     current_frame->next_ptr ++;
 }
-
-void gc_any_ptr(void * ptr){
-    allocation_buffer *current =  &allocations;
-    while(current){
-        for(int i =0; i<BUFFER_ALLOCATION_COUNT; i++){
-            gc_allocation * a = &current->allocations[i];
-            if (ptr>=a->ptr && ptr<a->ptr+a->size){
-                a->reachable = true;
-            }
-        }
-        current = current->next;
+void gc_collect(){
+    
+}
+void * gc_alloc(size_t size){
+    if (size<8){
+        size = 8;
     }
+    allocation_header * base = mem_alloc(size+sizeof(allocation_header));
+    base->reachable = 0;
+    void * out = &base[1];
+    gc_allocation alc = {out, size};
+    //printf("allocated %p\n", out); 
+    return out;
+}
+
+
+bool gc_any_ptr(void * ptr){
+    assert(false);
 }
 void gc_long(void * ptr){
 
@@ -179,7 +116,8 @@ String user_int_to_string_long(long a){
     return (String){out, l};
 }
 String make_string_from(const char * str, size_t len){
-    const char * out = str;
+    const char * out = gc_alloc(len);
+    memcpy(out, str, len);
     return (String){out, len};
 }
 ssize_t get_allocation_count(){
@@ -187,4 +125,7 @@ ssize_t get_allocation_count(){
 }
 long user_mod_long_long(long a, long b){
     return a%b;
+}
+void user_put_str_String(String s){
+    write(1, s.start, s.len);
 }
