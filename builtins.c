@@ -34,11 +34,6 @@ static size_t max_heap_ptr = 0;
 void * mem_alloc(size_t size){
     allocation_count++;
     void * out = calloc(size,1);
-    if ((size_t)out>max_heap_ptr){
-        max_heap_ptr = (size_t)out;
-    } if((size_t)out<min_heap_ptr){
-        min_heap_ptr = (size_t)out;
-    }
     return out;
 }
 void mem_free(void * to_free){
@@ -96,10 +91,18 @@ gc_allocation * find_allocation(allocation_buffer * buffer){
     }
 }
 void gc_collect(){
-    if (dropped_ptr_count<64&&current_frame != 0){
-        return;
-    }
     dropped_ptr_count = 0;
+    allocation_buffer * cur = &allocations;
+     while(cur){
+        for(int i =0; i<BUFFER_ALLOCATION_COUNT; i++){
+            gc_allocation * a = &cur->allocations[i];
+            if(a->ptr){
+                allocation_header *al = a->ptr;
+                al->reachable = false;
+            }
+        }
+        cur = cur->next;
+    }
     gc_frame * current = current_frame;
     while(current){
         for(int i =0; i<current->next_ptr; i++){
@@ -108,7 +111,7 @@ void gc_collect(){
         }
         current = current->prev;
     }
-    allocation_buffer * cur = &allocations;
+    cur = &allocations;
     size_t allocation_count = 0;
     size_t byte_count =0;
     while(cur){
@@ -122,11 +125,8 @@ void gc_collect(){
                     void * ptr = a->ptr;
                     a->ptr = 0;
                     a->size = 0;
-                    free(ptr);
-                } else{
-                    al->reachable = false;
+                    mem_free(ptr);
                 }
-
             }
         }
         cur = cur->next;
@@ -200,6 +200,7 @@ String make_string_from(const char * str, size_t len){
     return (String){out, len};
 }
 ssize_t get_allocation_count(){
+    printf("%zu remaining allocations", allocation_count);
     return allocation_count;
 }
 long user_mod_long_long(long a, long b){
