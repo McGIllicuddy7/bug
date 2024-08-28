@@ -669,7 +669,6 @@ fn get_all_types_contained(t:&Type, types:&HashMap<String, Type>)->Vec<Type>{
             }
         }
         Type::PartiallyDefined { name}=>{
-            println!("retv:{:#?}",types.get(name).expect("type must exist"));
             return vec![types.get(name).expect("type must exist").clone()];
         }
         _=>{

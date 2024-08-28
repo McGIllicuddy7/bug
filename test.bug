@@ -14,7 +14,7 @@ pub fn main()->int{
    b.next = &c;
    c.next = &d;
    d.next = &a;
-   (&a).get_next();
+   a.get_next();
 }
 
  

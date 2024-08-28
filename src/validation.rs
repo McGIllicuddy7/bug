@@ -410,8 +410,59 @@ fn validate_ast_node(node:&AstNode, types:&HashMap<String,Type>, functions:&mut 
             let mut new_args = vec![];
             new_args.push(variable.as_ref().clone()); 
             args.iter().for_each(|i| {new_args.push(i.clone())});
+            let arg_types:Vec<Type> = new_args.iter().map(|i| i.get_type(functions, types).expect("")).collect();
+            if get_function_by_args(function_name, &arg_types, functions).is_none(){
+                let mut n_arg_types = arg_types.clone();
+                n_arg_types[0] = Type::PointerT{ptr_type:Box::new(n_arg_types[0].clone())};
+                if get_function_by_args(function_name,&n_arg_types, functions).is_some(){
+                    new_args[0] = AstNode::TakeRef { thing_to_ref: Box::new(new_args[0].clone()) };
+                }
+            }
             let func = AstNode::FunctionCall { function_name: function_name.clone(),args:new_args, data:data.clone()};
+        
             return validate_ast_node(&func, types, functions, is_root, inside_loop, return_type);
+        }
+        AstNode::FieldUsage { base, field_name }=>{
+            let mut act_base = base.clone();
+            match base.get_type(functions, types).expect(""){
+                Type::PointerT { ptr_type:_ }=>{
+                    act_base =Box::new(AstNode::Deref { thing_to_deref: act_base.clone() });
+                }
+                _=>{
+
+                }
+            }
+            match act_base.get_type(functions, types).expect(""){
+                Type::ArrayT { size, array_type:_ }=>{
+                    if field_name == "len"{
+                        return Ok(AstNode::IntLiteral { value: size as i64});
+                    } else{
+                        return Err(format!("Array has no field {}", field_name));
+                    }
+                }
+                Type::SliceT { ptr_type:_ }=>{
+                    if field_name != "len"{
+                        return Err(format!("Slice has no field {}", field_name));
+                    }
+                }
+                Type::StructT { name, components }=>{
+                    let mut hit = false;
+                    for i in components{
+                        if i.0 == *field_name{
+                            hit = true;
+                            break;
+                        }
+                    }
+                    if !hit{
+                        return Err(format!("struct {} has no field {}",name, field_name));
+                    }
+                }
+                _=>{
+                    return Err(format!("primitive has no fields to access "))
+                }
+
+            }
+            return Ok(AstNode::FieldUsage { base: act_base, field_name: field_name.clone() });
         }
         _=>{
             return Ok(node.clone());
