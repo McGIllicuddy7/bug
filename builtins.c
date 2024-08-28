@@ -4,8 +4,6 @@
 #include <assert.h>
 #include <sys/mman.h>
 #include <stdbool.h>
-#define false 0
-#define true 1
 #define BUFFER_ALLOCATION_COUNT 512
 
 typedef struct{void * ptr;size_t size;}gc_allocation;
@@ -215,7 +213,7 @@ String make_string_from(const char * str, size_t len){
     return (String){out, len};
 }
 ssize_t get_allocation_count(){
-    printf("%zu remaining allocations", allocation_count);
+    printf("%zd remaining allocations", allocation_count);
     return allocation_count;
 }
 long user_mod_long_long(long a, long b){

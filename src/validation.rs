@@ -388,11 +388,11 @@ fn validate_ast_node(node:&AstNode, types:&HashMap<String,Type>, functions:&mut 
         }
         AstNode::Return { body }=>{
             if return_type.is_some(){
-                if is_compatible_type(&body.get_type(functions, types).expect(""),&return_type.clone().expect("")){
-                    let tmp = validate_ast_node(body, types, functions, is_root, inside_loop, return_type)?;
+                let tmp = validate_ast_node(body, types, functions, is_root, inside_loop, return_type.clone())?;
+                if is_compatible_type(&tmp.get_type(functions, types).expect(""),&return_type.clone().expect("")){
                     return Ok(AstNode::Return { body: Box::new(tmp) });
                 } else{
-                    return Err(format!("incompable return types")); 
+                    return Err(format!("incompatible return types")); 
                 }
             }
             else{

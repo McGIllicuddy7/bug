@@ -1,21 +1,22 @@
+use crate::Type;
+
 /*
-    push push onto stacck
-    pop pop off os stack
-    mov move something to somewhere else
-    add add two things
-    subtract subtract two thnigs
-    multiply multiply two things
-    divide divide two things
-    call call a function
-    jmp
-    je
-    jne
-    jg
-    jl
-    jge
-    jle
-    and
-    or
-    not
+    variable_declaration
+
     operands: number, thing at address or hardcoded value
 */
+#[allow(unused)]
+pub enum IrOperand{
+    GlobalName{name:String}, 
+    StackVariable{idx:usize},
+    Deref{to_deref:Box<IrOperand>},
+    IntConstant{value:i64},
+    FloatConstant{value:f64},
+}
+#[allow(unused)]
+pub enum IrNode{
+    FunctionCall{args:Vec<IrOperand>},
+    ValueEqualsFunctionCall{left:IrOperand, right:IrOperand},
+    Assignment{left:IrOperand, right:IrOperand},
+    VarDeclaration{stack_idx:usize, vtype:Type},
+}

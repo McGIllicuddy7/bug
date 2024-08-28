@@ -106,7 +106,6 @@ pub fn compile_expression(tmp_counter:&mut usize,expr:&mut AstNode,expect_return
             }
         }
         AstNode::StringLiteral {value,}=>{
-            println!("{value}");
             return Ok(format!("make_string_from({},{})",value, value.len()-2));
         }
         AstNode::IntLiteral { value }=>{

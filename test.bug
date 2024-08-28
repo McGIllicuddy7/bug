@@ -3,17 +3,17 @@ struct ll{
    data:string
 };
 fn get_next(this:^ll)->^ll{
-   return (^this).next;
+   return this.next;
 }
 pub fn main()->int{
-   let a = ll{false, "help me"};
-   let b = ll{false, "i miss you"};
-   let c = ll{false, "so much"};
-   let d = ll{false, "god"};
-   a.next = &b;
-   b.next = &c;
-   c.next = &d;
-   d.next = &a;
+   let a = new ll;
+   let b = new ll;
+   let c = new ll;
+   let d = new ll;
+   a.next = b;
+   b.next = c;
+   c.next = d;
+   d.next = a;
    a.get_next();
 }
 

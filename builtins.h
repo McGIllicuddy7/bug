@@ -4,6 +4,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
+#define false 0
+#define true 1
 typedef struct {const char * start; size_t len;}String;
 typedef struct {void * start; size_t len;}VoidSlice;
 void gc_push_frame();
