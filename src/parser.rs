@@ -612,7 +612,7 @@ fn get_arms(expr: &mut AstNode) -> (Option<&mut AstNode>, Option<&mut AstNode>) 
         AstNode::ArrayAccess { variable, index:_ }=>{
             return (Some(variable),None);
         }
-        AstNode::BoundFunctionCall { variable, function_name:_, args:_ }=>{
+        AstNode::BoundFunctionCall { variable, function_name:_, args:_ ,data:_}=>{
             return (Some(variable), None);
         }
         _ => {
@@ -976,7 +976,7 @@ pub fn parse_expression(
                 let args_end = calc_close_paren(text, *cursor)?;
                 *cursor += 1;
                 let args = parse_list(text, *cursor, args_end, types, scope, function_table)?;
-                out = Some(AstNode::BoundFunctionCall { variable: Box::new(AstNode::VoidLiteral), function_name: name, args:args });
+                out = Some(AstNode::BoundFunctionCall { variable: Box::new(AstNode::VoidLiteral), function_name: name, args:args , data:Some(AstNodeData{line:text[*cursor].line, temporary_index:None})});
                 *cursor = args_end + 1;
             } else{
                 println!("error unknown function {}", text[*cursor].string);

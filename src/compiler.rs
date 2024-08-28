@@ -729,10 +729,6 @@ pub fn compile(prog:Program, base_filename:&str)->Result<(),String>{
     let out_file_name = filename.to_owned()+".c";
     let mut fout = fs::File::create(&out_file_name).expect("testing expect");
     used_types = recurse_used_types(&used_types, &prog.types);
-    //let mut vtypes = HashSet::new();
-    //prog.types.iter().for_each(|i| {vtypes.insert(i.1.clone());});
-    //used_types.extend(recurse_used_types(&vtypes, &prog.types));
-    println!("{:#?}", used_types);
     typedecs += &compile_gc_functions(used_types);
     out += "#include \"../builtins.h\"\n";
     out += &typedecs;

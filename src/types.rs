@@ -568,6 +568,7 @@ pub enum AstNode {
         variable:Box<AstNode>,
         function_name:String,
         args:Vec<AstNode>,
+        data:Option<AstNodeData>,
     },
     Paren{
         internals:Box<AstNode>,
@@ -813,7 +814,7 @@ impl AstNode {
             Self::ArrayAccess { variable, index:_ }=>{
                 return  Some(variable.get_type(function_table, types)?.get_array_type()?);
             }
-            Self::BoundFunctionCall { variable:_, function_name, args}=>{
+            Self::BoundFunctionCall { variable:_, function_name, args, data:_}=>{
                 let fn_args:Vec<Type> = args.iter().map(|i| i.get_type(function_table, types).expect("should have type")).collect();
                 return Some(get_function_by_args(function_name, &fn_args,function_table)?.return_type.clone());
             }
@@ -969,7 +970,7 @@ impl AstNode {
             } => {
                 return 1;
             }
-            Self::BoundFunctionCall { variable:_, function_name:_, args:_ }=>{
+            Self::BoundFunctionCall { variable:_, function_name:_, args:_ , data:_}=>{
                 return 1;
             }
             Self::OperatorNew { vtype:_ }=>{

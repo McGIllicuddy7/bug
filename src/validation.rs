@@ -109,7 +109,7 @@ pub fn alide_parens(root:&mut AstNode){
             alide_parens(variable);
             alide_parens(index);
         }
-        AstNode::BoundFunctionCall { variable, function_name:_, args }=>{
+        AstNode::BoundFunctionCall { variable, function_name:_, args ,data:_}=>{
             alide_parens(variable);
             for i in args{
                 alide_parens(i);
@@ -405,6 +405,13 @@ fn validate_ast_node(node:&AstNode, types:&HashMap<String,Type>, functions:&mut 
                 return Err(format!("make must have an integer for size"));
             }
             return Ok(AstNode::OperatorMake { vtype:vtype.clone(), size: Box::new(old) });
+        }
+        AstNode::BoundFunctionCall { variable, function_name, args ,data}=>{
+            let mut new_args = vec![];
+            new_args.push(variable.as_ref().clone()); 
+            args.iter().for_each(|i| {new_args.push(i.clone())});
+            let func = AstNode::FunctionCall { function_name: function_name.clone(),args:new_args, data:data.clone()};
+            return validate_ast_node(&func, types, functions, is_root, inside_loop, return_type);
         }
         _=>{
             return Ok(node.clone());

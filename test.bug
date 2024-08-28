@@ -2,6 +2,9 @@ struct ll{
    next:^ll 
    data:string
 };
+fn get_next(this:^ll)->^ll{
+   return (^this).next;
+}
 pub fn main()->int{
    let a = ll{false, "help me"};
    let b = ll{false, "i miss you"};
@@ -11,7 +14,7 @@ pub fn main()->int{
    b.next = &c;
    c.next = &d;
    d.next = &a;
-   
+   (&a).get_next();
 }
 
  
