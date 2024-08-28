@@ -3,6 +3,7 @@ mod tests;
 mod types;
 mod compiler;
 mod validation;
+mod ir;
 use crate::parser::*;
 use crate::compiler::*;
 fn main() {

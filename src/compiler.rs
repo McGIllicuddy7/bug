@@ -624,25 +624,53 @@ fn compile_gc_functions(types:HashSet<Type>)->String{
     }
     return out;
 }
-fn get_all_types_contained(t:&Type)->Vec<Type>{
+fn get_all_types_contained(t:&Type, types:&HashMap<String, Type>)->Vec<Type>{
     let mut out = vec![];
     match t{
-        Type::ArrayT { size:_, array_type }=>{
-            out.push(get_all_types_contained(array_type));
+        Type::ArrayT { size, array_type }=>{
+            out.push(get_all_types_contained(array_type,types));
+            match array_type.as_ref(){
+                Type::PartiallyDefined { name }=>{
+                    out.push(vec![Type::PointerT { ptr_type: Box::new(types.get(name).expect("name exists").clone())}]);
+                }
+                _=>{
+                    out.push(vec![Type::ArrayT { size:*size,array_type:array_type.clone() }]);
+                }
+            }
+            return out.into_iter().flatten().collect();
         }
         Type::PointerT { ptr_type }=>{
-            out.push(get_all_types_contained(ptr_type));
+            out.push(get_all_types_contained(ptr_type,types));
+            match ptr_type.as_ref(){
+                Type::PartiallyDefined { name }=>{
+                    out.push(vec![Type::PointerT { ptr_type: Box::new(types.get(name).expect("name exists").clone())}]);
+                }
+                _=>{
+                    out.push(vec![Type::PointerT { ptr_type:ptr_type.clone() }]);
+                }
+            }
+            return out.into_iter().flatten().collect();
         }
         Type::SliceT { ptr_type }=>{
-            out.push(get_all_types_contained(ptr_type)); 
+            out.push(get_all_types_contained(ptr_type,types));
+            match ptr_type.as_ref(){
+                Type::PartiallyDefined { name }=>{
+                    out.push(vec![Type::SliceT { ptr_type: Box::new(types.get(name).expect("name exists").clone())}]);
+                }
+                _=>{
+                    out.push(vec![Type::SliceT { ptr_type:ptr_type.clone() }]);
+                }
+            }
+            return out.into_iter().flatten().collect();
         }
         Type::StructT { name:_, components }=>{
             for i in components{
-                out.push(get_all_types_contained(&i.1));
+                out.push(get_all_types_contained(&i.1, types));
             }
         }
-        Type::PartiallyDefined { name:_ }=>{
-            return vec![];
+        Type::PartiallyDefined { name}=>{
+            println!("retv:{:#?}",types.get(name).expect("type must exist"));
+            return vec![types.get(name).expect("type must exist").clone()];
         }
         _=>{
             
@@ -651,13 +679,13 @@ fn get_all_types_contained(t:&Type)->Vec<Type>{
     out.push(vec![t.clone()]);
     return out.into_iter().flatten().collect();
 }
-fn recurse_used_types(types:&HashSet<Type>)->HashSet<Type>{
+fn recurse_used_types(types:&HashSet<Type>, type_table:&HashMap<String,Type>)->HashSet<Type>{
     let mut out = HashSet::new();
     for i in types{
-        let j = get_all_types_contained(i);
+        let j = get_all_types_contained(i, type_table);
         for k in j{
             match k{
-                Type::PartiallyDefined { name:_ }=>{
+                Type::PartiallyDefined { name:_}=>{
                     continue;
                 }
                 _=>{
@@ -700,7 +728,11 @@ pub fn compile(prog:Program, base_filename:&str)->Result<(),String>{
     }
     let out_file_name = filename.to_owned()+".c";
     let mut fout = fs::File::create(&out_file_name).expect("testing expect");
-    used_types = recurse_used_types(&used_types);
+    used_types = recurse_used_types(&used_types, &prog.types);
+    //let mut vtypes = HashSet::new();
+    //prog.types.iter().for_each(|i| {vtypes.insert(i.1.clone());});
+    //used_types.extend(recurse_used_types(&vtypes, &prog.types));
+    println!("{:#?}", used_types);
     typedecs += &compile_gc_functions(used_types);
     out += "#include \"../builtins.h\"\n";
     out += &typedecs;
