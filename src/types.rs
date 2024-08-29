@@ -795,7 +795,14 @@ impl AstNode {
                     Type::StructT { name:_, components }=>{
                         for i in &components{
                             if i.0 == *field_name{
-                                return Some(i.1.clone());
+                                match &i.1{
+                                    Type::PartiallyDefined { name }=>{
+                                        return Some(types[name].clone());
+                                    }_=>{
+                                        return Some(i.1.clone());
+                                    } 
+                                }
+
                             }
                         }
                         return None;

@@ -6,14 +6,14 @@ fn get_next(this:^ll)->^ll{
    return this.next;
 }
 pub fn main()->int{
-   let a = new ll;
+   let a = ll{false, "howdy"};
    let b = new ll;
    let c = new ll;
    let d = new ll;
    a.next = b;
    b.next = c;
    c.next = d;
-   d.next = a;
+   d.next = &a;
    a.get_next();
 }
 
