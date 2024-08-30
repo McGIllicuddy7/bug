@@ -212,7 +212,7 @@ String make_string_from(const char * str, size_t len){
     memcpy(out, str, len);
     return (String){out, len};
 }
-ssize_t get_allocation_count(){
+size_t get_allocation_count(){
     printf("%zd remaining allocations", allocation_count);
     return allocation_count;
 }
