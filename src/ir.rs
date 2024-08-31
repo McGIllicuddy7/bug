@@ -1,7 +1,7 @@
 use crate::{get_function_by_args, name_mangle_function, Function, FunctionTable};
 use crate::{AstNode, Type};
 use std::collections::HashMap;
-
+#[allow(unused)]
 #[derive(Clone, Debug)]
 pub enum IrOperand {
     StacKOperand {
@@ -54,6 +54,7 @@ pub enum IrOperand {
     },
 }
 
+#[allow(unused)]
 #[derive(Clone, Debug)]
 pub enum IrInstr {
     VariableDeclaration {
