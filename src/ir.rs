@@ -1107,7 +1107,7 @@ pub fn compile_ast_node_to_ir(
             todo!();
         }
         AstNode::Loop { condition, body } => {
-            todo!();
+        
         }
         AstNode::Return { body } => {
             let to_return = compile_ast_node_to_ir(
