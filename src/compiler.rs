@@ -1,3 +1,4 @@
+use crate::ir::compile_function_to_ir;
 use crate::parser::*;
 use crate::types::Type;
 use std::fs;
@@ -448,6 +449,8 @@ pub fn compile_expression(tmp_counter:&mut usize,expr:&mut AstNode,expect_return
     }
 }
 pub fn compile_function(func:&mut Function, filename:&str, functions:&HashMap<String,FunctionTable>, types:&HashMap<String, Type>,used_types:&mut HashSet<Type>)->Result<String,String>{
+    let ir = compile_function_to_ir(func, functions, types);
+    println!("ir representation:{:#?}", ir);
     let mut out = String::new();
     out += &name_mangle_type(&func.return_type);
     out += " ";
