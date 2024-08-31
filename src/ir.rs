@@ -1037,8 +1037,7 @@ pub fn compile_ast_node_to_ir(
             });
             val_stack.push(IrInstr::Label {
                 name: format!("L{}", label_counter),
-            });
-            let if_block = *label_counter;
+            }); 
             let else_block = *label_counter + 1;
             let end_block = *label_counter + 2;
             *label_counter += 3;
@@ -1092,6 +1091,7 @@ pub fn compile_ast_node_to_ir(
                     val_stack.push(IrInstr::Pop { vtype: i });
                 }
                 val_stack.push(IrInstr::EndScope);
+                val_stack.push(IrInstr::Label{name:format!("L{}",end_block)})
             } else {
                 val_stack.push(IrInstr::Label {
                     name: format!("L{}", else_block),
