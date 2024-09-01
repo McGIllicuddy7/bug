@@ -375,16 +375,21 @@ pub fn compile_ir_instr_to_c(instr: &IrInstr) -> String {
             todo!();
         }
         IrInstr::Push { vtype, val_idx } => {
-            todo!();
+            match vtype{
+                Type::BoolT=>{
+
+                }
+                Type::FloatT=>{ }
+            };
         }
         IrInstr::Pop { vtype } => {
-            todo!();
+            return "".to_owned();
         }
         IrInstr::BeginScope => {
-            todo!();
+            return "{\n".to_owned();
         }
         IrInstr::EndScope => {
-            todo!();
+            return "\n}\n".to_owned();
         }
     }
 }
