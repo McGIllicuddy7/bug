@@ -7,18 +7,17 @@ fn get_next(this:^ll)->^ll{
 }
 pub fn main()->int{
    let a = ll{false, "howdy"};
-   let b = new ll;
-   let c = new ll;
-   let d = new ll;
+   let b:^ll = new ll;
+   let c:^ll = new ll;
+   let d:^ll = new ll;
    a.next = b;
    b.next = c;
    c.next = d;
    d.next = &a;
    a.get_next();
-   for(let i =0; i<100; i = i+1){
-	let s = int_to_string(i);
-	put_str(s);
-   }
+   put_str(a.data);
+   put_str("\n");
+   return 0;
 }
 
  

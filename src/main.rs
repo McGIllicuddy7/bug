@@ -33,7 +33,7 @@ fn main() {
     print!("\ncleaning up...");
     let mut cmd = std::process::Command::new("rm");
     for i in &comp_que{
-        let name = "".to_owned()+&i[0..i.len()-5]+".o";
+        let name = "".to_owned()+&i[0..i.len()-4]+".o";
         print!("{name} ");
         cmd.arg(name);
     }

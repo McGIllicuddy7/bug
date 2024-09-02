@@ -1,4 +1,4 @@
-use crate::ir::compile_function_to_ir;
+use crate::ir::{compile_function_to_ir, compile_ir_instr_to_c};
 use crate::frontend::*;
 use crate::types::Type;
 use std::fs;
@@ -87,370 +87,7 @@ pub fn compile_static(name:&String,vtype:&Type, _index:usize)->Result<String,Str
     out += ";\n";
     return Ok(out);
 }
-pub fn compile_expression(tmp_counter:&mut usize,expr:&mut AstNode,expect_return:bool, stack:&mut String,functions:&HashMap<String, FunctionTable>,types:&HashMap<String,Type>,indent:usize, used_types:&mut HashSet<Type>)->Result<String,String>{
-    fn calc_indent(indent: usize)->String{
-        let mut out = String::new();
-        for _ in 0..indent*4{
-            out += " ";
-        }
-        return out;
-    }
-    match expr{
-        AstNode::VoidLiteral=>{
-            return Err("found void literal".to_owned());
-        }
-        AstNode::BoolLiteral { value }=>{
-            if *value{
-                return Ok("true".to_owned());
-            } else{
-                return Ok("false".to_owned());
-            }
-        }
-        AstNode::StringLiteral {value,}=>{
-            return Ok(format!("make_string_from({},{})",value, value.len()-2));
-        }
-        AstNode::IntLiteral { value }=>{
-            return Ok(format!("{value}"));
-        }
-        AstNode::FloatLiteral { value }=>{
-            return Ok(format!("{value}"));
-        }
-        AstNode::StructLiteral { vtype,nodes }=>{
-            let mut out = format!("({}){{", name_mangle_type(vtype));
-            for i in nodes{
-                out += &compile_expression(tmp_counter, i, true,stack,functions,types,indent+1,used_types)?;
-                out += ",";
-            }
-            out += "}";
-            return Ok(out);
-        }
-        AstNode::ArrayLiteral { nodes }=>{
-            let type_name = name_mangle_type(&nodes[0].get_type(functions, types).expect("should_return_type"))+"[]";
-            let mut out = format!("({})",&type_name)+"{";
-            for i in nodes{
-                out += &compile_expression(tmp_counter, i, true,stack,functions,types,indent,used_types)?;
-                out += ",";
-            }
-            out += "}";
-            return Ok(out);
-        }
-        AstNode::VariableUse { name, index:_, vtype:_, is_arg:_, data:_ }=>{
-            return Ok(String::from("user_")+name);
-        }
-        AstNode::FunctionCall { function_name, args, data }=>{
-            let bargs = args.clone();
-            let mut fn_args = vec![];
-            for i in bargs{
-                fn_args.push(i.get_type(functions, types).expect("should_have_type"));
-            }
-            for i in &fn_args{
-                used_types.insert(i.clone());
-            }
-            let retv_opt = get_function_by_args(function_name,fn_args.as_slice(),functions);
-            if retv_opt.is_none(){
-                println!("args:{:#?}",args);
-                return Err(format!("failed to find function \"{}\" with arguments {:#?}, line:{}", function_name,fn_args, data.clone().expect("").line))
-            }
-            let retv = retv_opt.expect("");
-            let mut base =retv.name.clone()+"(";
-            let mut start = true;
-            for i in args{
-                if !start{
-                    base += ",";
-                }
-                start = false;
-                base += &compile_expression(tmp_counter,i, true,stack,functions,types,indent,used_types)?;
-            }
-            base += ");\n";
-            if expect_return{
-                *stack+= &(calc_indent(indent)+&format!("{} tmp{} = {}", &name_mangle_type(&retv.return_type),*tmp_counter,&base ));
-                *stack += &(calc_indent(indent)+&format!("gc_register_ptr(&tmp{}, {});\n",*tmp_counter, gc_function_name(&retv.return_type)));
-                let fmt = calc_indent(indent)+&format!("tmp{}",*tmp_counter);
-                *tmp_counter+=1;
-                return Ok(fmt);
-            } else{
-               return Ok(base);
-            }
-        }
-        AstNode::Assignment { left, right, data:_ }=>{
-            let left_s = compile_expression(tmp_counter, left, false, stack, functions, types,indent,used_types)?;
-            let right_s = compile_expression(tmp_counter, right, true, stack, functions, types,0,used_types)?;
-            if left.get_type(functions, types).expect("should have type").is_array(){
-                let s = right.get_type(functions, types).expect("right should have type");
-                match s{
-                    Type::SliceT { ptr_type:_ }=>{
-                        return Ok(left_s+ "=" +&right_s+";")
-                    }
-                    Type::ArrayT { size, array_type:_ }=>{
-                        return Ok(left_s.clone()+ ".start=" +&right_s+";\n"+&calc_indent(indent)+&left_s+&format!(".len = {}", size));
-                    }
-                    _=>{
-                        unreachable!()
-                    }
-                }  
-
-            }
-            else {
-                match left.as_ref(){
-                    AstNode::ArrayAccess { variable, index:_ }=>{
-                        match variable.get_type(functions, types).expect(""){
-                            Type::StringT=>{
-
-                            }
-                            _=>{
-
-                            }
-                        }
-                    }
-                    _=>{
-
-                    }
-                }
-            }
-            return Ok(calc_indent(indent)+&left_s+" = "+&(right_s+";"));
-        }
-        AstNode::Add { left, right, data:_ }=>{
-            let left_s = compile_expression(tmp_counter, left, true, stack, functions, types,indent,used_types)?;
-            let right_s = compile_expression(tmp_counter, right, true, stack, functions, types,indent,used_types)?;
-            let pushv = calc_indent(indent)+&format!("{} tmp{} = {}+{};\n",&name_mangle_type(&left.get_type(functions,types).expect("")),*tmp_counter,left_s,right_s);
-            let stack_var_name = format!("tmp{}", tmp_counter);
-            *stack +=&pushv;
-            *stack += &(calc_indent(indent)+&format!("gc_register_ptr(&tmp{}, {});\n",*tmp_counter, gc_function_name(&left.get_type(functions, types).expect(""))));
-            *tmp_counter +=1;
-            return Ok(stack_var_name);
-        } 
-        AstNode::Sub { left, right, data:_ }=>{
-            let left_s = compile_expression(tmp_counter, left, true, stack, functions, types,indent,used_types)?;
-            let right_s = compile_expression(tmp_counter, right, true, stack, functions, types,indent,used_types)?;
-            let pushv = calc_indent(indent)+&format!("{} tmp{} = {}-{};\n",&name_mangle_type(&left.get_type(functions,types).expect("")),*tmp_counter,left_s,right_s);
-            let stack_var_name = format!("tmp{}", tmp_counter);
-            *stack +=&pushv;
-            *stack += &(calc_indent(indent)+&format!("gc_register_ptr(&tmp{}, {});\n",*tmp_counter, gc_function_name(&left.get_type(functions, types).expect(""))));
-            *tmp_counter +=1;
-            return Ok(stack_var_name);
-        } 
-        AstNode::Mult { left, right, data:_ }=>{
-            let left_s = compile_expression(tmp_counter, left, true, stack, functions, types,indent,used_types)?;
-            let right_s = compile_expression(tmp_counter, right, true, stack, functions, types,indent,used_types)?;
-            let pushv = calc_indent(indent)+&format!("{} tmp{} = {}*{};\n",&name_mangle_type(&left.get_type(functions,types).expect("")),*tmp_counter,left_s,right_s);
-            let stack_var_name = format!("tmp{}", tmp_counter);
-            *stack +=&pushv;
-            *stack += &(calc_indent(indent)+&format!("gc_register_ptr(&tmp{}, {});\n",*tmp_counter, gc_function_name(&left.get_type(functions, types).expect(""))));
-            *tmp_counter +=1;
-            return Ok(stack_var_name);
-        } 
-        AstNode::Div{ left, right, data:_ }=>{
-            let left_s = compile_expression(tmp_counter, left, true, stack, functions, types,indent,used_types)?;
-            let right_s = compile_expression(tmp_counter, right, true, stack, functions, types,indent,used_types)?;
-            let pushv = calc_indent(indent)+&format!("{} tmp{} = {}/{};\n",&name_mangle_type(&left.get_type(functions,types).expect("")),*tmp_counter,left_s,right_s);
-            let stack_var_name = format!("tmp{}", tmp_counter);
-            *stack +=&pushv;
-            *stack += &(calc_indent(indent)+&format!("gc_register_ptr(&tmp{}, {});\n",*tmp_counter, gc_function_name(&left.get_type(functions, types).expect(""))));
-            *tmp_counter +=1;
-            return Ok(stack_var_name);
-        } 
-        AstNode::Equals{ left, right, data:_ }=>{
-            let left_s = compile_expression(tmp_counter, left, true, stack, functions, types,indent,used_types)?;
-            let right_s = compile_expression(tmp_counter, right, true, stack, functions, types,indent,used_types)?;
-            let pushv = format!("({}=={})",left_s,right_s);
-            return Ok(pushv);
-        } 
-        AstNode::GreaterThan{ left, right, data:_ }=>{
-            let left_s = compile_expression(tmp_counter, left, true, stack, functions, types,indent,used_types)?;
-            let right_s = compile_expression(tmp_counter, right, true, stack, functions, types,indent,used_types)?;
-            let pushv = format!("({}>{})",left_s,right_s);
-            return Ok(pushv);
-        } 
-        AstNode::LessThan{ left, right, data:_ }=>{
-            let left_s = compile_expression(tmp_counter, left, true, stack, functions, types,indent,used_types)?;
-            let right_s = compile_expression(tmp_counter, right, true, stack, functions, types,indent,used_types)?;
-            let pushv = format!("({}<{})",left_s,right_s);
-            return Ok(pushv);
-        } 
-        AstNode::GreaterOrEq{ left, right, data:_ }=>{
-            let left_s = compile_expression(tmp_counter, left, true, stack, functions, types,indent,used_types)?;
-            let right_s = compile_expression(tmp_counter, right, true, stack, functions, types,indent,used_types)?;
-            let pushv = format!("({}>={})",left_s,right_s);
-            return Ok(pushv);
-        } 
-        AstNode::LessOrEq{ left, right, data:_ }=>{
-            let left_s = compile_expression(tmp_counter, left, true, stack, functions, types,indent,used_types)?;
-            let right_s = compile_expression(tmp_counter, right, true, stack, functions, types,indent,used_types)?;
-            let pushv = format!("({}<={})",left_s,right_s);
-            return Ok(pushv);
-        } 
-        AstNode::Not { value, data:_ }=>{
-            let right_s = compile_expression(tmp_counter, value, true, stack, functions, types,indent,used_types)?;
-            let pushv = format!("!({})",right_s);
-            return Ok(pushv);
-        } 
-        AstNode::And{ left, right, data:_ }=>{
-            let left_s = compile_expression(tmp_counter, left, true, stack, functions, types,indent,used_types)?;
-            let right_s = compile_expression(tmp_counter, right, true, stack, functions, types,indent,used_types)?;
-            let pushv = format!("({}&&{})",left_s,right_s);
-            return Ok(pushv);
-        } 
-        AstNode::Or{ left, right, data:_ }=>{
-            let left_s = compile_expression(tmp_counter, left, true, stack, functions, types,indent,used_types)?;
-            let right_s = compile_expression(tmp_counter, right, true, stack, functions, types,indent,used_types)?;
-            let pushv = format!("({}||{})",left_s,right_s);
-            return Ok(pushv);
-        } 
-        AstNode::VariableDeclaration { name, var_type, value_assigned ,data:_}=>{
-            let mut pushv = calc_indent(indent)+&format!("{} user_{} =",name_mangle_type(var_type), name);
-            let next = 
-            match var_type{
-                Type::IntegerT =>{
-                    "0;\n"
-                }
-                Type::FloatT=>{
-                    "0.0;\n"
-                }
-                Type::PointerT { ptr_type:_ }=>{
-                    "0;\n"
-                }
-                Type::BoolT{}=>{
-                   "false;\n"
-                }
-                _=>{
-                    "{0};\n"
-                }
-                
-            };
-            used_types.insert(var_type.clone());
-            pushv+=next;
-            let gc_reg = calc_indent(indent)+&format!("gc_register_ptr(&user_{name}, {});\n",gc_function_name(var_type));
-            pushv += &gc_reg;
-            if let Some(assigned) = value_assigned{
-                let l = compile_expression(tmp_counter, assigned, true, stack, functions, types,indent,used_types)?;
-                pushv +=&(calc_indent(indent)+&l);
-            }
-            pushv += "\n";
-            *stack +=&pushv;
-            return Ok("".to_owned());
-        }
-        AstNode::If { condition, thing_to_do, r#else }=>{
-            let cond = "if ".to_owned()+&compile_expression(tmp_counter,  condition, true, stack, functions, types,indent,used_types)?;
-            let mut to_do = String::from("{\n");
-            to_do += &(calc_indent(indent+1)+"gc_push_frame();\n");
-            for i in thing_to_do{
-                let mut stack = String::new();
-                let base = compile_expression(tmp_counter,i,false,&mut stack, functions,types,indent,used_types)?;
-                to_do += &stack;
-                to_do+= &base;
-            }
-            to_do += &(calc_indent(indent+1)+"gc_push_frame();\n");
-            to_do += "}\n";
-            let mut thing_else = String::new();
-            if let Some(els) = r#else{
-                thing_else += "{\n";
-                thing_else +=   &(calc_indent(indent+1)+"gc_push_frame();\n");
-                for i in els{
-                    let mut stack = String::new();
-                    let base = &compile_expression(tmp_counter,i,false,&mut stack, functions,types,indent+1,used_types)?;
-                    thing_else += &stack;
-                    thing_else+= base;
-                    thing_else += ";\n";
-                }
-                thing_else +=   &(calc_indent(indent+1)+"gc_pop_frame();\n");
-                thing_else += "\n}";
-            }
-            *stack += &cond;
-            *stack += &to_do;
-            *stack += &thing_else;
-            return Ok("".to_owned());
-        } 
-        AstNode::Return { body }=>{
-            for _ in 0..indent{
-                *stack += &(calc_indent(indent)+"gc_pop_frame();\n");
-            }
-            return Ok(calc_indent(indent)+"return "+&compile_expression(tmp_counter, body, expect_return, stack, functions, types,indent,used_types)?+";");
-        }
-        AstNode::Loop { condition, body }=>{
-            let cond = "while(".to_owned()+&compile_expression(tmp_counter,  condition, true, stack, functions, types,indent,used_types)?;
-            let mut to_do = String::from("){\n");
-            to_do += &(calc_indent(indent)+"gc_push_frame();\n");
-            for i in body{
-                let mut stack = String::new();
-                let base = &compile_expression(tmp_counter,i,false,&mut stack, functions,types,indent+1,used_types)?;
-                to_do += &stack;
-                to_do+= base;
-                to_do += ";\n";
-            }
-            to_do += &(calc_indent(indent)+"gc_pop_frame();\n");
-            to_do += "}\n";
-            *stack += &cond;
-            *stack += &to_do;
-            return Ok("".to_owned());
-        }
-        AstNode::ForLoop{ variable,condition, body ,post_op}=>{
-            *stack += "{\n";
-            let var = compile_expression(tmp_counter, variable, expect_return, stack, functions, types,indent,used_types)?;
-            let cond= calc_indent(indent)+ "while"+&compile_expression(tmp_counter,  condition, true, stack, functions, types,indent,used_types)?+"{\n";
-            let mut to_do = String::new();
-            *stack += &var;
-            *stack += &cond;
-            *stack += &(calc_indent(indent+1)+"gc_push_frame();\n");
-            for i in body{
-                let mut tmp_stack = String::new();
-                let base = &compile_expression(tmp_counter,i,false, &mut tmp_stack, functions,types,indent+1,used_types)?;
-                to_do += &tmp_stack;
-                to_do+= base;
-                to_do += ";\n";
-            }
-            let post_op = calc_indent(indent)+&compile_expression(tmp_counter, post_op, expect_return, stack, functions, types,indent,used_types)?;
-            to_do += &post_op;
-            to_do += &(calc_indent(indent+1)+"gc_pop_frame();\n");
-            to_do += "}\n}\n";
-            *stack += &to_do;
-            return Ok("".to_owned());
-        }
-        AstNode::ArrayAccess { variable, index }=>{
-            let left = compile_expression(tmp_counter, variable, false, stack, functions, types, indent,used_types)?;
-            let idx = compile_expression(tmp_counter, index, true, stack, functions, types, indent,used_types)?;
-            if !expect_return{
-                return Ok(left+".start["+&idx+"]");
-            } else{
-                return Ok(left+".start["+&idx+"]");
-            }
-        }
-        AstNode::FieldUsage { base, field_name }=>{
-            let left = compile_expression(tmp_counter, base, false, stack, functions, types, indent,used_types)?;
-            if !expect_return{
-                return Ok(left+"."+&(field_name.clone()));
-            } 
-            return Ok(left+"."+&field_name);
-        }
-        AstNode::Deref { thing_to_deref }=>{
-            let right = compile_expression(tmp_counter, thing_to_deref.as_mut(),false, stack, functions, types, indent,used_types)?;
-            if expect_return{
-                return Ok("(*".to_owned()+&(right)+")");
-            }
-            return Ok("(*".to_owned()+&right+")");
-        }
-        AstNode::TakeRef { thing_to_ref }=>{
-            let right = compile_expression(tmp_counter, thing_to_ref.as_mut(),false, stack, functions, types, indent,used_types)?;
-            if expect_return{
-                return Ok("(&".to_owned()+&(right)+")");
-            }
-            return Ok("(&".to_owned()+&right+")");
-        }
-        AstNode::OperatorNew { vtype }=>{
-            return Ok(format!("gc_alloc({})",vtype.get_size_bytes()));
-        }
-        AstNode::OperatorMake { vtype, size }=>{
-            let stype = Type::SliceT { ptr_type: Box::new(vtype.clone()) };
-            let sz = compile_expression(tmp_counter, size, true, stack, functions, types, indent, used_types)?;
-            return Ok(format!("(({}){{gc_alloc({}), {}}})",name_mangle_type(&stype),format!("{}*{}",vtype.get_size_bytes(),sz), sz));
-        }
-        _=>{
-            unreachable!();
-        }
-    }
-}
 pub fn compile_function(func:&mut Function, filename:&str, functions:&HashMap<String,FunctionTable>, types:&HashMap<String, Type>,used_types:&mut HashSet<Type>)->Result<String,String>{
-    let ir = compile_function_to_ir(func, functions, types);
-    println!("ir representation:{:#?}", ir);
     let mut out = String::new();
     out += &name_mangle_type(&func.return_type);
     out += " ";
@@ -468,13 +105,13 @@ pub fn compile_function(func:&mut Function, filename:&str, functions:&HashMap<St
     }
     out += "){\n";
     out += "    gc_push_frame();\n";
-    let mut temp_counter = 0;
-    for i in &mut func.program{
-        let mut stack = String::new();
-        let base = &compile_expression(&mut temp_counter,i,false,&mut stack, functions,types,1,used_types)?;
-        out += &stack;
-        out += base;
-        out += ";\n";
+    let ir = compile_function_to_ir(func, functions, types);
+    println!("ir representation:{:#?}", ir);
+    let mut depth = 1;
+    for i in &ir{
+        let tmp = compile_ir_instr_to_c(i, &mut depth, used_types);
+        out += &tmp;
+        out += "\n";
     }
     out += "    gc_pop_frame();\n";
     out += "\n}\n";
@@ -730,6 +367,18 @@ pub fn compile(prog:Program, base_filename:&str)->Result<(),String>{
     let out_file_name = filename.to_owned()+".c";
     let mut fout = fs::File::create(&out_file_name).expect("testing expect");
     used_types = recurse_used_types(&used_types, &prog.types);
+    for i in &used_types{
+        let mut hit = false;
+        for j in &progtypes{
+            if j.1 == *i{
+                hit = true;
+                break;
+            }
+        } 
+        if !hit{
+            typedecs += &compile_type("".to_owned(), i.clone()).expect("must work");
+        }
+    }
     typedecs += &compile_gc_functions(used_types);
     out += "#include \"../builtins.h\"\n";
     out += &typedecs;
