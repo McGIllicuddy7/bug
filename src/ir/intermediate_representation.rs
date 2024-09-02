@@ -1048,7 +1048,22 @@ pub fn compile_ast_node_to_ir(
             todo!();
         }
         AstNode::Loop { condition, body } => {
-            todo!();
+            let base = *label_counter;
+            let end = *label_counter+1;
+            let lbody = *label_counter + 2;
+            *label_counter += 3;
+            val_stack.push(IrInstr::Label { name: format!("L{}", base )}); 
+            val_stack.push(IrInstr::BeginScope);   
+            let tmp = compile_ast_node_to_ir(condition, val_stack, variable_counter, stack_ptr, pop_table, name_table, functions, types, label_counter)?; 
+            val_stack.push(IrInstr::CondGoto { cond: tmp, target: format!("L{}",lbody)});
+            val_stack.push(IrInstr::Goto { target: format!("L{}",end) });
+            val_stack.push(IrInstr::Label { name: format!("L{}",lbody) });
+            for i in body{
+                compile_ast_node_to_ir(i, val_stack, variable_counter, stack_ptr, pop_table, name_table, functions, types, label_counter);
+            }
+            val_stack.push(IrInstr::EndScope);
+            val_stack.push(IrInstr::Goto { target: format!("L{}",base) });
+            val_stack.push(IrInstr::Label { name: format!("L{}",end) });
         }
         AstNode::Return { body } => {
             let to_return = compile_ast_node_to_ir(

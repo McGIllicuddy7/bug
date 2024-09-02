@@ -276,12 +276,14 @@ pub fn compile_ir_instr_to_c(instr: &IrInstr, depth :&mut usize, used_types:&mut
             return "".to_owned();
         }
         IrInstr::BeginScope => {
+            let out = depth_format!(depth, "{\n");
             *depth += 1;
-            return depth_format!(depth, "{\n");
+            return out;
         }
         IrInstr::EndScope => {
+            let out = depth_format!(depth, "\n}\n");
             *depth -= 1;
-            return depth_format!(depth, "\n}\n");
+            return out;
         }
     }
 }
