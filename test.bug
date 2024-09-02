@@ -6,19 +6,8 @@ fn get_next(this:^ll)->^ll{
    return this.next;
 }
 pub fn main()->int{
-   let a = ll{false, "howdy"};
-   let b:^ll = new ll;
-   let c:^ll = new ll;
-   let d:^ll = new ll;
-   a.next = b;
-   b.next = c;
-   c.next = d;
-   d.next = &a;
-   a.get_next();
-   put_str(a.data);
-   put_str("\n");
    let i = 0;
-   while(i<10){
+   while(i<5){
       put_str(int_to_string(i));
       put_str("\n");
       i = i+1;

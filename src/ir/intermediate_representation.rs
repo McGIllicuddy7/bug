@@ -1058,9 +1058,11 @@ pub fn compile_ast_node_to_ir(
             val_stack.push(IrInstr::CondGoto { cond: tmp, target: format!("L{}",lbody)});
             val_stack.push(IrInstr::Goto { target: format!("L{}",end) });
             val_stack.push(IrInstr::Label { name: format!("L{}",lbody) });
+            val_stack.push(IrInstr::BeginScope);
             for i in body{
                 compile_ast_node_to_ir(i, val_stack, variable_counter, stack_ptr, pop_table, name_table, functions, types, label_counter);
             }
+            val_stack.push(IrInstr::EndScope);
             val_stack.push(IrInstr::EndScope);
             val_stack.push(IrInstr::Goto { target: format!("L{}",base) });
             val_stack.push(IrInstr::Label { name: format!("L{}",end) });

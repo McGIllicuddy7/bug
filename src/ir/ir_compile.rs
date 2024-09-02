@@ -266,7 +266,7 @@ pub fn compile_ir_instr_to_c(instr: &IrInstr, depth :&mut usize, used_types:&mut
             return base;
         }
         IrInstr::Ret { to_return } => {
-            depth_format!(depth,"gc_pop_frame();\n")+&depth_format!(depth, "return {};", compile_ir_op_to_c(to_return))
+            return depth_format!(depth,"gc_pop_frame();\n")+&depth_format!(depth, "return {};", compile_ir_op_to_c(to_return));
         }
         IrInstr::Push { vtype, val_idx } => {
             used_types.insert(vtype.clone());
