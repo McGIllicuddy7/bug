@@ -1,10 +1,9 @@
-mod parser;
 mod tests;
 mod types;
-mod compiler;
-mod validation;
+mod frontend;
 mod ir;
-use crate::parser::*;
+mod compiler;
+use crate::frontend::*;
 use crate::compiler::*;
 fn main() {
     std::env::set_var("RUST_BACKTRACE", "1");

@@ -1,6 +1,6 @@
 pub use crate::types::*;
-use crate::validation::alide_parens;
-use crate::validation::validate_ast;
+use super::validation::alide_parens;
+use super::validation::validate_ast;
 #[derive(Debug, Clone, Copy)]
 pub enum GlobalTypes<'a> {
     StructDef { text: &'a [Token<'a>] },

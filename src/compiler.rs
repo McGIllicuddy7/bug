@@ -1,5 +1,5 @@
 use crate::ir::compile_function_to_ir;
-use crate::parser::*;
+use crate::frontend::*;
 use crate::types::Type;
 use std::fs;
 use std::io::Write;
