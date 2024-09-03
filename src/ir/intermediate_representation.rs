@@ -3,6 +3,7 @@ use crate::{
 };
 use crate::{AstNode, Type};
 use std::collections::HashMap;
+use std::ops::Add;
 use std::rc::Rc;
 #[allow(unused)]
 #[derive(Clone, Debug)]
@@ -264,6 +265,7 @@ pub fn compile_ast_node_to_ir(
     functions: &HashMap<String, FunctionTable>,
     types: &HashMap<String, Type>,
     label_counter: &mut usize,
+    target:Option<IrOperand>
 ) -> Option<IrOperand> {
     //println!("{:#?}", node);
     match node {
@@ -282,6 +284,7 @@ pub fn compile_ast_node_to_ir(
                 functions,
                 types,
                 label_counter,
+                None,
             );
             let rv = compile_ast_node_to_ir(
                 right,
@@ -293,12 +296,30 @@ pub fn compile_ast_node_to_ir(
                 functions,
                 types,
                 label_counter,
+                lv.clone(),
             );
-            val_stack.push(IrInstr::Mov {
+            match right.as_ref(){
+                AstNode::Add { left:_, right:_, data:_ } | 
+                AstNode::Sub { left:_, right:_, data:_ } |
+                AstNode::Mult { left:_, right:_, data:_ } |
+                AstNode::Div { left:_, right:_, data:_ } |
+                AstNode::And { left:_, right:_, data:_ } |
+                AstNode::Or{ left:_, right:_, data:_ } |
+                AstNode::GreaterOrEq { left:_, right:_, data:_ } |  
+                AstNode::LessOrEq { left:_, right:_, data:_ } |
+                AstNode::GreaterThan { left:_, right:_, data:_ } | 
+                AstNode::LessThan{ left:_, right:_, data:_ } | 
+                AstNode::Not { value:_, data:_ } =>{
+                    
+                }
+                _=>{
+                val_stack.push(IrInstr::Mov {
                 left: lv?,
                 right: rv?,
                 vtype: left.get_type(functions, types).expect("bruh"),
-            });
+                });
+                }
+            }
         }
         AstNode::Add {
             left,
@@ -1260,10 +1281,11 @@ pub fn compile_function_to_ir(
     let mut name_table = vec![HashMap::new()];
     let mut label_counter = 0;
     for i in 0..func.args.len() {
-        let op = IrOperand::FunctionArg {
-            name: ("user_".to_owned()+&func.arg_names[i]).into(),
-            vtype: func.args[i].clone(),
-        };
+        let op = IrOperand::StacKOperand { var_idx: variable_counter, 
+            name:("user_".to_owned()+&func.arg_names[i]).into(), 
+            stack_offset: stack_ptr, vtype:func.args[i].clone() };
+        stack_ptr += func.args[i].get_size_bytes();
+        variable_counter += 1;
         let name = func.arg_names[i].clone();
         name_table[0].insert(name, op);
         pop_table.push(func.args[i].clone());

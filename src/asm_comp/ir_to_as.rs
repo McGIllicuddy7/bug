@@ -1,6 +1,13 @@
-use crate::ir::IrInstr;
+use crate::ir::{IrInstr, IrOperand};
 use crate::Type;
 use std::collections::HashSet;
+/*
+left operand rax
+right operand rbx
+ */
+pub fn compile_ir_operand_to_x86(op:&IrOperand, depth:&mut usize, used_types:&mut HashSet<Type>, statics_count:&mut usize, statics:&mut String)->String{
+    todo!();
+}
 pub fn compile_ir_instr_to_x86(instr: &IrInstr, depth :&mut usize, used_types:&mut HashSet<Type>, statics_count:&mut usize, statics:&mut String)->String{
    match instr{
         IrInstr::Add { target, left, right, vtype}=>{
