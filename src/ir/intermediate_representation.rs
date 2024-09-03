@@ -789,6 +789,7 @@ pub fn compile_ast_node_to_ir(
                 name: ("user_".to_owned()+&name).into(),
                 vtype: var_type.clone(),
             });
+            pop_table.push(var_type.clone());
             *variable_counter += 1;
             *stack_ptr += var_type.get_size_bytes();
             name_table
@@ -1047,20 +1048,31 @@ pub fn compile_ast_node_to_ir(
             val_stack.push(IrInstr::Goto { target: format!("L{}",else_label) });
             val_stack.push(IrInstr::Label { name: format!("L{}",base_label) });
             val_stack.push(IrInstr::BeginScope);
+            let mut body_pop_table = vec![];
             for i in thing_to_do{
-                compile_ast_node_to_ir(i, val_stack, variable_counter, stack_ptr, pop_table, name_table, functions, types, label_counter);
+                compile_ast_node_to_ir(i, val_stack, variable_counter, stack_ptr, &mut body_pop_table, name_table, functions, types, label_counter);
+            }
+            body_pop_table.reverse();
+            for i in body_pop_table{
+                val_stack.push(IrInstr::Pop {vtype:i });
             }
             val_stack.push(IrInstr::EndScope);
             val_stack.push(IrInstr::Goto{target:format!("L{}",end_label)});
             val_stack.push(IrInstr::Label { name: format!("L{}",else_label )});
-            val_stack.push(IrInstr::BeginScope);
             if r#else.is_some(){
+                val_stack.push(IrInstr::BeginScope);
                 let elblk = r#else.as_ref().expect("is some");
+                let mut pop_stack = vec![];
                 for i in elblk{
-                    compile_ast_node_to_ir(i, val_stack, variable_counter, stack_ptr, pop_table, name_table, functions, types, label_counter);
+                    compile_ast_node_to_ir(i, val_stack, variable_counter, stack_ptr, &mut pop_stack, name_table, functions, types, label_counter);
                 }
+                pop_stack.reverse();
+                for i in pop_stack{
+                    val_stack.push(IrInstr::Pop { vtype: i });
+                }
+                val_stack.push(IrInstr::EndScope);
             }
-            val_stack.push(IrInstr::EndScope);
+     
             val_stack.push(IrInstr::Label { name: format!("L{}",end_label)});
         }
         AstNode::ForLoop {
@@ -1073,19 +1085,24 @@ pub fn compile_ast_node_to_ir(
             let end = *label_counter+1;
             let lbody = *label_counter + 2;
             *label_counter += 3;
-            val_stack.push(IrInstr::BeginScope);
-let _ = compile_ast_node_to_ir(variable, val_stack, variable_counter, stack_ptr, pop_table, name_table, functions, types, label_counter);
+            val_stack.push(IrInstr::BeginScope); 
+            let _ = compile_ast_node_to_ir(variable, val_stack, variable_counter, stack_ptr, pop_table, name_table, functions, types, label_counter);
             val_stack.push(IrInstr::Label { name: format!("L{}", base )}); 
             val_stack.push(IrInstr::BeginScope);    
+            let mut loop_pop_table = vec![];
             let tmp = compile_ast_node_to_ir(condition, val_stack, variable_counter, stack_ptr, pop_table, name_table, functions, types, label_counter)?; 
             val_stack.push(IrInstr::CondGoto { cond: tmp, target: format!("L{}",lbody)});
             val_stack.push(IrInstr::Goto { target: format!("L{}",end) });
             val_stack.push(IrInstr::Label { name: format!("L{}",lbody) });
             val_stack.push(IrInstr::BeginScope);
             for i in body{
-                compile_ast_node_to_ir(i, val_stack, variable_counter, stack_ptr, pop_table, name_table, functions, types, label_counter);
+                compile_ast_node_to_ir(i, val_stack, variable_counter, stack_ptr,&mut loop_pop_table, name_table, functions, types, label_counter);
+            } 
+            compile_ast_node_to_ir(post_op, val_stack, variable_counter, stack_ptr, &mut loop_pop_table, name_table, functions, types, label_counter);
+            loop_pop_table.reverse();
+            for i in loop_pop_table{
+                val_stack.push(IrInstr::Pop { vtype: i });
             }
-            compile_ast_node_to_ir(post_op, val_stack, variable_counter, stack_ptr, pop_table, name_table, functions, types, label_counter);
             val_stack.push(IrInstr::EndScope);
             val_stack.push(IrInstr::EndScope);
             val_stack.push(IrInstr::Goto { target: format!("L{}",base) });
@@ -1104,8 +1121,13 @@ let _ = compile_ast_node_to_ir(variable, val_stack, variable_counter, stack_ptr,
             val_stack.push(IrInstr::Goto { target: format!("L{}",end) });
             val_stack.push(IrInstr::Label { name: format!("L{}",lbody) });
             val_stack.push(IrInstr::BeginScope);
+            let mut loop_pop_table = vec![];
             for i in body{
-                compile_ast_node_to_ir(i, val_stack, variable_counter, stack_ptr, pop_table, name_table, functions, types, label_counter);
+                compile_ast_node_to_ir(i, val_stack, variable_counter, stack_ptr, &mut loop_pop_table, name_table, functions, types, label_counter);
+            }
+            loop_pop_table.reverse();
+            for i in loop_pop_table{
+                val_stack.push(IrInstr::Pop { vtype: i});
             }
             val_stack.push(IrInstr::EndScope);
             val_stack.push(IrInstr::EndScope);
@@ -1227,6 +1249,10 @@ pub fn compile_function_to_ir(
             types,
             &mut label_counter,
         );
+    }
+    pop_table.reverse();
+    for i in pop_table{
+        out.push(IrInstr::Pop { vtype:i });
     }
     return out;
 }

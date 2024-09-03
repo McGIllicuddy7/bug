@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 
 use super::intermediate_representation::*;
+use crate::gc_function_name;
 use crate::name_mangle_type;
 use crate::Type;
 pub fn compile_ir_op_to_c(op: &IrOperand) -> String {
@@ -95,14 +96,16 @@ pub fn compile_ir_instr_to_c(instr: &IrInstr, depth :&mut usize, used_types:&mut
     match instr {
         IrInstr::VariableDeclaration { name, vtype } => {
             used_types.insert(vtype.clone());
+            let out = 
             match vtype{
                 Type::IntegerT| Type::BoolT |Type::PointerT { ptr_type:_ }| Type::CharT | Type::FloatT=>{
-                    depth_format!(depth, "{} {} = 0;",name_mangle_type(vtype),name)
+                    depth_format!(depth, "{} {} = 0;\n",name_mangle_type(vtype),name)
                 }
                 _=>{
-                   depth_format!(depth, "{} {} = {{0}};", name_mangle_type(vtype), name)
+                   depth_format!(depth, "{} {} = {{0}};\n", name_mangle_type(vtype), name)
                 }
-            }
+            };
+            return out + &depth_format!(depth, "gc_register_ptr(&{}, {});", name,gc_function_name(vtype));
         }
         IrInstr::Mov { left, right, vtype} => {
             used_types.insert(vtype.clone());
@@ -270,19 +273,19 @@ pub fn compile_ir_instr_to_c(instr: &IrInstr, depth :&mut usize, used_types:&mut
         }
         IrInstr::Push { vtype, val_idx } => {
             used_types.insert(vtype.clone());
-            depth_format!(depth, "{} tmp{};", name_mangle_type(vtype), val_idx)
+            return depth_format!(depth, "{} tmp{};\n", name_mangle_type(vtype), val_idx)+&depth_format!(depth, "gc_register_ptr(&tmp{},{});",val_idx,gc_function_name(&vtype));
         }
-        IrInstr::Pop { vtype:_ } => {
-            return "".to_owned();
+        IrInstr::Pop { vtype} => {
+            return depth_format!(depth, "//{}", name_mangle_type(vtype));
         }
         IrInstr::BeginScope => {
             let out = depth_format!(depth, "{\n");
             *depth += 1;
             return out;
         }
-        IrInstr::EndScope => {
-            let out = depth_format!(depth, "\n}\n");
+        IrInstr::EndScope => {            
             *depth -= 1;
+            let out = "\n".to_owned()+&depth_format!(depth, "}");
             return out;
         }
     }
