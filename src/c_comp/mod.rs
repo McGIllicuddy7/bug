@@ -5,6 +5,7 @@ use std::fs;
 use std::io::Write;
 use std::collections::HashSet;
 use std::rc::Rc;
+#[allow(unused)]
 pub fn compile_function_header(func:&Function, filename:&str)->Result<String,String>{
     let mut out= String::new();
     out += &name_mangle_type(&func.return_type);
@@ -23,6 +24,7 @@ pub fn compile_function_header(func:&Function, filename:&str)->Result<String,Str
     return Ok(out);
 }
 
+#[allow(unused)]
 pub fn compile_function_table_header(_name:&String, data:&FunctionTable,filename:&str)->Result<String, String>{
     let mut out = String::new(); 
     for i in &data.functions{
@@ -31,6 +33,7 @@ pub fn compile_function_table_header(_name:&String, data:&FunctionTable,filename
     return Ok(out);
 }
 
+#[allow(unused)]
 pub fn compile_type(_aname:String, data:Type)->Result<String, String>{
     match &data{
         Type::SliceT { ptr_type:_}=>{
@@ -66,6 +69,7 @@ pub fn compile_type(_aname:String, data:Type)->Result<String, String>{
     Ok(out)
 } 
 
+#[allow(unused)]
 pub fn compile_static(name:&String,vtype:&Type, _index:usize)->Result<String,String>{
     let mut out = name_mangle_type(vtype)+" "+&name;
     out += match vtype{
@@ -88,6 +92,8 @@ pub fn compile_static(name:&String,vtype:&Type, _index:usize)->Result<String,Str
     out += ";\n";
     return Ok(out);
 }
+
+#[allow(unused)]
 pub fn compile_function(func:&mut Function, filename:&str, functions:&HashMap<String,FunctionTable>, types:&HashMap<String, Type>,used_types:&mut HashSet<Type>)->Result<String,String>{
     let mut out = String::new();
     out += &name_mangle_type(&func.return_type);
@@ -118,6 +124,7 @@ pub fn compile_function(func:&mut Function, filename:&str, functions:&HashMap<St
     out += "\n}\n";
     return Ok(out);
 }
+#[allow(unused)]
 pub fn handle_dependencies(map:&HashMap<String,Type>)->Vec<(String,Type)>{
     fn contains_undeclared_type(t:&Type, map: &HashSet<String>, recursed:bool)->bool{
         match t{
@@ -188,9 +195,13 @@ pub fn handle_dependencies(map:&HashMap<String,Type>)->Vec<(String,Type)>{
     }
     return out;
 }
+
+#[allow(unused)]
 pub fn gc_function_name(t:&Type)->String{
     return "gc_".to_owned()+&name_mangle_type_for_names(t);
 }
+
+#[allow(unused)]
 fn compile_gc_functions(types:HashSet<Type>)->String{
     let mut out = String::new();
     for i in &types{
@@ -264,6 +275,8 @@ fn compile_gc_functions(types:HashSet<Type>)->String{
     }
     return out;
 }
+
+#[allow(unused)]
 fn get_all_types_contained(t:&Type, types:&HashMap<String, Type>)->Vec<Type>{
     let mut out = vec![];
     match t{
@@ -318,6 +331,8 @@ fn get_all_types_contained(t:&Type, types:&HashMap<String, Type>)->Vec<Type>{
     out.push(vec![t.clone()]);
     return out.into_iter().flatten().collect();
 }
+
+#[allow(unused)]
 fn recurse_used_types(types:&HashSet<Type>, type_table:&HashMap<String,Type>)->HashSet<Type>{
     let mut out = HashSet::new();
     for i in types{
@@ -336,6 +351,8 @@ fn recurse_used_types(types:&HashSet<Type>, type_table:&HashMap<String,Type>)->H
     }
     return out;
 }
+
+#[allow(unused)]
 pub fn compile(prog:Program, base_filename:&str)->Result<(),String>{
     println!("compiling file: {}", base_filename);
     let fname = "output/".to_owned()+&base_filename[0..base_filename.len()-4];

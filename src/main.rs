@@ -2,9 +2,10 @@ mod tests;
 mod types;
 mod frontend;
 mod ir;
-mod compiler;
+mod c_comp;
+mod asm_comp;
 use crate::frontend::*;
-use crate::compiler::*;
+use crate::c_comp::*;
 fn main() {
     std::env::set_var("RUST_BACKTRACE", "1");
     let mut comp_que = vec!["test.bug".to_owned()];
@@ -13,7 +14,7 @@ fn main() {
         let tprg = "import builtins.bug;\n".to_owned()+&std::fs::read_to_string(&comp_que[i]).expect("testing expect");
         let name = comp_que[i].to_owned();
         let prg = program_to_ast(&tprg,&mut comp_que, &name).expect("testing expect");
-        let _ = compile(prg,&comp_que[i]).expect("testing expect");
+        let _ = asm_comp::compile_to_asm(prg,&comp_que[i]).expect("testing expect");
         i += 1;
         if i>=comp_que.len(){
             break;
