@@ -6,8 +6,9 @@ fn get_next(this:^ll)->^ll{
    return this.next;
 }
 pub fn main()->int{
-   for(let i =0; i<100; i = i+1){
-      put_str("hello world");
+   let should_continue = true;
+   while(should_continue){ 
+      should_continue = false;
    }
    return 32;
 }

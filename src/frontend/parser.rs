@@ -943,7 +943,6 @@ pub fn parse_expression(
             condition: Box::new(cond), 
             body: new_scope,
         });
-        *cursor += 1;
         return out;
     }  else if text[*cursor] == "for" {
         *cursor += 1;
