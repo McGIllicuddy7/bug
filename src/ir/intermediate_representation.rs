@@ -1178,7 +1178,7 @@ pub fn compile_ast_node_to_ir(
                 types,
                 label_counter,
             )
-            .expect("should return");
+            .expect("should return"); 
             val_stack.push(IrInstr::Ret { to_return });
         }
         AstNode::OperatorMake { vtype, size } => {
