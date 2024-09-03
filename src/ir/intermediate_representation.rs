@@ -23,14 +23,6 @@ pub enum IrOperand {
     TakeRef {
         to_ref: Box<IrOperand>,
     },
-    ArrayLiteral {
-        vtype: Type,
-        values: Vec<IrOperand>,
-    },
-    StructLiteral {
-        vtype: Type,
-        values: Vec<IrOperand>,
-    },
     StringLiteral {
         value: Rc<str>,
     },
@@ -56,7 +48,66 @@ pub enum IrOperand {
         vtype: Type,
     },
 }
-
+impl IrOperand{
+    pub fn get_type(&self)->Type{
+        match self{
+            Self::IntLiteral { value:_}=>{
+                return Type::IntegerT;
+            
+            }
+            Self::FloatLiteral { value:_ }=>{
+                return Type::FloatT;
+            }
+            Self::ArrayAccess { base, value:_ }=>{
+                return base.get_type().get_array_type().expect("");
+            }
+            Self::CharLiteral { value:_ }=>{
+                return Type::CharT;
+            }
+            Self::Deref { to_deref }=>{
+                match to_deref.get_type(){
+                    Type::PointerT{ptr_type}=>{
+                        return ptr_type.as_ref().clone();
+                    }
+                    _=>{ 
+                        unreachable!();
+                    }
+                }
+            }
+            Self::TakeRef { to_ref } =>{
+                return Type::PointerT { ptr_type: Rc::new(to_ref.get_type().clone())};
+            }
+            Self::Name { name, vtype }=>{
+                return vtype.clone();
+            }
+            Self::StacKOperand { var_idx, name, stack_offset, vtype }=>{
+                return vtype.clone();
+            }
+            Self::FunctionArg { name, vtype }=>{
+                return vtype.clone();
+            }
+            Self::FieldAccess { base, name }=>{
+                let bs = base.get_type();
+                match &bs{
+                    Type::StructT { name, components }=>{
+                        for i in components{
+                            if &i.0 == name.as_ref(){
+                               return i.1.clone(); 
+                            }
+                        }
+                    }
+                    _=>{
+                        unreachable!();
+                    }
+                }
+            }
+            Self::StringLiteral { value }=>{
+                return Type::PointerT { ptr_type: Rc::new(Type::CharT) };
+            }
+        } 
+        todo!();
+    }
+}
 #[allow(unused)]
 #[derive(Clone, Debug)]
 pub enum IrInstr {
@@ -991,48 +1042,29 @@ pub fn compile_ast_node_to_ir(
                 size: nodes.len(),
                 array_type: Rc::new(nodes[0].get_type(functions, types).expect("must have type")),
             };
-            return Some(IrOperand::ArrayLiteral {
-                vtype,
-                values: nodes
-                    .iter()
-                    .map(|i| {
-                        compile_ast_node_to_ir(
-                            i,
-                            val_stack,
-                            variable_counter,
-                            stack_ptr,
-                            pop_table,
-                            name_table,
-                            functions,
-                            types,
-                            label_counter,
-                        )
-                        .expect("must return")
-                    })
-                    .collect(),
-            });
+            let ops:Vec<IrOperand> = nodes.iter().map(|i| compile_ast_node_to_ir(i, val_stack, variable_counter, stack_ptr, pop_table, name_table, functions, types, label_counter).expect("")).collect();
+            let out = stack_push(vtype.clone(), val_stack, variable_counter, stack_ptr, pop_table);
+            for i in 0..nodes.len(){
+               val_stack.push(IrInstr::Mov { left: IrOperand::ArrayAccess { base: Box::new(out.clone()), value: Box::new(IrOperand::IntLiteral { value: i as i64 }) }, right: ops[i].clone(), vtype:vtype.clone()}); 
+            }
+            return Some(out); 
         }
         AstNode::StructLiteral { vtype, nodes } => {
-            return Some(IrOperand::StructLiteral {
-                vtype: vtype.clone(),
-                values: nodes
-                    .iter()
-                    .map(|i| {
-                        compile_ast_node_to_ir(
-                            i,
-                            val_stack,
-                            variable_counter,
-                            stack_ptr,
-                            pop_table,
-                            name_table,
-                            functions,
-                            types,
-                            label_counter,
-                        )
-                        .expect("must return")
-                    })
-                    .collect(),
-            });
+            let ops:Vec<IrOperand> = nodes.iter().map(|i| compile_ast_node_to_ir(i, val_stack, variable_counter, stack_ptr, pop_table, name_table, functions, types, label_counter).expect("")).collect();
+            let out = stack_push(vtype.clone(), val_stack, variable_counter, stack_ptr, pop_table);
+            let comps = match vtype{
+                Type::StructT { name, components }=>{
+                    components.clone()
+                }
+                _=>{
+                    unreachable!();
+                }
+            };
+            for i in 0..nodes.len(){
+                let tmp = IrOperand::FieldAccess { base: Box::new(out.clone()), name: comps[i].0.clone().into() };
+                val_stack.push(IrInstr::Mov { left: tmp, right: ops[i].clone(), vtype: comps[i].1.clone() })
+            }
+            return Some(out); 
         }
         AstNode::If {
             condition,

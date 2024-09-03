@@ -6,11 +6,8 @@ fn get_next(this:^ll)->^ll{
    return this.next;
 }
 pub fn main()->int{
-   let should_continue = false;
-   if(should_continue){ 
-      put_str("false");
-   }
-   return 32;
+   let a = ll{false,"hello world"};
+   return 0;
 }
 
  

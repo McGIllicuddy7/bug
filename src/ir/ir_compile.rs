@@ -45,36 +45,6 @@ pub fn compile_ir_op_to_c(op: &IrOperand) -> String {
             let base = compile_ir_op_to_c(base);
             return format!("{}.start[{}]", base, compile_ir_op_to_c(value));
         }
-        IrOperand::ArrayLiteral { vtype, values } => {
-            let base = name_mangle_type(vtype);
-            let names: Vec<String> = values.iter().map(|i| compile_ir_op_to_c(i)).collect();
-            let mut base = format!("({}[]){{", base);
-            let mut is_start = true;
-            for i in &names {
-                if !is_start{
-                    base += ",";
-                }
-                base += i;
-                is_start = false;
-            }
-            base += "}";
-            return base;
-        }
-        IrOperand::StructLiteral { vtype, values } => {
-            let base = name_mangle_type(vtype);
-            let names: Vec<String> = values.iter().map(|i| compile_ir_op_to_c(i)).collect();
-            let mut base = format!("({}){{", base);
-            let mut is_start = true;
-            for i in &names {
-                if !is_start{
-                    base += ",";
-                }
-                base += i;
-                is_start = false;
-            }
-            base += "}";
-            return base;
-        }
     }
 }
 fn depth_calc(depth:&usize)->String{

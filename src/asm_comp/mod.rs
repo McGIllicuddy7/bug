@@ -1,23 +1,13 @@
 use std::{collections::{HashMap, HashSet}, rc::Rc};
 use std::fs;
 use std::io::Write;
-use crate::{ir::{compile_function_to_ir, compile_ir_instr_to_c}, name_mangle_function, name_mangle_type, name_mangle_type_for_names, name_mangle_type_for_struct, Function, FunctionTable, Program, Type};
+mod ir_to_as;
+use crate::{ir::{compile_function_to_ir, compile_ir_instr_to_c}, name_mangle_function, name_mangle_type, name_mangle_type_for_names, Function, FunctionTable, Program, Type};
 pub fn compile_function_header(func:&Function, filename:&str)->Result<String,String>{
-    let mut out= String::new();
-    out += &name_mangle_type(&func.return_type);
-    out += " ";
-    out += &name_mangle_function(func, filename);
-    out += "(";
-    for i in 0..func.args.len(){
-        out += &name_mangle_type(&func.args[i]);
-        out += " ";
-        out += &func.arg_names[i];
-        if i <func.args.len()-1{
-            out += ",";
-        }
+    if func.forward_declared {
+       return Ok(format!(".global {}\n",name_mangle_function(func, filename)));
     }
-    out += ");\n";
-    return Ok(out);
+    return Ok(format!(""));
 }
 
 pub fn compile_function_table_header(_name:&String, data:&FunctionTable,filename:&str)->Result<String, String>{
@@ -26,164 +16,25 @@ pub fn compile_function_table_header(_name:&String, data:&FunctionTable,filename
         out += &compile_function_header(i,filename)?;
     }
     return Ok(out);
-}
-
-pub fn compile_type(_aname:String, data:Type)->Result<String, String>{
-    match &data{
-        Type::SliceT { ptr_type:_}=>{
-
-        }
-        Type::StructT { name:_, components:_ }=>{
-
-        }
-        _=>{
-            return Ok(String::new());
-        }
-    }
-    let mut out =String::from("");
-    let name = format!("typedef struct {}{{\n",name_mangle_type(&data));
-    let end = format!("}}{};\n", name_mangle_type(&data));
-    let mut vars = String::new();
-    match &data{
-        Type::SliceT { ptr_type }=>{
-            vars = format!("    {} * start; size_t len;\n", name_mangle_type_for_struct(&ptr_type));
-        }
-        Type::StructT { name:_, components }=>{
-            for i in components{
-                    vars += &format!("    {} {};\n",&name_mangle_type_for_struct(&i.1), &i.0); 
-            }
-        }
-        _=>{
-            unreachable!();
-        }
-    }
-    out += &name;
-    out += &vars;
-    out += &end;
-    Ok(out)
 } 
 
-pub fn compile_static(name:&String,vtype:&Type, _index:usize)->Result<String,String>{
-    let mut out = name_mangle_type(vtype)+" "+&name;
-    out += match vtype{
-        Type::BoolT=>{
-            "=false"
-        }
-        Type::FloatT=>{
-            "= 0.0"
-        }
-        Type::IntegerT=>{
-            "= 0"
-        }
-        Type::PointerT { ptr_type:_ }=>{
-            "= 0"
-        }
-        _ =>{
-            "= {0}"
-        }
-    };
-    out += ";\n";
-    return Ok(out);
+pub fn compile_static(_name:&String,_vtype:&Type, _index:usize)->Result<String,String>{
+    todo!();
 }
-pub fn compile_function(func:&mut Function, filename:&str, functions:&HashMap<String,FunctionTable>, types:&HashMap<String, Type>,used_types:&mut HashSet<Type>)->Result<String,String>{
+pub fn compile_function(func:&mut Function, filename:&str, functions:&HashMap<String,FunctionTable>, types:&HashMap<String, Type>,used_types:&mut HashSet<Type>, statics_count:&mut usize, static_section:&mut String)->Result<String,String>{
     let mut out = String::new();
-    out += &name_mangle_type(&func.return_type);
-    out += " ";
     out += &name_mangle_function(func, filename);
-    out += "(";
-    for i in 0..func.args.len(){
-        used_types.insert(func.args[i].clone());
-        out += &name_mangle_type(&func.args[i]);
-        out += " ";
-        out += "user_";
-        out += &func.arg_names[i];
-        if i <func.args.len()-1{
-            out += ",";
-        }
-    }
-    out += "){\n";
-    out += "    gc_push_frame();\n";
+    out += ":\n";
     let ir = compile_function_to_ir(func, functions, types);
     println!("ir representation:{:#?}", ir);
     let mut depth = 1;
     for i in &ir{
-        let tmp = compile_ir_instr_to_c(i, &mut depth, used_types);
+        let tmp = ir_to_as::compile_ir_instr_to_asm(i, &mut depth, used_types,statics_count, static_section);
         out += &tmp;
         out += "\n";
     }
-    out += "    gc_pop_frame();\n";
-    out += "\n}\n";
+    out += "\n";
     return Ok(out);
-}
-pub fn handle_dependencies(map:&HashMap<String,Type>)->Vec<(String,Type)>{
-    fn contains_undeclared_type(t:&Type, map: &HashSet<String>, recursed:bool)->bool{
-        match t{
-            Type::ArrayT { size:_, array_type }=>{
-                if contains_undeclared_type(&array_type, map,true){
-                    return true;
-                }
-                false
-            }
-            Type::PointerT { ptr_type }=>{
-                if contains_undeclared_type(&ptr_type, map,true){
-                    return true;
-                }
-                false
-            }
-            Type::SliceT { ptr_type }=>{
-                if contains_undeclared_type(&ptr_type, map,true){
-                    return true;
-                }
-                false
-            }
-            Type::StructT { name, components }=>{
-                if recursed{
-                    if !map.contains(name.as_ref()){
-                        return true;
-                    }
-                }
-                for i in components{
-                    if contains_undeclared_type(&i.1, map,true){
-                        return true;
-                    }
-                }
-                false
-            }
-            _=>{
-                false
-            }
-        }
-    }
-    let mut declared_types: HashSet<String> = HashSet::new();
-    let mut que:Vec<(&String,&Type)> = vec![];
-    let mut out = vec![];
-    for i in map{
-        let t = i.1;
-        if contains_undeclared_type(t, &declared_types,false){
-            que.push(i);
-        } else{
-            declared_types.insert(i.0.clone());
-            out.push((i.0.clone(), i.1.clone()));
-        }
-        let mut pushed = false;
-        loop{
-            for k in 0..que.len(){
-                let j = &que[k];
-                if !contains_undeclared_type((*j).1, &declared_types,false){
-                    declared_types.insert(j.0.clone());
-                    out.push((j.0.clone(), j.1.clone()));
-                    pushed = true;
-                }
-                que.remove(k);
-                break;
-            }
-            if !pushed{
-                break;
-            }
-            pushed = false;
-        }
-    }
-    return out;
 }
 pub fn gc_function_name(t:&Type)->String{
     return "gc_".to_owned()+&name_mangle_type_for_names(t);
@@ -340,45 +191,27 @@ pub fn compile_to_asm(prog:Program,base_filename:&String)->Result<(),String>{
     let mut out = String::new();
     let mut typedecs = "".to_owned();
     let mut used_types = HashSet::new();
-    let progtypes = handle_dependencies(&prog.types);
-    for i in &progtypes{
-        typedecs += &compile_type(i.0.clone(), i.1.clone())?;
-    };
     let mut func_decs = String::new();
     for i in &prog.functions{
         func_decs += &compile_function_table_header(i.0, i.1,filename)?;
     };
-    let mut statics = String::new();
-    for i in &prog.static_variables{
-        statics += &compile_static(&i.0, &i.1.0, i.1.1)?;
-    }
+    let mut statics = ".section data\n".to_owned();
     let mut functions = String::new();
+    let mut statics_count = 0;
     for i in &prog.functions{
         for func in &i.1.functions{
             if func.forward_declared{
                 continue;
             }
             let mut f =  func.clone();
-            functions+= &compile_function(&mut f,filename, &prog.functions, &prog.types, &mut used_types)?;
+            functions+= &compile_function(&mut f,filename, &prog.functions, &prog.types, &mut used_types,&mut statics_count,&mut statics)?;
         }
     }
-    let out_file_name = filename.to_owned()+".c";
+    let out_file_name = filename.to_owned()+".a";
     let mut fout = fs::File::create(&out_file_name).expect("testing expect");
     used_types = recurse_used_types(&used_types, &prog.types);
-    for i in &used_types{
-        let mut hit = false;
-        for j in &progtypes{
-            if j.1 == *i{
-                hit = true;
-                break;
-            }
-        } 
-        if !hit{
-            typedecs += &compile_type("".to_owned(), i.clone()).expect("must work");
-        }
-    }
     typedecs += &compile_gc_functions(used_types);
-    out += "#include \"../builtins.h\"\n";
+    out += ".intel_syntax no_prefix\n";
     out += &typedecs;
     out += &func_decs;
     out += &statics;
@@ -388,6 +221,6 @@ pub fn compile_to_asm(prog:Program,base_filename:&String)->Result<(),String>{
     }
     fout.write(out.as_bytes()).expect("tesing expect");
     drop(fout);
-    let _=std::process::Command::new("gcc").arg(&out_file_name).arg("-std=c2x").arg("-c").output();
+    let _=std::process::Command::new("gas").arg(&out_file_name).arg("-std=c2x").arg("-c").output();
     return Ok(());
 }
