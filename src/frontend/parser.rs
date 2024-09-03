@@ -965,7 +965,6 @@ pub fn parse_expression(
         *cursor += 1;
         let new_scope = parse_scope(text, cursor, types, scope, function_table).expect("bruh");
         out = Some(AstNode::ForLoop { variable, condition, post_op, body:new_scope });
-        *cursor += 1;
         return out;
     } else if text[*cursor] == "."{
         *cursor += 1;
@@ -1131,7 +1130,7 @@ pub fn parse_scope(
         return None;
     }
     if text[*cursor+1] == "}"{
-        *cursor += 1;
+        *cursor += 2;
         return Some(vec![]);
     }
     let end = calc_close_scope(text, *cursor).expect("scope must end");
