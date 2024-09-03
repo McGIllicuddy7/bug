@@ -11,10 +11,10 @@ pub fn compile_ir_op_to_c(op: &IrOperand) -> String {
             stack_offset: _,
             vtype: _,
         } => {
-            return name.to_owned();
+            return name.as_ref().to_owned();
         }
         IrOperand::Name { name, vtype: _ } => {
-            return name.to_owned();
+            return name.as_ref().to_owned();
         }
         IrOperand::Deref { to_deref } => {
             return "(*".to_owned() + &(compile_ir_op_to_c(to_deref)+")");
@@ -23,10 +23,10 @@ pub fn compile_ir_op_to_c(op: &IrOperand) -> String {
               return "(&".to_owned() + &(compile_ir_op_to_c(to_ref)+")");
         }
         IrOperand::FunctionArg { name, vtype: _ } => {
-            return name.to_owned();
+            return name.as_ref().to_owned();
         }
         IrOperand::StringLiteral { value } => {
-            return value.to_owned();
+            return value.as_ref().to_owned();
         }
         IrOperand::IntLiteral { value } => {
             return format!("{value}");

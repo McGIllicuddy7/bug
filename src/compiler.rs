@@ -4,6 +4,7 @@ use crate::types::Type;
 use std::fs;
 use std::io::Write;
 use std::collections::HashSet;
+use std::rc::Rc;
 pub fn compile_function_header(func:&Function, filename:&str)->Result<String,String>{
     let mut out= String::new();
     out += &name_mangle_type(&func.return_type);
@@ -140,7 +141,7 @@ pub fn handle_dependencies(map:&HashMap<String,Type>)->Vec<(String,Type)>{
             }
             Type::StructT { name, components }=>{
                 if recursed{
-                    if !map.contains(name){
+                    if !map.contains(name.as_ref()){
                         return true;
                     }
                 }
@@ -270,7 +271,7 @@ fn get_all_types_contained(t:&Type, types:&HashMap<String, Type>)->Vec<Type>{
             out.push(get_all_types_contained(array_type,types));
             match array_type.as_ref(){
                 Type::PartiallyDefined { name }=>{
-                    out.push(vec![Type::PointerT { ptr_type: Box::new(types.get(name).expect("name exists").clone())}]);
+                    out.push(vec![Type::PointerT { ptr_type: Rc::new(types.get(name.as_ref()).expect("name exists").clone())}]);
                 }
                 _=>{
                     out.push(vec![Type::ArrayT { size:*size,array_type:array_type.clone() }]);
@@ -282,7 +283,7 @@ fn get_all_types_contained(t:&Type, types:&HashMap<String, Type>)->Vec<Type>{
             out.push(get_all_types_contained(ptr_type,types));
             match ptr_type.as_ref(){
                 Type::PartiallyDefined { name }=>{
-                    out.push(vec![Type::PointerT { ptr_type: Box::new(types.get(name).expect("name exists").clone())}]);
+                    out.push(vec![Type::PointerT { ptr_type: Rc::new(types.get(name.as_ref()).expect("name exists").clone())}]);
                 }
                 _=>{
                     out.push(vec![Type::PointerT { ptr_type:ptr_type.clone() }]);
@@ -294,7 +295,7 @@ fn get_all_types_contained(t:&Type, types:&HashMap<String, Type>)->Vec<Type>{
             out.push(get_all_types_contained(ptr_type,types));
             match ptr_type.as_ref(){
                 Type::PartiallyDefined { name }=>{
-                    out.push(vec![Type::SliceT { ptr_type: Box::new(types.get(name).expect("name exists").clone())}]);
+                    out.push(vec![Type::SliceT { ptr_type: Rc::new(types.get(name.as_ref()).expect("name exists").clone())}]);
                 }
                 _=>{
                     out.push(vec![Type::SliceT { ptr_type:ptr_type.clone() }]);
@@ -308,7 +309,7 @@ fn get_all_types_contained(t:&Type, types:&HashMap<String, Type>)->Vec<Type>{
             }
         }
         Type::PartiallyDefined { name}=>{
-            return vec![types.get(name).expect("type must exist").clone()];
+            return vec![types.get(name.as_ref()).expect("type must exist").clone()];
         }
         _=>{
             

@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 pub use crate::types::*;
 use super::validation::alide_parens;
 use super::validation::validate_ast;
@@ -478,7 +480,7 @@ fn parse_declared_type(
         return Some(parse_declared_type(tokens, idx, types))
             .flatten()
             .map(|i| Type::PointerT {
-                ptr_type: Box::new(i),
+                ptr_type: Rc::new(i),
             });
     }
     if current.string == "[" {
@@ -487,7 +489,7 @@ fn parse_declared_type(
             let out =Some(parse_declared_type(tokens, idx, types))
                 .flatten()
                 .map(|i| Type::SliceT {
-                    ptr_type: Box::new(i),
+                    ptr_type: Rc::new(i),
                 });
             types.insert(name_mangle_type_for_names(&out.clone()?), out.clone()?);
             return out;
@@ -496,9 +498,9 @@ fn parse_declared_type(
             if let Ok(count) = tokens[base + 1].string.parse::<usize>() {
                 *idx += 1;
                 let base = parse_declared_type(tokens, idx, types)?;
-                let out= Type::SliceT { ptr_type: Box::new(base.clone()) };
+                let out= Type::SliceT { ptr_type: Rc::new(base.clone()) };
                 types.insert(name_mangle_type_for_names(&out.clone()), out.clone());
-                return Some(Type::ArrayT { size: count, array_type: Box::new(base) });
+                return Some(Type::ArrayT { size: count, array_type: Rc::new(base) });
             } else {
                 return None;
             }
@@ -527,7 +529,7 @@ pub fn parse_type(base_text: &[Token], types: &mut HashMap<String, Type>) -> Opt
         println!("expected struct declaration line{}", text.get(1)?.line);
     }
     let name = String::from(text.get(1)?.string);
-    types.insert(name.clone(), Type::PartiallyDefined { name: name.clone() });
+    types.insert(name.clone(), Type::PartiallyDefined { name: name.clone().into()});
     let mut out_types = vec![];
     let mut idx = 3;
     while idx < text.len() - 1 {
@@ -555,7 +557,7 @@ pub fn parse_type(base_text: &[Token], types: &mut HashMap<String, Type>) -> Opt
     return Some((
         name.clone(),
         Type::StructT {
-            name,
+            name:name.clone().into(),
             components: out_types.clone(),
         },
         is_pub

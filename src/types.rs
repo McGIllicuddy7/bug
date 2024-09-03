@@ -1,5 +1,6 @@
 pub use core::str;
 pub use std::collections::HashMap;
+use std::rc::Rc;
 pub use std::slice;
 #[derive(Debug, Clone)]
 pub struct Token<'a> {
@@ -26,22 +27,22 @@ pub enum Type {
     FloatT,
     StringT,
     StructT {
-        name: String,
+        name: Rc<str>,
         components: Vec<(String, Type)>,
     },
     PointerT {
-        ptr_type: Box<Type>,
+        ptr_type:Rc<Type>,
     },
     ArrayT {
         size: usize,
-        array_type: Box<Type>,
+        array_type: Rc<Type>,
     },
     VoidT,
     SliceT {
-        ptr_type: Box<Type>,
+        ptr_type: Rc<Type>,
     },
     PartiallyDefined{
-        name:String
+        name:Rc<str>,
     }
 }
 impl Type{
@@ -199,7 +200,7 @@ pub fn is_compatible_type(a: &Type, b: &Type) -> bool {
             let acomponents = components;
             match b {
                 Type::StructT { name, components } => {
-                    if name == "" || aname == "" {
+                    if name.as_ref() == "" || aname.as_ref() == "" {
                         if acomponents.len() != components.len() {
                             return false;
                         }
@@ -336,7 +337,7 @@ pub fn is_equal_type(a:&Type, b:&Type)->bool{
             let acomponents = components;
             match b {
                 Type::StructT { name, components } => {
-                    if name == "" || aname == "" {
+                    if name.as_ref() == "" || aname.as_ref() == "" {
                         if acomponents.len() != components.len() {
                             return false;
                         }
@@ -602,7 +603,7 @@ impl AstNode {
                 for i in nodes {
                     out_types.push((("").to_owned(), i.get_type(function_table, types)?));
                 }
-                return Some(Type::ArrayT { size:out_types.len(), array_type: Box::new(out_types[0].1.clone()) } );
+                return Some(Type::ArrayT { size:out_types.len(), array_type: Rc::new(out_types[0].1.clone()) } );
             }
             Self::VariableUse {
                 name: _,
@@ -747,27 +748,27 @@ impl AstNode {
                     data:_,
                 } => {
                     return Some(Type::PointerT {
-                        ptr_type: Box::new(vtype.clone()),
+                        ptr_type: Rc::new(vtype.clone()),
                     });
                 }
                 Self::ArrayAccess { variable, index:_ }=> {
-                    return Some(Type::PointerT{ptr_type: Box::new(variable.get_type(function_table, types).expect("should have type").get_array_type()?)});
+                    return Some(Type::PointerT{ptr_type: Rc::new(variable.get_type(function_table, types).expect("should have type").get_array_type()?)});
                 }
                 Self::FieldUsage { base, field_name }=>{
                     let vtype = base.get_type(function_table, types)?;
                     match vtype{
                         Type::ArrayT { size:_, array_type }=>{
-                            return Some(*array_type.to_owned());
+                            return Some(array_type.as_ref().to_owned());
                         }
                         Type::SliceT { ptr_type }=>{
-                            return Some(*ptr_type.to_owned());
+                            return Some(ptr_type.as_ref().to_owned());
                         }
                         Type::StructT { name:_, components }=>{
                             for i in &components{
                                 if *i.0.clone() == *field_name{
                                     match i.1.clone(){
                                         Type::PartiallyDefined { name }=>{
-                                            return Some(types[&name].clone());
+                                            return Some(types[name.as_ref()].clone());
                                         }_=>{
                                             return Some( i.1.clone());
                                         }
@@ -797,7 +798,7 @@ impl AstNode {
                             if i.0 == *field_name{
                                 match &i.1{
                                     Type::PartiallyDefined { name }=>{
-                                        return Some(types[name].clone());
+                                        return Some(types[name.as_ref()].clone());
                                     }_=>{
                                         return Some(i.1.clone());
                                     } 
@@ -834,12 +835,12 @@ impl AstNode {
                         return Some(Type::SliceT { ptr_type: array_type.clone() });
                     }
                     _=>{
-                        return Some(Type::PointerT { ptr_type: Box::new(vtype.clone()) });
+                        return Some(Type::PointerT { ptr_type: Rc::new(vtype.clone()) });
                     }
                 }
             }
             Self::OperatorMake { vtype , size:_}=>{
-                return Some(Type::SliceT { ptr_type: Box::new(vtype.clone()) });
+                return Some(Type::SliceT { ptr_type: Rc::new(vtype.clone()) });
             }
         }
     }

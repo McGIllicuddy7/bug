@@ -3,6 +3,7 @@ use crate::get_function_by_args;
 use crate::is_compatible_type;
 use crate::AstNode;
 use std::collections::HashMap;
+use std::rc::Rc;
 use crate::FunctionTable;
 use crate::Type;
 use crate::Program;
@@ -413,9 +414,9 @@ fn validate_ast_node(node:&AstNode, types:&HashMap<String,Type>, functions:&mut 
             let arg_types:Vec<Type> = new_args.iter().map(|i| i.get_type(functions, types).expect("")).collect();
             if get_function_by_args(function_name, &arg_types, functions).is_none(){
                 let mut n_arg_types = arg_types.clone();
-                n_arg_types[0] = Type::PointerT{ptr_type:Box::new(n_arg_types[0].clone())};
+                n_arg_types[0] = Type::PointerT{ptr_type:Rc::new(n_arg_types[0].clone())};
                 if get_function_by_args(function_name,&n_arg_types, functions).is_some(){
-                    new_args[0] = AstNode::TakeRef { thing_to_ref: Box::new(new_args[0].clone()) };
+                    new_args[0] = AstNode::TakeRef { thing_to_ref:Box::new(new_args[0].clone()) };
                 }
             }
             let func = AstNode::FunctionCall { function_name: function_name.clone(),args:new_args, data:data.clone()};

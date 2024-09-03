@@ -3,17 +3,18 @@ use crate::{
 };
 use crate::{AstNode, Type};
 use std::collections::HashMap;
+use std::rc::Rc;
 #[allow(unused)]
 #[derive(Clone, Debug)]
 pub enum IrOperand {
     StacKOperand {
         var_idx: usize,
-        name: String,
+        name: Rc<str>,
         stack_offset: usize,
         vtype: Type,
     },
     Name {
-        name: String,
+        name: Rc<str>,
         vtype: Type,
     },
     Deref {
@@ -31,7 +32,7 @@ pub enum IrOperand {
         values: Vec<IrOperand>,
     },
     StringLiteral {
-        value: String,
+        value: Rc<str>,
     },
     IntLiteral {
         value: i64,
@@ -44,14 +45,14 @@ pub enum IrOperand {
     },
     FieldAccess {
         base: Box<IrOperand>,
-        name: String,
+        name: Rc<str>,
     },
     ArrayAccess {
         base: Box<IrOperand>,
         value: Box<IrOperand>,
     },
     FunctionArg {
-        name: String,
+        name: Rc<str>,
         vtype: Type,
     },
 }
@@ -60,7 +61,7 @@ pub enum IrOperand {
 #[derive(Clone, Debug)]
 pub enum IrInstr {
     VariableDeclaration {
-        name: String,
+        name: Rc<str>,
         vtype: Type,
     },
     Mov {
@@ -188,7 +189,7 @@ fn stack_push(
 ) -> IrOperand {
     let out = IrOperand::StacKOperand {
         var_idx: *variable_counter,
-        name: format!("tmp{}", *variable_counter),
+        name: format!("tmp{}", *variable_counter).into(),
         stack_offset: *stack_ptr,
         vtype: vtype.clone(),
     };
@@ -783,9 +784,9 @@ pub fn compile_ast_node_to_ir(
             value_assigned,
             data: _,
         } => {
-            let op = IrOperand::StacKOperand { var_idx:*variable_counter, name: "user_".to_owned()+&name, stack_offset: *stack_ptr, vtype: var_type.clone() };
+            let op = IrOperand::StacKOperand { var_idx:*variable_counter, name: ("user_".to_owned()+&name).into(), stack_offset: *stack_ptr, vtype: var_type.clone() };
             val_stack.push(IrInstr::VariableDeclaration {
-                name: "user_".to_owned()+&name,
+                name: ("user_".to_owned()+&name).into(),
                 vtype: var_type.clone(),
             });
             *variable_counter += 1;
@@ -888,7 +889,7 @@ pub fn compile_ast_node_to_ir(
             .expect("should return");
             return Some(IrOperand::FieldAccess {
                 base: Box::new(base_ir),
-                name: field_name.clone(),
+                name: field_name.clone().into(),
             });
         }
         AstNode::ArrayAccess { variable, index } => {
@@ -971,7 +972,7 @@ pub fn compile_ast_node_to_ir(
                 pop_table,
             );
             let tmp = IrOperand::StringLiteral {
-                value: value.clone(),
+                value: value.clone().into(),
             };
             let ln = IrOperand::IntLiteral {
                 value: value.len() as i64 - 2,
@@ -987,7 +988,7 @@ pub fn compile_ast_node_to_ir(
         AstNode::ArrayLiteral { nodes } => {
             let vtype = Type::ArrayT {
                 size: nodes.len(),
-                array_type: Box::new(nodes[0].get_type(functions, types).expect("must have type")),
+                array_type: Rc::new(nodes[0].get_type(functions, types).expect("must have type")),
             };
             return Some(IrOperand::ArrayLiteral {
                 vtype,
@@ -1129,7 +1130,7 @@ let _ = compile_ast_node_to_ir(variable, val_stack, variable_counter, stack_ptr,
         AstNode::OperatorMake { vtype, size } => {
             let out = stack_push(
                 Type::SliceT {
-                    ptr_type: Box::new(vtype.clone()),
+                    ptr_type: Rc::new(vtype.clone()),
                 },
                 val_stack,
                 variable_counter,
@@ -1159,7 +1160,7 @@ let _ = compile_ast_node_to_ir(variable, val_stack, variable_counter, stack_ptr,
                 func_name: "gc_alloc".to_owned(),
                 args: vec![ln?],
                 vtype: Type::SliceT {
-                    ptr_type: Box::new(vtype.clone()),
+                    ptr_type: Rc::new(vtype.clone()),
                 },
             });
             return Some(out);
@@ -1167,7 +1168,7 @@ let _ = compile_ast_node_to_ir(variable, val_stack, variable_counter, stack_ptr,
         AstNode::OperatorNew { vtype } => {
             let out = stack_push(
                 Type::PointerT {
-                    ptr_type: Box::new(vtype.clone()),
+                    ptr_type: Rc::new(vtype.clone()),
                 },
                 val_stack,
                 variable_counter,
@@ -1182,7 +1183,7 @@ let _ = compile_ast_node_to_ir(variable, val_stack, variable_counter, stack_ptr,
                 func_name: "gc_alloc".to_owned(),
                 args: vec![ln],
                 vtype: Type::SliceT {
-                    ptr_type: Box::new(vtype.clone()),
+                    ptr_type: Rc::new(vtype.clone()),
                 },
             });
             return Some(out);
@@ -1206,7 +1207,7 @@ pub fn compile_function_to_ir(
     let mut label_counter = 0;
     for i in 0..func.args.len() {
         let op = IrOperand::FunctionArg {
-            name: "user_".to_owned()+&func.arg_names[i],
+            name: ("user_".to_owned()+&func.arg_names[i]).into(),
             vtype: func.args[i].clone(),
         };
         let name = func.arg_names[i].clone();
