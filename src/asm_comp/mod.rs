@@ -29,7 +29,7 @@ pub fn compile_function(func:&mut Function, filename:&str, functions:&HashMap<St
     println!("ir representation:{:#?}", ir);
     let mut depth = 1;
     for i in &ir{
-        let tmp = ir_to_as::compile_ir_instr_to_asm(i, &mut depth, used_types,statics_count, static_section);
+        let tmp = ir_to_as::compile_ir_instr_to_x86(i, &mut depth, used_types,statics_count, static_section);
         out += &tmp;
         out += "\n";
     }
@@ -184,7 +184,7 @@ fn recurse_used_types(types:&HashSet<Type>, type_table:&HashMap<String,Type>)->H
     }
     return out;
 }
-pub fn compile_to_asm(prog:Program,base_filename:&String)->Result<(),String>{
+pub fn compile_to_asm_x86(prog:Program,base_filename:&String)->Result<(),String>{
     println!("compiling file: {}", base_filename);
     let fname = "output/".to_owned()+&base_filename[0..base_filename.len()-4];
     let filename = &fname;
