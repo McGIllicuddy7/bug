@@ -336,6 +336,7 @@ pub fn compile_ast_node_to_ir(
                 functions,
                 types,
                 label_counter,
+                None,
             );
             let rv = compile_ast_node_to_ir(
                 right,
@@ -347,14 +348,15 @@ pub fn compile_ast_node_to_ir(
                 functions,
                 types,
                 label_counter,
+                None,
             );
-            let target = stack_push(
+            let target = if target.is_some(){ target.unwrap()} else{stack_push(
                 left.get_type(functions, types).expect("please work"),
                 val_stack,
                 variable_counter,
                 stack_ptr,
                 pop_table,
-            );
+            )};
             val_stack.push(IrInstr::Add {
                 target: target.clone(),
                 left: lv?,
@@ -378,6 +380,7 @@ pub fn compile_ast_node_to_ir(
                 functions,
                 types,
                 label_counter,
+                None,
             );
             let rv = compile_ast_node_to_ir(
                 right,
@@ -389,14 +392,15 @@ pub fn compile_ast_node_to_ir(
                 functions,
                 types,
                 label_counter,
+                None,
             );
-            let target = stack_push(
+            let target = if target.is_some(){ target.unwrap()} else{stack_push(
                 left.get_type(functions, types).expect("please work"),
                 val_stack,
                 variable_counter,
                 stack_ptr,
                 pop_table,
-            );
+            )};
             val_stack.push(IrInstr::Sub {
                 target: target.clone(),
                 left: lv?,
@@ -420,6 +424,7 @@ pub fn compile_ast_node_to_ir(
                 functions,
                 types,
                 label_counter,
+                None,
             );
             let rv = compile_ast_node_to_ir(
                 right,
@@ -431,14 +436,15 @@ pub fn compile_ast_node_to_ir(
                 functions,
                 types,
                 label_counter,
+                None,
             );
-            let target = stack_push(
+            let target = if target.is_some(){ target.unwrap()} else{stack_push(
                 left.get_type(functions, types).expect("please work"),
                 val_stack,
                 variable_counter,
                 stack_ptr,
                 pop_table,
-            );
+            )};
             val_stack.push(IrInstr::Mul {
                 target: target.clone(),
                 left: lv?,
@@ -462,6 +468,7 @@ pub fn compile_ast_node_to_ir(
                 functions,
                 types,
                 label_counter,
+                None,
             );
             let rv = compile_ast_node_to_ir(
                 right,
@@ -473,14 +480,15 @@ pub fn compile_ast_node_to_ir(
                 functions,
                 types,
                 label_counter,
+                None,
             );
-            let target = stack_push(
+            let target = if target.is_some(){ target.unwrap()} else{stack_push(
                 left.get_type(functions, types).expect("please work"),
                 val_stack,
                 variable_counter,
                 stack_ptr,
                 pop_table,
-            );
+            )};
             val_stack.push(IrInstr::Div {
                 target: target.clone(),
                 left: lv?,
@@ -504,6 +512,7 @@ pub fn compile_ast_node_to_ir(
                 functions,
                 types,
                 label_counter,
+                None,
             );
             let rv = compile_ast_node_to_ir(
                 right,
@@ -515,14 +524,15 @@ pub fn compile_ast_node_to_ir(
                 functions,
                 types,
                 label_counter,
+                None,
             );
-            let target = stack_push(
+            let target = if target.is_some(){ target.unwrap()} else{stack_push(
                 left.get_type(functions, types).expect("please work"),
                 val_stack,
                 variable_counter,
                 stack_ptr,
                 pop_table,
-            );
+            )};
             val_stack.push(IrInstr::And {
                 target: target.clone(),
                 left: lv?,
@@ -546,6 +556,7 @@ pub fn compile_ast_node_to_ir(
                 functions,
                 types,
                 label_counter,
+                None,
             );
             let rv = compile_ast_node_to_ir(
                 right,
@@ -557,14 +568,15 @@ pub fn compile_ast_node_to_ir(
                 functions,
                 types,
                 label_counter,
+                None,
             );
-            let target = stack_push(
+            let target = if target.is_some(){ target.unwrap()} else{stack_push(
                 left.get_type(functions, types).expect("please work"),
                 val_stack,
                 variable_counter,
                 stack_ptr,
                 pop_table,
-            );
+            )};
             val_stack.push(IrInstr::Add {
                 target: target.clone(),
                 left: lv?,
@@ -588,6 +600,7 @@ pub fn compile_ast_node_to_ir(
                 functions,
                 types,
                 label_counter,
+                None,
             );
             let rv = compile_ast_node_to_ir(
                 right,
@@ -599,14 +612,15 @@ pub fn compile_ast_node_to_ir(
                 functions,
                 types,
                 label_counter,
+                None,
             );
-            let target = stack_push(
+            let target = if target.is_some(){ target.unwrap()} else{stack_push(
                 left.get_type(functions, types).expect("please work"),
                 val_stack,
                 variable_counter,
                 stack_ptr,
                 pop_table,
-            );
+            )};
             val_stack.push(IrInstr::Equals {
                 target: target.clone(),
                 left: lv?,
@@ -630,6 +644,7 @@ pub fn compile_ast_node_to_ir(
                 functions,
                 types,
                 label_counter,
+                None,
             );
             let rv = compile_ast_node_to_ir(
                 right,
@@ -641,14 +656,15 @@ pub fn compile_ast_node_to_ir(
                 functions,
                 types,
                 label_counter,
+                None,
             );
-            let target = stack_push(
+            let target = if target.is_some(){ target.unwrap()} else{stack_push(
                 left.get_type(functions, types).expect("please work"),
                 val_stack,
                 variable_counter,
                 stack_ptr,
                 pop_table,
-            );
+            )};
             val_stack.push(IrInstr::GreaterThan {
                 target: target.clone(),
                 left: lv?,
@@ -672,6 +688,7 @@ pub fn compile_ast_node_to_ir(
                 functions,
                 types,
                 label_counter,
+                None,
             );
             let rv = compile_ast_node_to_ir(
                 right,
@@ -683,14 +700,15 @@ pub fn compile_ast_node_to_ir(
                 functions,
                 types,
                 label_counter,
+                None,
             );
-            let target = stack_push(
+            let target = if target.is_some(){ target.unwrap()} else{stack_push(
                 left.get_type(functions, types).expect("please work"),
                 val_stack,
                 variable_counter,
                 stack_ptr,
                 pop_table,
-            );
+            )};
             val_stack.push(IrInstr::LessThan {
                 target: target.clone(),
                 left: lv?,
@@ -714,6 +732,7 @@ pub fn compile_ast_node_to_ir(
                 functions,
                 types,
                 label_counter,
+                None,
             );
             let rv = compile_ast_node_to_ir(
                 right,
@@ -725,14 +744,15 @@ pub fn compile_ast_node_to_ir(
                 functions,
                 types,
                 label_counter,
+                None,
             );
-            let target = stack_push(
+            let target = if target.is_some(){ target.unwrap()} else{stack_push(
                 left.get_type(functions, types).expect("please work"),
                 val_stack,
                 variable_counter,
                 stack_ptr,
                 pop_table,
-            );
+            )};
             val_stack.push(IrInstr::GreaterThanOrEq {
                 target: target.clone(),
                 left: lv?,
@@ -756,6 +776,7 @@ pub fn compile_ast_node_to_ir(
                 functions,
                 types,
                 label_counter,
+                None,
             );
             let rv = compile_ast_node_to_ir(
                 right,
@@ -767,14 +788,15 @@ pub fn compile_ast_node_to_ir(
                 functions,
                 types,
                 label_counter,
+                None,
             );
-            let target = stack_push(
+            let target = if target.is_some(){ target.unwrap()} else{stack_push(
                 left.get_type(functions, types).expect("please work"),
                 val_stack,
                 variable_counter,
                 stack_ptr,
                 pop_table,
-            );
+            )};
             val_stack.push(IrInstr::LessThanOrEq {
                 target: target.clone(),
                 left: lv?,
@@ -794,14 +816,15 @@ pub fn compile_ast_node_to_ir(
                 functions,
                 types,
                 label_counter,
+                None,
             )?;
-            let target = stack_push(
+            let target = if target.is_some(){ target.unwrap()} else{stack_push(
                 value.get_type(functions, types).expect("please work"),
                 val_stack,
                 variable_counter,
                 stack_ptr,
                 pop_table,
-            );
+            )};
             val_stack.push(IrInstr::Not {
                 target: target.clone(),
                 value: v.clone(),
@@ -823,6 +846,7 @@ pub fn compile_ast_node_to_ir(
                 functions,
                 types,
                 label_counter,
+                None,
             );
             let rv = compile_ast_node_to_ir(
                 right,
@@ -834,14 +858,15 @@ pub fn compile_ast_node_to_ir(
                 functions,
                 types,
                 label_counter,
+                None,
             );
-            let target = stack_push(
+            let target = if target.is_some(){ target.unwrap()} else{stack_push(
                 left.get_type(functions, types).expect("please work"),
                 val_stack,
                 variable_counter,
                 stack_ptr,
                 pop_table,
-            );
+            )};
             val_stack.push(IrInstr::NotEquals {
                 target: target.clone(),
                 left: lv?,
@@ -879,6 +904,7 @@ pub fn compile_ast_node_to_ir(
                     functions,
                     types,
                     label_counter,
+                    None,
                 );
             }
         }
@@ -905,6 +931,7 @@ pub fn compile_ast_node_to_ir(
                         functions,
                         types,
                         label_counter,
+                        None,
                     )
                     .expect("should return")
                 })
@@ -958,6 +985,7 @@ pub fn compile_ast_node_to_ir(
                 functions,
                 types,
                 label_counter,
+                None,
             )
             .expect("should return");
             return Some(IrOperand::FieldAccess {
@@ -976,6 +1004,7 @@ pub fn compile_ast_node_to_ir(
                 functions,
                 types,
                 label_counter,
+                None,
             )
             .expect("should return");
             let idx_ir = compile_ast_node_to_ir(
@@ -988,6 +1017,7 @@ pub fn compile_ast_node_to_ir(
                 functions,
                 types,
                 label_counter,
+                None,
             )
             .expect("should return");
             return Some(IrOperand::ArrayAccess {
@@ -1007,6 +1037,7 @@ pub fn compile_ast_node_to_ir(
                     functions,
                     types,
                     label_counter,
+                    None,
                 )?),
             });
         }
@@ -1022,6 +1053,7 @@ pub fn compile_ast_node_to_ir(
                     functions,
                     types,
                     label_counter,
+                    None,
                 )?),
             });
         }
@@ -1063,7 +1095,7 @@ pub fn compile_ast_node_to_ir(
                 size: nodes.len(),
                 array_type: Rc::new(nodes[0].get_type(functions, types).expect("must have type")),
             };
-            let ops:Vec<IrOperand> = nodes.iter().map(|i| compile_ast_node_to_ir(i, val_stack, variable_counter, stack_ptr, pop_table, name_table, functions, types, label_counter).expect("")).collect();
+            let ops:Vec<IrOperand> = nodes.iter().map(|i| compile_ast_node_to_ir(i, val_stack, variable_counter, stack_ptr, pop_table, name_table, functions, types, label_counter,None).expect("")).collect();
             let out = stack_push(vtype.clone(), val_stack, variable_counter, stack_ptr, pop_table);
             for i in 0..nodes.len(){
                val_stack.push(IrInstr::Mov { left: IrOperand::ArrayAccess { base: Box::new(out.clone()), value: Box::new(IrOperand::IntLiteral { value: i as i64 }) }, right: ops[i].clone(), vtype:vtype.clone()}); 
@@ -1071,7 +1103,7 @@ pub fn compile_ast_node_to_ir(
             return Some(out); 
         }
         AstNode::StructLiteral { vtype, nodes } => {
-            let ops:Vec<IrOperand> = nodes.iter().map(|i| compile_ast_node_to_ir(i, val_stack, variable_counter, stack_ptr, pop_table, name_table, functions, types, label_counter).expect("")).collect();
+            let ops:Vec<IrOperand> = nodes.iter().map(|i| compile_ast_node_to_ir(i, val_stack, variable_counter, stack_ptr, pop_table, name_table, functions, types, label_counter,None).expect("")).collect();
             let out = stack_push(vtype.clone(), val_stack, variable_counter, stack_ptr, pop_table);
             let comps = match vtype{
                 Type::StructT { name, components }=>{
@@ -1092,7 +1124,7 @@ pub fn compile_ast_node_to_ir(
             thing_to_do,
             r#else,
         } => {
-            let cond = compile_ast_node_to_ir(&condition, val_stack, variable_counter, stack_ptr, pop_table, name_table, functions, types, label_counter)?;
+            let cond = compile_ast_node_to_ir(&condition, val_stack, variable_counter, stack_ptr, pop_table, name_table, functions, types, label_counter,None)?;
             let base_label = *label_counter;
             let else_label = *label_counter+1;
             let end_label = *label_counter+2;
@@ -1103,7 +1135,7 @@ pub fn compile_ast_node_to_ir(
             val_stack.push(IrInstr::BeginScope);
             let mut body_pop_table = vec![];
             for i in thing_to_do{
-                compile_ast_node_to_ir(i, val_stack, variable_counter, stack_ptr, &mut body_pop_table, name_table, functions, types, label_counter);
+                compile_ast_node_to_ir(i, val_stack, variable_counter, stack_ptr, &mut body_pop_table, name_table, functions, types, label_counter,None);
             }
             body_pop_table.reverse();
             for i in body_pop_table{
@@ -1117,7 +1149,7 @@ pub fn compile_ast_node_to_ir(
                 let elblk = r#else.as_ref().expect("is some");
                 let mut pop_stack = vec![];
                 for i in elblk{
-                    compile_ast_node_to_ir(i, val_stack, variable_counter, stack_ptr, &mut pop_stack, name_table, functions, types, label_counter);
+                    compile_ast_node_to_ir(i, val_stack, variable_counter, stack_ptr, &mut pop_stack, name_table, functions, types, label_counter,None);
                 }
                 pop_stack.reverse();
                 for i in pop_stack{
@@ -1139,19 +1171,19 @@ pub fn compile_ast_node_to_ir(
             let lbody = *label_counter + 2;
             *label_counter += 3;
             val_stack.push(IrInstr::BeginScope); 
-            let _ = compile_ast_node_to_ir(variable, val_stack, variable_counter, stack_ptr, pop_table, name_table, functions, types, label_counter);
+            let _ = compile_ast_node_to_ir(variable, val_stack, variable_counter, stack_ptr, pop_table, name_table, functions, types, label_counter,None);
             val_stack.push(IrInstr::Label { name: format!("L{}", base )}); 
             val_stack.push(IrInstr::BeginScope);    
             let mut loop_pop_table = vec![];
-            let tmp = compile_ast_node_to_ir(condition, val_stack, variable_counter, stack_ptr, pop_table, name_table, functions, types, label_counter)?; 
+            let tmp = compile_ast_node_to_ir(condition, val_stack, variable_counter, stack_ptr, pop_table, name_table, functions, types, label_counter,None)?; 
             val_stack.push(IrInstr::CondGoto { cond: tmp, target: format!("L{}",lbody)});
             val_stack.push(IrInstr::Goto { target: format!("L{}",end) });
             val_stack.push(IrInstr::Label { name: format!("L{}",lbody) });
             val_stack.push(IrInstr::BeginScope);
             for i in body{
-                compile_ast_node_to_ir(i, val_stack, variable_counter, stack_ptr,&mut loop_pop_table, name_table, functions, types, label_counter);
+                compile_ast_node_to_ir(i, val_stack, variable_counter, stack_ptr,&mut loop_pop_table, name_table, functions, types, label_counter,None);
             } 
-            compile_ast_node_to_ir(post_op, val_stack, variable_counter, stack_ptr, &mut loop_pop_table, name_table, functions, types, label_counter);
+            compile_ast_node_to_ir(post_op, val_stack, variable_counter, stack_ptr, &mut loop_pop_table, name_table, functions, types, label_counter,None);
             loop_pop_table.reverse();
             for i in loop_pop_table{
                 val_stack.push(IrInstr::Pop { vtype: i });
@@ -1169,14 +1201,14 @@ pub fn compile_ast_node_to_ir(
             *label_counter += 3;
             val_stack.push(IrInstr::Label { name: format!("L{}", base )}); 
             val_stack.push(IrInstr::BeginScope);   
-            let tmp = compile_ast_node_to_ir(condition, val_stack, variable_counter, stack_ptr, pop_table, name_table, functions, types, label_counter)?; 
+            let tmp = compile_ast_node_to_ir(condition, val_stack, variable_counter, stack_ptr, pop_table, name_table, functions, types, label_counter,None)?; 
             val_stack.push(IrInstr::CondGoto { cond: tmp, target: format!("L{}",lbody)});
             val_stack.push(IrInstr::Goto { target: format!("L{}",end) });
             val_stack.push(IrInstr::Label { name: format!("L{}",lbody) });
             val_stack.push(IrInstr::BeginScope);
             let mut loop_pop_table = vec![];
             for i in body{
-                compile_ast_node_to_ir(i, val_stack, variable_counter, stack_ptr, &mut loop_pop_table, name_table, functions, types, label_counter);
+                compile_ast_node_to_ir(i, val_stack, variable_counter, stack_ptr, &mut loop_pop_table, name_table, functions, types, label_counter,None);
             }
             loop_pop_table.reverse();
             for i in loop_pop_table{
@@ -1198,6 +1230,7 @@ pub fn compile_ast_node_to_ir(
                 functions,
                 types,
                 label_counter,
+                None,
             )
             .expect("should return"); 
             val_stack.push(IrInstr::Ret { to_return });
@@ -1229,6 +1262,7 @@ pub fn compile_ast_node_to_ir(
                 functions,
                 types,
                 label_counter,
+                None,
             );
             val_stack.push(IrInstr::CallWithRet {
                 target: out.clone(),
@@ -1302,6 +1336,7 @@ pub fn compile_function_to_ir(
             functions,
             types,
             &mut label_counter,
+            None,
         );
     }
     pop_table.reverse();
