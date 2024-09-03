@@ -1037,7 +1037,30 @@ pub fn compile_ast_node_to_ir(
             thing_to_do,
             r#else,
         } => {
-            todo!();
+            let cond = compile_ast_node_to_ir(&condition, val_stack, variable_counter, stack_ptr, pop_table, name_table, functions, types, label_counter)?;
+            let base_label = *label_counter;
+            let else_label = *label_counter+1;
+            let end_label = *label_counter+2;
+            *label_counter += 3;
+            val_stack.push(IrInstr::CondGoto { cond: cond, target: format!("L{}",base_label) });
+            val_stack.push(IrInstr::Goto { target: format!("L{}",else_label) });
+            val_stack.push(IrInstr::Label { name: format!("L{}",base_label) });
+            val_stack.push(IrInstr::BeginScope);
+            for i in thing_to_do{
+                compile_ast_node_to_ir(i, val_stack, variable_counter, stack_ptr, pop_table, name_table, functions, types, label_counter);
+            }
+            val_stack.push(IrInstr::EndScope);
+            val_stack.push(IrInstr::Goto{target:format!("L{}",end_label)});
+            val_stack.push(IrInstr::Label { name: format!("L{}",else_label )});
+            val_stack.push(IrInstr::BeginScope);
+            if r#else.is_some(){
+                let elblk = r#else.as_ref().expect("is some");
+                for i in elblk{
+                    compile_ast_node_to_ir(i, val_stack, variable_counter, stack_ptr, pop_table, name_table, functions, types, label_counter);
+                }
+            }
+            val_stack.push(IrInstr::EndScope);
+            val_stack.push(IrInstr::Label { name: format!("L{}",end_label)});
         }
         AstNode::ForLoop {
             variable,
