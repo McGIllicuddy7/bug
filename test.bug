@@ -6,11 +6,9 @@ fn get_next(this:^ll)->^ll{
    return this.next;
 }
 pub fn main()->int{
-   let i = 0;
-   while(i<5){
+   for(let i:int =0; i<100; i = i+1){
       put_str(int_to_string(i));
-      put_str("\n");
-      i = i+1;
+      put_str(",");
    }
    return 0;
 }
