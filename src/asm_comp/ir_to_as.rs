@@ -5,7 +5,13 @@ use std::collections::HashSet;
 left operand rax
 right operand rbx
  */
+#[allow(unused)]
 pub fn compile_ir_operand_to_x86(op:&IrOperand, depth:&mut usize, used_types:&mut HashSet<Type>, statics_count:&mut usize, statics:&mut String)->String{
+    match op{
+    _=>{
+        todo!();
+    }
+    }
     todo!();
 }
 pub fn compile_ir_instr_to_x86(instr: &IrInstr, depth :&mut usize, used_types:&mut HashSet<Type>, statics_count:&mut usize, statics:&mut String)->String{

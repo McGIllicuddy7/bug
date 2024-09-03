@@ -23,9 +23,6 @@ pub fn compile_ir_op_to_c(op: &IrOperand) -> String {
         IrOperand::TakeRef { to_ref } => {
               return "(&".to_owned() + &(compile_ir_op_to_c(to_ref)+")");
         }
-        IrOperand::FunctionArg { name, vtype: _ } => {
-            return name.as_ref().to_owned();
-        }
         IrOperand::StringLiteral { value } => {
             return value.as_ref().to_owned();
         }

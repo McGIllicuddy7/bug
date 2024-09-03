@@ -3,7 +3,6 @@ use crate::{
 };
 use crate::{AstNode, Type};
 use std::collections::HashMap;
-use std::ops::Add;
 use std::rc::Rc;
 #[allow(unused)]
 #[derive(Clone, Debug)]
@@ -44,10 +43,6 @@ pub enum IrOperand {
         base: Box<IrOperand>,
         value: Box<IrOperand>,
     },
-    FunctionArg {
-        name: Rc<str>,
-        vtype: Type,
-    },
 }
 impl IrOperand{
     pub fn get_type(&self)->Type{
@@ -82,9 +77,6 @@ impl IrOperand{
                 return vtype.clone();
             }
             Self::StacKOperand { var_idx, name, stack_offset, vtype }=>{
-                return vtype.clone();
-            }
-            Self::FunctionArg { name, vtype }=>{
                 return vtype.clone();
             }
             Self::FieldAccess { base, name }=>{
