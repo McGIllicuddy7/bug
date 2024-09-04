@@ -222,3 +222,11 @@ long user_mod_long_long(long a, long b){
 void user_put_str_String(String s){
     write(1, s.start, s.len);
 }
+extern long user_main();
+int main(int argc,const char ** argv){
+        long result = user_main();
+        printf("exited with %ld\n",result);
+        gc_collect(); 
+        assert(get_allocation_count() == 0);
+        return result;
+}

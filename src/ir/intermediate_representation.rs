@@ -73,13 +73,13 @@ impl IrOperand{
             Self::TakeRef { to_ref } =>{
                 return Type::PointerT { ptr_type: Rc::new(to_ref.get_type().clone())};
             }
-            Self::Name { name, vtype }=>{
+            Self::Name { name:_, vtype }=>{
                 return vtype.clone();
             }
-            Self::StacKOperand { var_idx, name, stack_offset, vtype }=>{
+            Self::StacKOperand { var_idx:_, name:_, stack_offset:_, vtype }=>{
                 return vtype.clone();
             }
-            Self::FieldAccess { base, name }=>{
+            Self::FieldAccess { base, name:_ }=>{
                 let bs = base.get_type();
                 match &bs{
                     Type::StructT { name, components }=>{
@@ -94,7 +94,7 @@ impl IrOperand{
                     }
                 }
             }
-            Self::StringLiteral { value }=>{
+            Self::StringLiteral { value:_ }=>{
                 return Type::PointerT { ptr_type: Rc::new(Type::CharT) };
             }
         } 
