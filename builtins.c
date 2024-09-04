@@ -5,7 +5,7 @@
 #include <sys/mman.h>
 #include <stdbool.h>
 #define BUFFER_ALLOCATION_COUNT 512
-
+#define SMOL_SIZE_LEN 128
 typedef struct{void * ptr;size_t size;}gc_allocation;
 typedef struct {size_t reachable;}allocation_header;
 typedef struct allocation_buffer{
@@ -18,7 +18,7 @@ typedef struct gc_frame{
     gc_ptr *buffer;
     size_t next_ptr;
     size_t sz;
-    gc_ptr smol_size[128];
+    gc_ptr smol_size[SMOL_SIZE_LEN];
     struct gc_frame * next;
     struct gc_frame * prev;
 }gc_frame;
@@ -43,7 +43,7 @@ void gc_push_frame(){
     nw->buffer = nw->smol_size;
     nw->next = 0;
     nw->next_ptr = 0;
-    nw->sz = 128;
+    nw->sz = SMOL_SIZE_LEN;
     nw->prev = current_frame;
     if(current_frame){
         current_frame->next = nw;
@@ -79,11 +79,11 @@ void gc_register_ptr(void * ptr, void (*collect_fn)(void *)){
     if(ptr<stack_min){
         stack_min = ptr;
     }
-    if(current_frame->next_ptr>current_frame->sz){
+    if(current_frame->next_ptr>=current_frame->sz){
         current_frame->sz *=2;
         if(current_frame->buffer == current_frame->smol_size){
             current_frame->buffer = malloc(sizeof(gc_ptr)*current_frame->sz);
-            memcpy(current_frame->buffer, current_frame->smol_size, sizeof(gc_ptr)*128);
+            memcpy(current_frame->buffer, current_frame->smol_size, sizeof(gc_ptr)*SMOL_SIZE_LEN);
         }else{
             current_frame->buffer = realloc(current_frame->buffer, sizeof(gc_ptr)*current_frame->sz);
         }

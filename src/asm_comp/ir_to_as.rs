@@ -24,7 +24,7 @@ struct OpResult{
     value:Rc<str>,
 }
 fn compile_ir_op_to_x86(instr:&IrInstr, stack:&mut String, statics:&mut String, statics_count:&mut usize)->OpResult{
-    match
+    todo!();
 }
 fn generate_mov_instr(left:&IrOperand, right:&IrOperand)->String{
     todo!();
