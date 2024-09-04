@@ -10,7 +10,7 @@ pub fn main()->int{
   let prev = a;
    a.data = "howdy";
    a.next = new ll;
-   let count = 24;
+   let count = 10000;
    for(let i =0; i<count; i = i+1){
       a.data = int_to_string(i);
       a.next = new ll;
