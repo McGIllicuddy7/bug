@@ -1302,7 +1302,7 @@ pub fn compile_function_to_ir(
 ) -> Vec<IrInstr> {
     let mut out = vec![];
     let mut variable_counter = 0;
-    let mut stack_ptr = 0;
+    let mut stack_ptr = 8;
     let mut pop_table = vec![];
     let mut name_table = vec![HashMap::new()];
     let mut label_counter = 0;

@@ -5,9 +5,9 @@ mod ir_to_as;
 use crate::{ir::{compile_function_to_ir, compile_ir_instr_to_c}, name_mangle_function, name_mangle_type, name_mangle_type_for_names, Function, FunctionTable, Program, Type};
 pub fn compile_function_header(func:&Function, filename:&str)->Result<String,String>{
     if func.forward_declared {
-       return Ok(format!(".global {}\n",name_mangle_function(func, filename)));
+       return Ok(format!("extern {}\n",name_mangle_function(func, filename)));
     }
-    return Ok(format!(""));
+    return Ok(format!("global {}\n",name_mangle_function(func, filename)));
 }
 
 pub fn compile_function_table_header(_name:&String, data:&FunctionTable,filename:&str)->Result<String, String>{
@@ -25,6 +25,11 @@ pub fn compile_function(func:&mut Function, filename:&str, functions:&HashMap<St
     let mut out = String::new();
     out += &name_mangle_function(func, filename);
     out += ":\n";
+    out += "    push rbp\n";
+    out += "    mov rbp,rsp\n";
+    out += "    push rbx\n";
+    out += "    push rcx\n";
+    out += "    push rdx\n";
     let ir = compile_function_to_ir(func, functions, types);
     println!("ir representation:{:#?}", ir);
     let mut depth = 1;
@@ -33,7 +38,13 @@ pub fn compile_function(func:&mut Function, filename:&str, functions:&HashMap<St
         out += &tmp;
         out += "\n";
     }
+    out += "    pop rdx\n";
+    out += "    pop rcx\n";
+    out += "    pop rbx\n";
+    out += "    mov rsp, rbp\n";
+    out += "    pop rbp\n";
     out += "\n";
+    out += "    ret\n";
     return Ok(out);
 }
 pub fn gc_function_name(t:&Type)->String{
@@ -195,7 +206,7 @@ pub fn compile_to_asm_x86(prog:Program,base_filename:&String)->Result<(),String>
     for i in &prog.functions{
         func_decs += &compile_function_table_header(i.0, i.1,filename)?;
     };
-    let mut statics = ".section data\n".to_owned();
+    let mut statics = "section .text\n".to_owned();
     let mut functions = String::new();
     let mut statics_count = 0;
     for i in &prog.functions{
@@ -207,16 +218,15 @@ pub fn compile_to_asm_x86(prog:Program,base_filename:&String)->Result<(),String>
             functions+= &compile_function(&mut f,filename, &prog.functions, &prog.types, &mut used_types,&mut statics_count,&mut statics)?;
         }
     }
-    let out_file_name = filename.to_owned()+".a";
+    let out_file_name = filename.to_owned()+".s";
     let mut fout = fs::File::create(&out_file_name).expect("testing expect");
     used_types = recurse_used_types(&used_types, &prog.types);
     typedecs += &compile_gc_functions(used_types);
-    out += ".intel_syntax no_prefix\n";
     out += &typedecs;
     out += &func_decs;
     out += &statics;
     out += &functions;
-    fout.write(out.as_bytes()).expect("tesing expect");
+    fout.write(out.as_bytes()).expect("testing expect");
     drop(fout);
     let _=std::process::Command::new("nasm").arg(&out_file_name).arg("-f macho64").output();
     return Ok(());

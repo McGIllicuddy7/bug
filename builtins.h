@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
+#include <stdbool.h>
 #define false 0
 #define true 1
 typedef struct {const char * start; size_t len;}String;

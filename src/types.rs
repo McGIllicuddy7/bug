@@ -143,6 +143,51 @@ impl Type{
             }
         }
    }
+   pub fn get_variable_offset(&self, name:&str)->Option<usize>{
+    let mut count = 0;
+    match self{
+        Self::SliceT { ptr_type }=>{
+            return Some(8);
+        }
+        Self::StringT=>{
+            return Some(8);
+        }
+        Self::StructT { name: _, components }=>{
+            for i in components{
+                if &i.0 == name{
+                    return Some(count);
+                } else{
+                    count += i.1.get_size_bytes();
+                }
+            }
+        }
+        _=>{
+            return None;
+        }
+    }
+    return None;
+}
+pub fn get_variable_type(&self, name:&str)->Option<Type>{
+    match self{
+        Self::SliceT { ptr_type }=>{
+            return Some(Type::IntegerT);
+        }
+        Self::StringT=>{
+            return Some(Type::IntegerT);
+        }
+        Self::StructT { name: _, components }=>{
+            for i in components{
+                if &i.0 == name{
+                    return Some(i.1.clone())
+                }
+            }
+        }
+        _=>{
+            return None;
+        }
+    }
+    return None; 
+}
 }
 pub fn is_compatible_type(a: &Type, b: &Type) -> bool {
     match a {
@@ -1304,7 +1349,7 @@ pub fn name_mangle_function(var:&Function, _filename:&str)->String{
     let mut args = String::new();
     let name = var.name.to_owned();
     if name == "main"{
-        return String::from("user_main");
+        return String::from("_user_main");
     }
     for i in &var.args{
         args+= "_";
@@ -1312,34 +1357,34 @@ pub fn name_mangle_function(var:&Function, _filename:&str)->String{
     }
     match name.as_ref(){
         "+"=>{
-            return String::from("operator_plus")+&args;
+            return String::from("_operator_plus")+&args;
         }
         "-"=>{
-            return String::from("operator_minus")+&args;
+            return String::from("_operator_minus")+&args;
         }
         "*"=>{
-            return String::from("operator_mult")+&args;
+            return String::from("_operator_mult")+&args;
         }
         "/"=>{
-            return String::from("operator_divide")+&args;
+            return String::from("_operator_divide")+&args;
         }
         "=="=>{
-            return String::from("operator_equals")+&args;
+            return String::from("_operator_equals")+&args;
         }
         "<"=>{
-            return String::from("operator_less_than")+&args;
+            return String::from("_operator_less_than")+&args;
         }
         ">"=>{
-            return String::from("operator_greater_than")+&args;
+            return String::from("_operator_greater_than")+&args;
         }
         "<="=>{
-            return String::from("operator_less_than_or_eq")+&args;
+            return String::from("_operator_less_than_or_eq")+&args;
         }
         ">="=>{
-            return String::from("operator_greater_than_eq")+&args;
+            return String::from("_operator_greater_than_eq")+&args;
         }
         _=>{
-            return String::from("user_")+&name+&args;
+            return String::from("_user_")+&name+&args;
         }
     }
 }
