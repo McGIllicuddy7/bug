@@ -1,5 +1,6 @@
 pub fn main()->int{
-   let a = 1+2;
+   let a = 1;
+   a = 1+2;
 }
 
  

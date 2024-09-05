@@ -223,16 +223,31 @@ pub fn compile_ir_instr_to_x86(instr: &IrInstr, _depth :&mut usize, _used_types:
             todo!();
         }
         IrInstr::CallWithRet { target, func_name, args, vtype }=>{
-
+            todo!();
         }
         IrInstr::Mov { left, right, vtype }=>{
-
+            let mut stack = "".to_owned();
+            let l = compile_ir_op_to_x86(left, true,&mut stack, statics, statics_count);
+            let r = compile_ir_op_to_x86(left, false,&mut stack, statics, statics_count);
+            let total = vtype.get_size_bytes();
+            let mut count = 0;
+            stack += &format!("  mov rax, {}\n",l);
+            stack += &format!("  mov rbx, {}\n", r);
+            while count<total{
+                stack += &format!("    mov rcx,QWORD [rbx]\n");
+                stack += &format!("    mov QWORD [rax], rcx\n");
+                stack += &format!("    add rax,8\n");
+                stack += &format!("    add rbx, 8\n");
+                count += 8;
+            }
+            stack += &format!("") ;
+            return stack;
         }
         IrInstr::Goto { target }=>{
-            return format!("    jmp target");
+            return format!("    jmp {target}");
         }
         IrInstr::Label { name }=>{
-            return format!("name:");
+            return format!("{name}:");
         }
         IrInstr::VariableDeclaration { name:_, vtype }=>{
             let mut total = 0;
