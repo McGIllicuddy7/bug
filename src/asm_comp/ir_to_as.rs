@@ -237,9 +237,9 @@ pub fn compile_ir_instr_to_x86(instr: &IrInstr, _depth :&mut usize, _used_types:
         IrInstr::VariableDeclaration { name:_, vtype }=>{
             let mut total = 0;
             let sz = vtype.get_size_bytes();
-            let mut out = format!("   xor rax, rax;\n");
+            let mut out = format!("   xor r10,r10;\n");
             while total<sz{
-                out += "    push rax";
+                out += "    push r10";
                 total += 8;
             }
             return out;
@@ -266,9 +266,9 @@ pub fn compile_ir_instr_to_x86(instr: &IrInstr, _depth :&mut usize, _used_types:
         IrInstr::Push { vtype, val_idx:_ }=>{
             let mut total = 0;
             let sz = vtype.get_size_bytes();
-            let mut out = format!("   xor rax, rax\n");
+            let mut out = format!("   xor r10, r10\n");
             while total<sz{
-                out += "    push rax\n";
+                out += "    push r10\n";
                 total += 8;
             }
             return out;
@@ -278,10 +278,10 @@ pub fn compile_ir_instr_to_x86(instr: &IrInstr, _depth :&mut usize, _used_types:
             let sz = vtype.get_size_bytes();
             let mut out = format!("");
             while total<sz{
-                out += "    pop rax\n";
+                out += "    pop r10\n";
                 total += 8;
             }
-            out += "    xor rax,rax\n";
+            out += "    xor r10,r10\n";
             return out;
         }
    } 
