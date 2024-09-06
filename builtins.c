@@ -222,9 +222,17 @@ long user_mod_long_long(long a, long b){
 void user_put_str_String(String s){
     write(1, s.start, s.len);
 }
+#ifdef __linux__
 extern long _user_main();
+#else 
+extern long user_main();
+#endif
 int main(int argc,const char ** argv){
+        #ifdef __linux__
         long result = _user_main();
+        #else 
+        long result = user_main();
+        #endif
         printf("exited with %ld\n",result);
         gc_collect(); 
         assert(get_allocation_count() == 0);
