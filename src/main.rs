@@ -23,6 +23,9 @@ fn main() {
     print!("linking...");
     let mut cmd =   std::process::Command::new("gcc");
     for i in &comp_que{
+        if i == "builtins.bug"{
+            continue;
+        }
         let name = "output/".to_owned()+&i[0..i.len()-4]+".o";
         print!("{} ",name);
         cmd.arg(name);
@@ -33,6 +36,9 @@ fn main() {
     print!("\ncleaning up...");
     let mut cmd = std::process::Command::new("rm");
     for i in &comp_que{
+        if i == "builtins.bug"{
+            continue;
+        }
         let name = "".to_owned()+&i[0..i.len()-4]+".o";
         print!("{name} ");
         cmd.arg(name);

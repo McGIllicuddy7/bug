@@ -228,6 +228,14 @@ pub fn compile_to_asm_x86(prog:Program,base_filename:&String)->Result<(),String>
     out += &functions;
     fout.write(out.as_bytes()).expect("testing expect");
     drop(fout);
-    let _=std::process::Command::new("nasm").arg(&out_file_name).arg("-f macho64").output();
+    let mut cmd=std::process::Command::new("nasm");
+    cmd.arg(&out_file_name);
+    println!("{}", std::env::consts::OS);
+    if std::env::consts::OS == "linux"{ 
+        let _ = cmd.arg("-f elf64");
+    } else{
+        let _ = cmd.arg("-f macho64").output();
+    }
+
     return Ok(());
 }

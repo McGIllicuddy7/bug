@@ -44,7 +44,7 @@ fn compile_ir_op_to_x86(op:&IrOperand, left:bool,stack:&mut String, statics:&mut
         }
         IrOperand::Deref { to_deref }=>{
             let base = compile_ir_op_to_x86(&to_deref,left, stack, statics, statics_count);
-            *stack += &format!("    mov {}, {}[{}]\n", get_sreg(left),get_asmx86_type_name(&to_deref.get_type()), base);
+            *stack += &format!("    mov {},[{}]\n", get_sreg(left), base);
             return get_sreg(left);
         }
         IrOperand::StacKOperand { var_idx:_, name:_, stack_offset, vtype }=>{
