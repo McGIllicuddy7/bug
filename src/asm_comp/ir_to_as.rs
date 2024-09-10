@@ -1,6 +1,8 @@
+use crate::asm_comp::x86;
 use crate::ir::{IrInstr, IrOperand};
 use crate::Type;
 use std::collections::HashSet;
+use super::x86::*;
 fn get_asmx86_type_name(vtype:&Type)->&'static str{
     match vtype{
         Type::BoolT| Type::CharT=>{
@@ -17,20 +19,20 @@ right operand rdx
  */
 fn get_sreg(left:bool)->String{
     if left{
-        return "rcx".to_owned();
+        return "r9".to_owned();
     } else{
-        return "rdx".to_owned()
+        return "r10".to_owned()
     }
 }
 #[allow(unused)]
-fn compile_ir_op_to_x86(op:&IrOperand, left:bool,stack:&mut String, statics:&mut String, statics_count:&mut usize)->String{
+pub fn compile_ir_op_to_x86(op:&IrOperand, left:bool,stack:&mut String, statics:&mut String, statics_count:&mut usize)->String{
     match op{
         IrOperand::ArrayAccess { base, value }=>{
             let base = compile_ir_op_to_x86(base, left, stack, statics, statics_count);
-            *stack += &format!("    lea rax, {}\n", base);
+            *stack += &format!("    lea r11, {}\n", base);
             let value = compile_ir_op_to_x86(value, left, stack, statics, statics_count);
-            *stack += &format!("    add rax, {}", value);
-            *stack += &format!("    mov {}, rax", get_sreg(left));
+            *stack += &format!("    add r11, {}", value);
+            *stack += &format!("    mov {}, r11", get_sreg(left));
             return get_sreg(left);
         }
         IrOperand::CharLiteral { value }=>{
@@ -61,7 +63,10 @@ fn compile_ir_op_to_x86(op:&IrOperand, left:bool,stack:&mut String, statics:&mut
             return get_sreg(left);
         } 
         IrOperand::StringLiteral { value }=>{
-            todo!();
+            *statics += &format!("   msg{}: db {},0x0\n",statics_count,value);
+            *statics_count +=1;
+            *stack +=&format!("    lea {}, [rel msg{}]\n", get_sreg(left),*statics_count-1);
+            return get_sreg(left);
         }
         IrOperand::FieldAccess { base, name }=>{
             let offset = base.get_type().get_variable_offset(name).expect("contains");
@@ -79,10 +84,6 @@ fn compile_ir_op_to_x86(op:&IrOperand, left:bool,stack:&mut String, statics:&mut
             }
         }
     }
-    todo!();
-}
-#[allow(unused)]
-fn generate_mov_instr(left:&IrOperand, right:&IrOperand)->String{
     todo!();
 }
 pub fn compile_ir_instr_to_x86(instr: &IrInstr, _depth :&mut usize, _used_types:&mut HashSet<Type>, statics_count:&mut usize, statics:&mut String)->String{
@@ -111,12 +112,12 @@ pub fn compile_ir_instr_to_x86(instr: &IrInstr, _depth :&mut usize, _used_types:
             let l = compile_ir_op_to_x86(left, true, &mut stack, statics, statics_count);
             let r = compile_ir_op_to_x86(right, false, &mut stack, statics, statics_count);
             if l.as_bytes()[0]== b'r'{
-                stack += &format!("    mov rax, QWORD [rcx]\n");
+                stack += &format!("    mov rax, QWORD [{}]\n", l);
             } else{
                 stack += &format!("    mov rax, {}\n",l);
             }
             if r.as_bytes()[0]== b'r'{
-                stack += &format!("    mov rbx, QWORD [rdx]\n");
+                stack += &format!("    mov rbx, QWORD [{}]\n",l);
             } else{
                 stack += &format!("    mov rbx, {}\n",r);
             }
@@ -130,12 +131,12 @@ pub fn compile_ir_instr_to_x86(instr: &IrInstr, _depth :&mut usize, _used_types:
             let l = compile_ir_op_to_x86(left, true, &mut stack, statics, statics_count);
             let r = compile_ir_op_to_x86(right, false, &mut stack, statics, statics_count);
             if l.as_bytes()[0]== b'r'{
-                stack += &format!("    mov rax, QWORD [rcx]\n");
+                stack += &format!("    mov rax, QWORD [{}]\n",l);
             } else{
                 stack += &format!("    mov rax, {}\n",l);
             }
             if r.as_bytes()[0]== b'r'{
-                stack += &format!("    mov rdx, QWORD [rdx]\n");
+                stack += &format!("    mov rdx, QWORD [{}]\n",r);
             } else{
                 stack += &format!("    mov rdx, {}\n",r);
             }
@@ -149,12 +150,12 @@ pub fn compile_ir_instr_to_x86(instr: &IrInstr, _depth :&mut usize, _used_types:
             let l = compile_ir_op_to_x86(left, true, &mut stack, statics, statics_count);
             let r = compile_ir_op_to_x86(right, false, &mut stack, statics, statics_count);
             if l.as_bytes()[0]== b'r'{
-                stack += &format!("    mov rax, QWORD [rcx]\n");
+                stack += &format!("    mov rax, QWORD [{}]\n",l);
             } else{
                 stack += &format!("    mov rax, {}\n",l);
             }
             if r.as_bytes()[0]== b'r'{
-                stack += &format!("    mov rbx, QWORD [rdx]\n");
+                stack += &format!("    mov rbx, QWORD [{}]\n",r);
             } else{
                 stack += &format!("    mov rbx, {}\n",r);
             }
@@ -168,12 +169,12 @@ pub fn compile_ir_instr_to_x86(instr: &IrInstr, _depth :&mut usize, _used_types:
             let l = compile_ir_op_to_x86(left, true, &mut stack, statics, statics_count);
             let r = compile_ir_op_to_x86(right, false, &mut stack, statics, statics_count);
             if l.as_bytes()[0]== b'r'{
-                stack += &format!("    mov rax, QWORD [rcx]\n");
+                stack += &format!("    mov rax, QWORD [{}]\n",l);
             } else{
                 stack += &format!("    mov rax, rcx\n");
             }
             if r.as_bytes()[0]== b'r'{
-                stack += &format!("    mov rbx, QWORD [rdx]\n");
+                stack += &format!("    mov rbx, QWORD [{}]\n",r);
             } else{
                 stack += &format!("    mov rbx, rdx\n");
             }
@@ -187,12 +188,12 @@ pub fn compile_ir_instr_to_x86(instr: &IrInstr, _depth :&mut usize, _used_types:
             let l = compile_ir_op_to_x86(left, true, &mut stack, statics, statics_count);
             let r = compile_ir_op_to_x86(right, false, &mut stack, statics, statics_count);
             if l.as_bytes()[0]== b'r'{
-                stack += &format!("    mov rax, QWORD [rcx]\n");
+                stack += &format!("    mov rax, QWORD [{}]\n",l);
             } else{
                 stack += &format!("    mov rax, rcx\n");
             }
             if r.as_bytes()[0]== b'r'{
-                stack += &format!("    mov rbx, QWORD [rdx]\n");
+                stack += &format!("    mov rbx, QWORD [{}]\n",r);
             } else{
                 stack += &format!("    mov rbx, rdx\n");
             }
@@ -220,10 +221,34 @@ pub fn compile_ir_instr_to_x86(instr: &IrInstr, _depth :&mut usize, _used_types:
             return format!("    call _pop_frame()");
         }
         IrInstr::Call { func_name, args }=>{
-            todo!();
+            let mut st = String::new();
+            let mut ag = x86::ArgCPU::new();
+            let mut pop_count = 0;
+            for i in args{
+                let s = compile_ir_op_to_x86(i, true,&mut st, statics, statics_count);
+                st += &ag.generate_arg(&s, &i.get_type(), &mut pop_count);
+            }
+             st += &format!(" call {}\n", func_name);
+
+            return st;
         }
         IrInstr::CallWithRet { target, func_name, args, vtype }=>{
-            todo!();
+            let mut st = String::new();
+            let mut ag = x86::ArgCPU::new();
+            let mut pop_count = 0;
+            for i in args{
+                let s = compile_ir_op_to_x86(i, true,&mut st, statics, statics_count);
+                st += &ag.generate_arg(&s, &i.get_type(), &mut pop_count);
+            }
+            st += &format!(" call {}\n", func_name);
+            let tstr = compile_ir_op_to_x86(target, true, &mut st, statics, statics_count);
+            if vtype.get_size_bytes()>= 8{
+                st += &format!("    mov QWORD[{}], rax\n", tstr);
+                if vtype.get_size_bytes()>8{
+                    st += &format!("    mov QWORD[{}-8], rdx\n", tstr);
+                }
+            }
+            return st; 
         }
         IrInstr::Mov { left, right, vtype }=>{
             let mut stack = "".to_owned();

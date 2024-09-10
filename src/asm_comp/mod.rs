@@ -2,6 +2,7 @@ use std::{collections::{HashMap, HashSet}, rc::Rc};
 use std::fs;
 use std::io::Write;
 mod ir_to_as;
+mod x86;
 use crate::{ir::{compile_function_to_ir, compile_ir_instr_to_c}, name_mangle_function, name_mangle_type, name_mangle_type_for_names, Function, FunctionTable, Program, Type};
 pub fn compile_function_header(func:&Function, filename:&str)->Result<String,String>{
     if func.forward_declared {
@@ -16,7 +17,7 @@ pub fn compile_function_table_header(_name:&String, data:&FunctionTable,filename
         out += &compile_function_header(i,filename)?;
     }
     return Ok(out);
-} 
+}
 
 pub fn compile_static(_name:&String,_vtype:&Type, _index:usize)->Result<String,String>{
     todo!();
@@ -206,7 +207,8 @@ pub fn compile_to_asm_x86(prog:Program,base_filename:&String)->Result<(),String>
     for i in &prog.functions{
         func_decs += &compile_function_table_header(i.0, i.1,filename)?;
     };
-    let mut statics = "section .text\n".to_owned();
+    func_decs += "extern _make_string_from\n";
+    let mut statics = "section .data\n".to_owned();
     let mut functions = String::new();
     let mut statics_count = 0;
     for i in &prog.functions{
@@ -224,8 +226,8 @@ pub fn compile_to_asm_x86(prog:Program,base_filename:&String)->Result<(),String>
     typedecs += &compile_gc_functions(used_types);
     out += &typedecs;
     out += &func_decs;
-    out += &statics;
     out += &functions;
+    out += &statics;
     fout.write(out.as_bytes()).expect("testing expect");
     drop(fout);
     let mut cmd=std::process::Command::new("nasm");
