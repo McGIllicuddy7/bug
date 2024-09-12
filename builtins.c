@@ -222,11 +222,7 @@ long user_mod_long_long(long a, long b){
 void user_put_str_String(String s){
     write(1, s.start, s.len);
 }
-#ifdef __linux__
-extern long _user_main();
-#else 
 extern long user_main();
-#endif
 int main(int argc,const char ** argv){
         #ifdef __linux__
         long result = _user_main();
@@ -237,4 +233,16 @@ int main(int argc,const char ** argv){
         gc_collect(); 
         assert(get_allocation_count() == 0);
         return result;
+}
+int user_test_long_long_long_long_long_long_long_long_long(long arg0, long arg1, long arg2, long arg3, long arg4, long arg5, long arg6, long arg7, long arg8){
+    printf("%ld\n", arg0);
+    printf("%ld\n", arg1);
+    printf("%ld\n", arg2);
+    printf("%ld\n", arg3);
+    printf("%ld\n", arg4);
+    printf("%ld\n", arg5);
+    printf("%ld\n", arg6);
+    printf("%ld\n", arg7);
+    printf("%ld\n", arg8);
+    return 0;
 }

@@ -47,7 +47,6 @@ impl ArgCPU {
                 return Some(String::from(INT_ARG_NAMES[i]));
             }
         }
-        unreachable!();
         None
     }
     pub fn get_next_fp_location(&mut self) -> Option<String> {
@@ -67,8 +66,7 @@ impl ArgCPU {
         to_pop_stack: &mut usize,
         is_address_of:bool
     ) -> String {
-        static SIZES: &[&'static str] = &["BYTE", "WORD", "", "DWORD", "", "", "", "QWORD"];
-        println!("{op_name}");
+        static SIZES: &[&'static str] = &["BYTE", "WORD", "", "DWORD", "", "", "", "QWORD"]; 
         if let Some(rname) = self.get_next_location() {
             if !is_address_of{
                 return format!("    mov {}, {}\n", rname, op_name);
@@ -83,10 +81,17 @@ impl ArgCPU {
             }
         }
         *to_pop_stack += 1;
-        if op_name.as_bytes()[0] != b'r' {
-            return format!("    push {}\n", op_name);
-        }
-        return format!("    push {}\n", op_name);
+            if !is_address_of{
+                return format!("    push {} {}\n", SIZES[size-1],op_name);
+            }
+            else{
+                if offset != 0{
+                    return format!("    push {} [{}-{offset}]\n", SIZES[size-1], op_name);
+                } else{
+                    return format!("    push {} [{}]\n",SIZES[size-1], op_name);
+                }
+
+            }
     }
     pub fn generate_arg(&mut self, arg_v: &str, arg_t: &Type, to_pop_stack: &mut usize) -> String {
         let mut out = String::new();

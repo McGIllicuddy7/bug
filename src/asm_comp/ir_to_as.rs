@@ -317,7 +317,18 @@ pub fn compile_ir_instr_to_x86(instr: &IrInstr, _depth :&mut usize, _used_types:
             todo!();
         }
         IrInstr::Ret { to_return }=>{
-            todo!();
+            let t =  to_return.get_type();
+            let mut out = String::from("    pop rdx\n   pop rcx\n   pop rbx\n");
+            let a = compile_ir_op_to_x86(to_return, true,&mut out, statics, statics_count);
+            if t.get_size_bytes()== 0{
+            }
+            else if t.get_size_bytes()<=8{
+                out += & format!("   mov rax, {}",a);
+            } else if t.get_size_bytes()<=16{
+                todo!();
+            }
+            out += "\n   mov rsp, rbp\n   pop rbp\n     ret\n";
+            return out;
         }
         IrInstr::Not { target, value, vtype }=>{
             todo!();
