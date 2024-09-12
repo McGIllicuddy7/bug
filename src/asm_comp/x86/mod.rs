@@ -47,6 +47,7 @@ impl ArgCPU {
                 return Some(String::from(INT_ARG_NAMES[i]));
             }
         }
+        unreachable!();
         None
     }
     pub fn get_next_fp_location(&mut self) -> Option<String> {
@@ -64,18 +65,28 @@ impl ArgCPU {
         size: usize,
         offset: usize,
         to_pop_stack: &mut usize,
+        is_address_of:bool
     ) -> String {
         static SIZES: &[&'static str] = &["BYTE", "WORD", "", "DWORD", "", "", "", "QWORD"];
+        println!("{op_name}");
         if let Some(rname) = self.get_next_location() {
-            if op_name.as_bytes()[0] != b'r' {
+            if !is_address_of{
                 return format!("    mov {}, {}\n", rname, op_name);
+            }
+            else{
+                if offset != 0{
+                    return format!("    mov {}, {} [{}-{offset}]\n", rname, SIZES[size-1], op_name)
+                } else{
+                    return format!("    mov {}, {} [{}]\n", rname, SIZES[size-1], op_name);
+                }
+
             }
         }
         *to_pop_stack += 1;
         if op_name.as_bytes()[0] != b'r' {
             return format!("    push {}\n", op_name);
         }
-        return format!("    push {} [{}-{offset}]\n", SIZES[size - 1], op_name);
+        return format!("    push {}\n", op_name);
     }
     pub fn generate_arg(&mut self, arg_v: &str, arg_t: &Type, to_pop_stack: &mut usize) -> String {
         let mut out = String::new();
@@ -87,28 +98,28 @@ impl ArgCPU {
                 unreachable!();
             }
             types::Type::BoolT => {
-                return self.generate_basic_arg(arg_v, 8, 0, to_pop_stack);
+                return self.generate_basic_arg(arg_v, 8, 0, to_pop_stack, false);
             }
             types::Type::CharT => {
-                return self.generate_basic_arg(arg_v, 8, 0, to_pop_stack);
+                return self.generate_basic_arg(arg_v, 8, 0, to_pop_stack,false);
             }
             types::Type::FloatT => {
                 todo!();
             }
             types::Type::IntegerT => {
-                return self.generate_basic_arg(arg_v, 8, 0, to_pop_stack);
+                return self.generate_basic_arg(arg_v, 8, 0, to_pop_stack,false);
             }
             types::Type::PointerT { ptr_type: _ } => {
-                return self.generate_basic_arg(arg_v, 8, 0, to_pop_stack);
+                return self.generate_basic_arg(arg_v, 8, 0, to_pop_stack, false);
             }
             types::Type::SliceT { ptr_type: _ } => {
-                out += &self.generate_basic_arg(arg_v, 8, 0, to_pop_stack);
-                out += &self.generate_basic_arg(arg_v, 8, 8, to_pop_stack);
+                out += &self.generate_basic_arg(arg_v, 8, 0, to_pop_stack,true);
+                out += &self.generate_basic_arg(arg_v, 8, 8, to_pop_stack, true);
                 return out;
             }
             types::Type::StringT => {
-                out += &self.generate_basic_arg(arg_v, 8, 0, to_pop_stack);
-                out += &self.generate_basic_arg(arg_v, 8, 8, to_pop_stack);
+                out += &self.generate_basic_arg(arg_v, 8, 0, to_pop_stack, true);
+                out += &self.generate_basic_arg(arg_v, 8, 8, to_pop_stack, true);
                 return out;
             }
             types::Type::StructT {

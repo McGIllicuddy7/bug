@@ -1076,7 +1076,7 @@ pub fn compile_ast_node_to_ir(
             };
             val_stack.push(IrInstr::CallWithRet {
                 target: out.clone(),
-                func_name: "_make_string_from".to_owned(),
+                func_name: "make_string_from".to_owned(),
                 args: vec![tmp, ln],
                 vtype: Type::StringT,
             });

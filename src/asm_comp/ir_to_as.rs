@@ -1,6 +1,6 @@
 use crate::asm_comp::x86;
 use crate::ir::{IrInstr, IrOperand};
-use crate::Type;
+use crate::{Target, Type};
 use std::collections::HashSet;
 use super::x86::*;
 fn get_asmx86_type_name(vtype:&Type)->&'static str{
@@ -86,7 +86,7 @@ pub fn compile_ir_op_to_x86(op:&IrOperand, left:bool,stack:&mut String, statics:
     }
     todo!();
 }
-pub fn compile_ir_instr_to_x86(instr: &IrInstr, _depth :&mut usize, _used_types:&mut HashSet<Type>, statics_count:&mut usize, statics:&mut String)->String{
+pub fn compile_ir_instr_to_x86(instr: &IrInstr, _depth :&mut usize, _used_types:&mut HashSet<Type>, statics_count:&mut usize, statics:&mut String, cmp_target:&Target)->String{
    match instr{
         IrInstr::Add { target, left, right, vtype}=>{
             let mut stack = "".to_owned();
@@ -215,10 +215,10 @@ pub fn compile_ir_instr_to_x86(instr: &IrInstr, _depth :&mut usize, _used_types:
             todo!();
         }
         IrInstr::BeginScope{}=>{
-            return format!("    call _push_frame()");
+            return format!("    call push_frame()");
         }
         IrInstr::EndScope{}=>{
-            return format!("    call _pop_frame()");
+            return format!("    call pop_frame()");
         }
         IrInstr::Call { func_name, args }=>{
             let mut st = String::new();
@@ -228,8 +228,17 @@ pub fn compile_ir_instr_to_x86(instr: &IrInstr, _depth :&mut usize, _used_types:
                 let s = compile_ir_op_to_x86(i, true,&mut st, statics, statics_count);
                 st += &ag.generate_arg(&s, &i.get_type(), &mut pop_count);
             }
-             st += &format!(" call {}\n", func_name);
-
+            match cmp_target{
+                Target::MacOs { arm:_ }=>{
+                    st += &format!(" call _{}\n", func_name);
+                } 
+                _=>{
+                    st += &format!(" call {}\n", func_name);
+                }
+            }
+            for _ in 0..pop_count{
+                st += "    pop r10\n";
+            }
             return st;
         }
         IrInstr::CallWithRet { target, func_name, args, vtype }=>{
@@ -240,7 +249,14 @@ pub fn compile_ir_instr_to_x86(instr: &IrInstr, _depth :&mut usize, _used_types:
                 let s = compile_ir_op_to_x86(i, true,&mut st, statics, statics_count);
                 st += &ag.generate_arg(&s, &i.get_type(), &mut pop_count);
             }
-            st += &format!(" call {}\n", func_name);
+            match cmp_target{
+                Target::MacOs { arm:_ }=>{
+                    st += &format!(" call _{}\n", func_name);
+                } 
+                _=>{
+                    st += &format!(" call {}\n", func_name);
+                }
+            }
             let tstr = compile_ir_op_to_x86(target, true, &mut st, statics, statics_count);
             if vtype.get_size_bytes()>= 8{
                 st += &format!("    mov QWORD[{}], rax\n", tstr);
@@ -248,12 +264,15 @@ pub fn compile_ir_instr_to_x86(instr: &IrInstr, _depth :&mut usize, _used_types:
                     st += &format!("    mov QWORD[{}-8], rdx\n", tstr);
                 }
             }
+            for _ in 0..pop_count{
+                st += "    pop r10\n";
+            }
             return st; 
         }
         IrInstr::Mov { left, right, vtype }=>{
             let mut stack = "".to_owned();
             let l = compile_ir_op_to_x86(left, true,&mut stack, statics, statics_count);
-            let r = compile_ir_op_to_x86(left, false,&mut stack, statics, statics_count);
+            let r = compile_ir_op_to_x86(right, false,&mut stack, statics, statics_count);
             let total = vtype.get_size_bytes();
             let mut count = 0;
             stack += &format!("  mov rax, {}\n",l);

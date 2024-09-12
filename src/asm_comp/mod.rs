@@ -3,18 +3,33 @@ use std::fs;
 use std::io::Write;
 mod ir_to_as;
 mod x86;
-use crate::{ir::{compile_function_to_ir, compile_ir_instr_to_c}, name_mangle_function, name_mangle_type, name_mangle_type_for_names, Function, FunctionTable, Program, Type};
-pub fn compile_function_header(func:&Function, filename:&str)->Result<String,String>{
+use crate::{ir::{compile_function_to_ir, compile_ir_instr_to_c}, name_mangle_function, name_mangle_type, name_mangle_type_for_names, Function, FunctionTable, Program, Target, Type};
+pub fn compile_function_header(func:&Function, filename:&str, target:&Target)->Result<String,String>{
     if func.forward_declared {
-       return Ok(format!("extern {}\n",name_mangle_function(func, filename)));
+        match target{
+            Target::MacOs { arm:_ }=>{
+                return Ok(format!("extern _{}\n",name_mangle_function(func, filename)));
+            } 
+            _=>{
+                return Ok(format!("extern {}\n",name_mangle_function(func, filename)));
+            }
+        }
+
     }
-    return Ok(format!("global {}\n",name_mangle_function(func, filename)));
+    match target{
+        Target::MacOs { arm:_ }=>{
+            return Ok(format!("global _{}\n",name_mangle_function(func, filename)));
+        } 
+        _=>{
+            return Ok(format!("global {}\n",name_mangle_function(func, filename)));
+        }
+    }
 }
 
-pub fn compile_function_table_header(_name:&String, data:&FunctionTable,filename:&str)->Result<String, String>{
+pub fn compile_function_table_header(_name:&String, data:&FunctionTable,filename:&str, target:&Target)->Result<String, String>{
     let mut out = String::new(); 
     for i in &data.functions{
-        out += &compile_function_header(i,filename)?;
+        out += &compile_function_header(i,filename, target)?;
     }
     return Ok(out);
 }
@@ -22,8 +37,15 @@ pub fn compile_function_table_header(_name:&String, data:&FunctionTable,filename
 pub fn compile_static(_name:&String,_vtype:&Type, _index:usize)->Result<String,String>{
     todo!();
 }
-pub fn compile_function(func:&mut Function, filename:&str, functions:&HashMap<String,FunctionTable>, types:&HashMap<String, Type>,used_types:&mut HashSet<Type>, statics_count:&mut usize, static_section:&mut String)->Result<String,String>{
+pub fn compile_function(func:&mut Function, filename:&str, functions:&HashMap<String,FunctionTable>, types:&HashMap<String, Type>,used_types:&mut HashSet<Type>, statics_count:&mut usize, static_section:&mut String, target:&Target)->Result<String,String>{
     let mut out = String::new();
+    match  target {
+        Target::MacOs { arm:_ }=>{
+            out += "_";
+        }
+        _=>{
+        }
+    }
     out += &name_mangle_function(func, filename);
     out += ":\n";
     out += "    push rbp\n";
@@ -35,7 +57,7 @@ pub fn compile_function(func:&mut Function, filename:&str, functions:&HashMap<St
     println!("ir representation:{:#?}", ir);
     let mut depth = 1;
     for i in &ir{
-        let tmp = ir_to_as::compile_ir_instr_to_x86(i, &mut depth, used_types,statics_count, static_section);
+        let tmp = ir_to_as::compile_ir_instr_to_x86(i, &mut depth, used_types,statics_count, static_section, target);
         out += &tmp;
         out += "\n";
     }
@@ -196,7 +218,7 @@ fn recurse_used_types(types:&HashSet<Type>, type_table:&HashMap<String,Type>)->H
     }
     return out;
 }
-pub fn compile_to_asm_x86(prog:Program,base_filename:&String)->Result<(),String>{
+pub fn compile_to_asm_x86(prog:Program,base_filename:&String, target:&Target)->Result<(),String>{
     println!("compiling file: {}", base_filename);
     let fname = "output/".to_owned()+&base_filename[0..base_filename.len()-4];
     let filename = &fname;
@@ -205,9 +227,16 @@ pub fn compile_to_asm_x86(prog:Program,base_filename:&String)->Result<(),String>
     let mut used_types = HashSet::new();
     let mut func_decs = String::new();
     for i in &prog.functions{
-        func_decs += &compile_function_table_header(i.0, i.1,filename)?;
+        func_decs += &compile_function_table_header(i.0, i.1,filename, target)?;
     };
-    func_decs += "extern _make_string_from\n";
+    match  target {
+        Target::MacOs { arm:_ }=>{
+            func_decs += "extern _make_string_from\n";
+        }
+        _=>{
+            func_decs += "extern make_string_from\n";
+        }
+    }
     let mut statics = "section .data\n".to_owned();
     let mut functions = String::new();
     let mut statics_count = 0;
@@ -217,7 +246,7 @@ pub fn compile_to_asm_x86(prog:Program,base_filename:&String)->Result<(),String>
                 continue;
             }
             let mut f =  func.clone();
-            functions+= &compile_function(&mut f,filename, &prog.functions, &prog.types, &mut used_types,&mut statics_count,&mut statics)?;
+            functions+= &compile_function(&mut f,filename, &prog.functions, &prog.types, &mut used_types,&mut statics_count,&mut statics, target)?;
         }
     }
     let out_file_name = filename.to_owned()+".s";
