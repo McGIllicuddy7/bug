@@ -666,6 +666,7 @@ pub fn parse_list(
         }
         return idx;
     }
+    println!("{:#?}", &text[list_start..list_end]);
     let mut out = vec![];
     let mut cursor = list_start;
     while cursor < list_end {
@@ -677,8 +678,8 @@ pub fn parse_list(
             types,
             scope,
             function_table,
-        )?);
-        cursor = end + 1;
+        ).expect("bruh"));
+        cursor +=1;
     }
     return Some(out);
 }
@@ -1030,7 +1031,7 @@ pub fn parse_expression(
                 args: args,
                 data:Some(AstNodeData{line:text[*cursor-1].line, temporary_index:None}),
             });
-            *cursor = args_end + 1;
+            *cursor = args_end+1;
         } else if let Some(v) = scope.variable_idx(text[*cursor].string.to_owned()) {
             out = Some(AstNode::VariableUse {
                 name: text[*cursor].string.to_owned(),

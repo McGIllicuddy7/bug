@@ -316,7 +316,7 @@ pub fn compile_ir_instr_to_x86(instr: &IrInstr, _depth :&mut usize, _used_types:
             let sz = vtype.get_size_bytes();
             let mut out = format!("   xor r10,r10;\n");
             while total<sz{
-                out += "    push r10";
+                out += "    push r10\n";
                 total += 8;
             }
             return out;

@@ -403,8 +403,8 @@ pub fn compile(prog:Program, base_filename:&str)->Result<(),String>{
     out += &func_decs;
     out += &statics;
     out += &functions;
-    fout.write(out.as_bytes()).expect("tesing expect");
+    fout.write(out.as_bytes()).expect("testing expect");
     drop(fout);
-    let _=std::process::Command::new("gcc").arg(&out_file_name).arg("-std=c2x").arg("-c").output();
+    let _=std::process::Command::new("clang").arg(&out_file_name).arg("-std=c2x").arg("-c").arg(&format!("-o{}.o", fname)).output();
     return Ok(());
 }
