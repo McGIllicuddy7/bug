@@ -203,12 +203,14 @@ pub enum IrInstr {
     Call {
         func_name: String,
         args: Vec<IrOperand>,
+        stack_ptr_when_called:usize,
     },
     CallWithRet {
         target: IrOperand,
         func_name: String,
         args: Vec<IrOperand>,
         vtype: Type,
+        stack_ptr_when_called:usize,
     },
     Ret {
         to_return: IrOperand,
@@ -933,6 +935,7 @@ pub fn compile_ast_node_to_ir(
                 let tmp = IrInstr::Call {
                     func_name: fname,
                     args: f_args,
+                    stack_ptr_when_called:*stack_ptr,
                 };
                 val_stack.push(tmp);
             } else {
@@ -948,6 +951,7 @@ pub fn compile_ast_node_to_ir(
                     func_name: fname,
                     args: f_args,
                     vtype: func.return_type,
+                    stack_ptr_when_called:*stack_ptr,
                 };
                 val_stack.push(tmp);
                 return Some(return_v);
@@ -1079,6 +1083,7 @@ pub fn compile_ast_node_to_ir(
                 func_name: "make_string_from".to_owned(),
                 args: vec![tmp, ln],
                 vtype: Type::StringT,
+                stack_ptr_when_called:*stack_ptr,
             });
             return Some(out);
         }
@@ -1225,7 +1230,7 @@ pub fn compile_ast_node_to_ir(
                 None,
             )
             .expect("should return"); 
-            val_stack.push(IrInstr::Ret { to_return });
+            val_stack.push(IrInstr::Ret { to_return});
         }
         AstNode::OperatorMake { vtype, size } => {
             let out = stack_push(
@@ -1263,6 +1268,7 @@ pub fn compile_ast_node_to_ir(
                 vtype: Type::SliceT {
                     ptr_type: Rc::new(vtype.clone()),
                 },
+                stack_ptr_when_called:*stack_ptr,
             });
             return Some(out);
         }
@@ -1286,6 +1292,7 @@ pub fn compile_ast_node_to_ir(
                 vtype: Type::SliceT {
                     ptr_type: Rc::new(vtype.clone()),
                 },
+                stack_ptr_when_called:*stack_ptr,
             });
             return Some(out);
         }
@@ -1335,5 +1342,6 @@ pub fn compile_function_to_ir(
     for i in pop_table{
         out.push(IrInstr::Pop { vtype:i });
     }
+    //out.push(IrInstr::EndScope);
     return out;
 }

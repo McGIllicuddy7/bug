@@ -48,11 +48,11 @@ pub fn compile_function(func:&mut Function, filename:&str, functions:&HashMap<St
     }
     out += &name_mangle_function(func, filename);
     out += ":\n";
-    out += "    push rbp\n";
-    out += "    mov rbp,rsp\n";
     out += "    push rbx\n";
     out += "    push rcx\n";
     out += "    push rdx\n";
+    out += "    push rbp\n";
+    out += "    mov rbp,rsp\n";
     let ir = compile_function_to_ir(func, functions, types);
     println!("ir representation:{:#?}", ir);
     let mut depth = 1;
@@ -61,12 +61,11 @@ pub fn compile_function(func:&mut Function, filename:&str, functions:&HashMap<St
         out += &tmp;
         out += "\n";
     }
+    out += "    mov rsp, rbp\n";
+    out += "    pop rbp\n";
     out += "    pop rdx\n";
     out += "    pop rcx\n";
     out += "    pop rbx\n";
-    out += "    mov rsp, rbp\n";
-    out += "    pop rbp\n";
-    out += "\n";
     out += "    ret\n";
     return Ok(out);
 }
@@ -235,6 +234,14 @@ pub fn compile_to_asm_x86(prog:Program,base_filename:&String, target:&Target)->R
         }
         _=>{
             func_decs += "extern make_string_from\n";
+        }
+    }
+    match  target {
+        Target::MacOs { arm:_ }=>{
+            func_decs += "extern _gc_push_frame\nextern _gc_pop_frame\n";
+        }
+        _=>{
+            func_decs += "extern gc_push_frame\nextern gc_pop_frame\n";
         }
     }
     let mut statics = "section .data\n".to_owned();

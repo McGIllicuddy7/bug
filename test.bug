@@ -1,10 +1,6 @@
-pub fn testy(a:int b:int)->int{
-   return a+b;
-}
+
 pub fn main()->int{
-   let s = testy(1,2);
-   let ts = int_to_string(s);
-   put_str(ts);
+   put_str(int_to_string(2));
    return 0;
 }
 
