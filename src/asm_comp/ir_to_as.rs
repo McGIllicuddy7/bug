@@ -224,9 +224,18 @@ pub fn compile_ir_instr_to_x86(instr: &IrInstr, _depth :&mut usize, _used_types:
             let mut st = String::new();
             let mut ag = x86::ArgCPU::new();
             let mut pop_count = 0;
+            let mut vs = vec![];
             for i in args{
                 let s = compile_ir_op_to_x86(i, true,&mut st, statics, statics_count);
-                st += &ag.generate_arg(&s, &i.get_type(), &mut pop_count);
+                vs.push(ag.generate_arg(&s, &i.get_type(), &mut pop_count));
+            }
+            vs.reverse();
+            if vs.len()%2 != 0{
+                st += "push r10\n";
+                pop_count += 1;
+            }
+            for i in &vs{
+                st += i;
             }
             match cmp_target{
                 Target::MacOs { arm:_ }=>{
@@ -245,9 +254,18 @@ pub fn compile_ir_instr_to_x86(instr: &IrInstr, _depth :&mut usize, _used_types:
             let mut st = String::new();
             let mut ag = x86::ArgCPU::new();
             let mut pop_count = 0;
+            let mut vs = vec![];
             for i in args{
                 let s = compile_ir_op_to_x86(i, true,&mut st, statics, statics_count);
-                st += &ag.generate_arg(&s, &i.get_type(), &mut pop_count);
+                vs.push(ag.generate_arg(&s, &i.get_type(), &mut pop_count));
+            }
+            vs.reverse();
+            if vs.len()%2 != 0{
+                st += "push r10\n";
+                pop_count += 1;
+            }
+            for i in &vs{
+                st += i;
             }
             match cmp_target{
                 Target::MacOs { arm:_ }=>{
@@ -318,7 +336,7 @@ pub fn compile_ir_instr_to_x86(instr: &IrInstr, _depth :&mut usize, _used_types:
         }
         IrInstr::Ret { to_return }=>{
             let t =  to_return.get_type();
-            let mut out = String::from("    pop rdx\n   pop rcx\n   pop rbx\n");
+            let mut out = String::from("pop r10\n    pop rdx\n   pop rcx\n   pop rbx\n");
             let a = compile_ir_op_to_x86(to_return, true,&mut out, statics, statics_count);
             if t.get_size_bytes()== 0{
             }
@@ -327,7 +345,7 @@ pub fn compile_ir_instr_to_x86(instr: &IrInstr, _depth :&mut usize, _used_types:
             } else if t.get_size_bytes()<=16{
                 todo!();
             }
-            out += "\n   mov rsp, rbp\n   pop rbp\n     ret\n";
+            out += "\n  mov rsp, rbp\n   pop rbp\n     ret\n";
             return out;
         }
         IrInstr::Not { target, value, vtype }=>{

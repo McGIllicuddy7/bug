@@ -234,7 +234,7 @@ int main(int argc,const char ** argv){
         assert(get_allocation_count() == 0);
         return result;
 }
-int user_test_long_long_long_long_long_long_long_long_long(long arg0, long arg1, long arg2, long arg3, long arg4, long arg5, long arg6, long arg7, long arg8){
+long user_test_long_long_long_long_long_long_long_long_long(long arg0, long arg1, long arg2, long arg3, long arg4, long arg5, long arg6, long arg7, long arg8){
     printf("%ld\n", arg0);
     printf("%ld\n", arg1);
     printf("%ld\n", arg2);
