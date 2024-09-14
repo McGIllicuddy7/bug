@@ -10,7 +10,17 @@ fn main() {
     std::env::set_var("RUST_BACKTRACE", "1");
     let mut comp_que = vec!["test.bug".to_owned()];
     let mut i =0; 
-    let target = Target::MacOs { arm: false };
+    let target = match std::env::consts::OS{
+        "linux"=>{
+            Target::Linux { arm: false }
+        }
+        "MacOs"=>{
+            Target::MacOs { arm: false }
+        }
+        _=>{
+            unreachable!();
+        }
+    }; 
     loop{
         let tprg = "import builtins.bug;\n".to_owned()+&std::fs::read_to_string(&comp_que[i]).expect("testing expect");
         let name = comp_que[i].to_owned();

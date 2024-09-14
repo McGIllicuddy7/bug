@@ -224,11 +224,7 @@ void user_put_str_String(String s){
 }
 extern long user_main();
 int main(int argc,const char ** argv){
-        #ifdef __linux__
-        long result = _user_main();
-        #else 
-        long result = user_main();
-        #endif
+        long result = user_main(); 
         printf("exited with %ld\n",result);
         gc_collect(); 
         assert(get_allocation_count() == 0);
