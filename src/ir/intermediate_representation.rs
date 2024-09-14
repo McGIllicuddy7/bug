@@ -1309,14 +1309,14 @@ pub fn compile_function_to_ir(
 ) -> Vec<IrInstr> {
     let mut out = vec![IrInstr::BeginScope];
     let mut variable_counter = 0;
-    let mut stack_ptr = 0;
+    let mut stack_ptr = 8;
     let mut pop_table = vec![];
     let mut name_table = vec![HashMap::new()];
     let mut label_counter = 0;
     for i in 0..func.args.len() {
         let op = IrOperand::StacKOperand { var_idx: variable_counter, 
             name:("user_".to_owned()+&func.arg_names[i]).into(), 
-            stack_offset: stack_ptr, vtype:func.args[i].clone() };
+         stack_offset: stack_ptr, vtype:func.args[i].clone() };
         stack_ptr += func.args[i].get_size_bytes();
         variable_counter += 1;
         let name = func.arg_names[i].clone();

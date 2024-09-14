@@ -122,7 +122,7 @@ pub fn compile_ir_instr_to_x86(instr: &IrInstr, _depth :&mut usize, _used_types:
             }
             stack += &format!("    sub rax, rbx\n");
             let v = compile_ir_op_to_x86(target, true, &mut stack, statics, statics_count);
-            stack += &format!("    mov, {} [{}], rax\n", get_asmx86_type_name(vtype), v);
+            stack += &format!("    mov {} [{}], rax\n", get_asmx86_type_name(vtype), v);
             return stack;
         }
         IrInstr::Div { target, left, right, vtype}=>{
@@ -139,9 +139,9 @@ pub fn compile_ir_instr_to_x86(instr: &IrInstr, _depth :&mut usize, _used_types:
             } else{
                 stack += &format!("    mov rdx, {}\n",r);
             }
-            stack += &format!("    idiv rax, rdx\n");
+            stack += &format!("    idiv edx\n");
             let v = compile_ir_op_to_x86(target, true, &mut stack, statics, statics_count);
-            stack += &format!("    mov, {} [{}], rax\n", get_asmx86_type_name(vtype), v);
+            stack += &format!("    mov {} [{}], rax\n", get_asmx86_type_name(vtype), v);
             return stack;
         }
         IrInstr::Mul { target, left, right, vtype}=>{
@@ -179,7 +179,7 @@ pub fn compile_ir_instr_to_x86(instr: &IrInstr, _depth :&mut usize, _used_types:
             }
             stack += &format!("    and rax, rbx\n");
             let v = compile_ir_op_to_x86(target, true, &mut stack, statics, statics_count);
-            stack += &format!("    mov, {} [{}], rax\n", get_asmx86_type_name(vtype), v);
+            stack += &format!("    mov {} [{}], rax\n", get_asmx86_type_name(vtype), v);
             return stack;
         }        
         IrInstr::Or { target, left, right, vtype}=>{
@@ -360,7 +360,13 @@ pub fn compile_ir_instr_to_x86(instr: &IrInstr, _depth :&mut usize, _used_types:
             if t.get_size_bytes()== 0{
             }
             else if t.get_size_bytes()<=8{
-                out += & format!("   mov rax, {}\n",a);
+                if a.contains("r"){
+                    out += & format!("   mov rax, QWORD [{}]\n",a);
+                }
+                else{
+                    out += & format!("   mov rax, {}\n",a);
+                }
+
             } else if t.get_size_bytes()<=16{
                 todo!();
             }

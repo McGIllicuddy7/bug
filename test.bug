@@ -1,5 +1,9 @@
+fn calc_stat_bonus(stat:int)->int{
+   return stat;
+}
 pub fn main()->int{
-   put_str_ln(int_to_string(1+2*3+5));
+   let a = calc_stat_bonus(20);
+   put_str_ln(int_to_string(a));
    return 0;
 }
 
