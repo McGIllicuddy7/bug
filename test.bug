@@ -1,6 +1,6 @@
 
 pub fn main()->int{
-   put_str(int_to_string(2));
+   put_str_ln(int_to_string(2));
    return 0;
 }
 

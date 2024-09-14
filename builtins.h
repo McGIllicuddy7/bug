@@ -14,6 +14,7 @@ void gc_pop_frame();
 void gc_register_ptr(void * ptr, void (*collect_fn)(void *));
 bool gc_any_ptr(void*);
 void user_put_str_String(String s);
+void user_put_str_ln_String(String s);
 void * gc_alloc(size_t size);
 void gc_long(void * ptr);
 void gc_String(void * ptr);

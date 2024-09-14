@@ -222,6 +222,13 @@ long user_mod_long_long(long a, long b){
 void user_put_str_String(String s){
     write(1, s.start, s.len);
 }
+void user_put_str_ln_String(String s){
+    char* v = malloc(s.len+1);
+    memcpy(v, s.start, s.len);
+    v[s.len] = '\n';
+    write(1, v,s.len+1);
+    free(v);
+}
 extern long user_main();
 int main(int argc,const char ** argv){
         long result = user_main(); 

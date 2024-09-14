@@ -1,4 +1,5 @@
 pub fn put_str(a:string)->void;
+pub fn put_str_ln(a:string)->void;
 pub fn +(a:string b:string)->string;
 pub fn int_to_string(a:int)->string;
 pub fn mod(a:int b:int)->int;
