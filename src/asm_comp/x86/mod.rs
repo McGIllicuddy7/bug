@@ -95,6 +95,7 @@ impl ArgCPU {
     }
     pub fn generate_arg(&mut self, arg_v: &str, arg_t: &Type, to_pop_stack: &mut usize) -> String {
         let mut out = String::new();
+        let is_addr = arg_v.contains('r');
         match arg_t {
             types::Type::ArrayT {
                 size: _,
@@ -103,16 +104,16 @@ impl ArgCPU {
                 unreachable!();
             }
             types::Type::BoolT => {
-                return self.generate_basic_arg(arg_v, 8, 0, to_pop_stack, false);
+                return self.generate_basic_arg(arg_v, 8, 0, to_pop_stack, is_addr);
             }
             types::Type::CharT => {
-                return self.generate_basic_arg(arg_v, 8, 0, to_pop_stack,false);
+                return self.generate_basic_arg(arg_v, 8, 0, to_pop_stack,is_addr);
             }
             types::Type::FloatT => {
                 todo!();
             }
             types::Type::IntegerT => {
-                return self.generate_basic_arg(arg_v, 8, 0, to_pop_stack,false);
+                return self.generate_basic_arg(arg_v, 8, 0, to_pop_stack,arg_v.contains("r"));
             }
             types::Type::PointerT { ptr_type: _ } => {
                 return self.generate_basic_arg(arg_v, 8, 0, to_pop_stack, false);
