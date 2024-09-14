@@ -1,6 +1,5 @@
-
 pub fn main()->int{
-   put_str_ln(int_to_string(2));
+   put_str_ln(int_to_string(1+2*3+5));
    return 0;
 }
 

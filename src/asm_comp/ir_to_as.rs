@@ -92,12 +92,12 @@ pub fn compile_ir_instr_to_x86(instr: &IrInstr, _depth :&mut usize, _used_types:
             let l = compile_ir_op_to_x86(left, true, &mut stack, statics, statics_count);
             let r = compile_ir_op_to_x86(right, false, &mut stack, statics, statics_count);
               if l.as_bytes()[0]== b'r'{
-                stack += &format!("    mov rax, QWORD [rcx]\n");
+                stack += &format!("    mov rax, QWORD [{}]\n", l);
             } else{
                 stack += &format!("    mov rax, {}\n",l);
             }
             if r.as_bytes()[0]== b'r'{
-                stack += &format!("    mov rbx, QWORD [rdx]\n");
+                stack += &format!("    mov rbx, QWORD [{}]\n",r);
             } else{
                 stack += &format!("    mov rbx, {}\n",r);
             }
