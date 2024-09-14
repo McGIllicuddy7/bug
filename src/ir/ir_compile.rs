@@ -246,7 +246,7 @@ pub fn compile_ir_instr_to_c(instr: &IrInstr, depth :&mut usize, used_types:&mut
         IrInstr::Pop { vtype} => {
             return depth_format!(depth, "//{}", name_mangle_type(vtype));
         }
-        IrInstr::BeginScope => {
+        IrInstr::BeginScope{stack_ptr:_} => {
             let out = depth_format!(depth, "{\n");
             *depth += 1;
             return out;

@@ -223,7 +223,7 @@ pub enum IrInstr {
     Pop {
         vtype: Type,
     },
-    BeginScope,
+    BeginScope{stack_ptr:usize},
     EndScope{stack_ptr:usize}
 }
 
@@ -1130,7 +1130,7 @@ pub fn compile_ast_node_to_ir(
             val_stack.push(IrInstr::CondGoto { cond: cond, target: format!("L{}",base_label) });
             val_stack.push(IrInstr::Goto { target: format!("L{}",else_label) });
             val_stack.push(IrInstr::Label { name: format!("L{}",base_label) });
-            val_stack.push(IrInstr::BeginScope);
+            val_stack.push(IrInstr::BeginScope{stack_ptr:*stack_ptr});
             let mut body_pop_table = vec![];
             for i in thing_to_do{
                 compile_ast_node_to_ir(i, val_stack, variable_counter, stack_ptr, &mut body_pop_table, name_table, functions, types, label_counter,None);
@@ -1143,7 +1143,7 @@ pub fn compile_ast_node_to_ir(
             val_stack.push(IrInstr::Goto{target:format!("L{}",end_label)});
             val_stack.push(IrInstr::Label { name: format!("L{}",else_label )});
             if r#else.is_some(){
-                val_stack.push(IrInstr::BeginScope);
+                val_stack.push(IrInstr::BeginScope{stack_ptr:*stack_ptr});
                 let elblk = r#else.as_ref().expect("is some");
                 let mut pop_stack = vec![];
                 for i in elblk{
@@ -1168,16 +1168,16 @@ pub fn compile_ast_node_to_ir(
             let end = *label_counter+1;
             let lbody = *label_counter + 2;
             *label_counter += 3;
-            val_stack.push(IrInstr::BeginScope); 
+            val_stack.push(IrInstr::BeginScope{stack_ptr:*stack_ptr}); 
             let _ = compile_ast_node_to_ir(variable, val_stack, variable_counter, stack_ptr, pop_table, name_table, functions, types, label_counter,None);
             val_stack.push(IrInstr::Label { name: format!("L{}", base )}); 
-            val_stack.push(IrInstr::BeginScope);    
+            val_stack.push(IrInstr::BeginScope{stack_ptr:*stack_ptr});    
             let mut loop_pop_table = vec![];
             let tmp = compile_ast_node_to_ir(condition, val_stack, variable_counter, stack_ptr, pop_table, name_table, functions, types, label_counter,None)?; 
             val_stack.push(IrInstr::CondGoto { cond: tmp, target: format!("L{}",lbody)});
             val_stack.push(IrInstr::Goto { target: format!("L{}",end) });
             val_stack.push(IrInstr::Label { name: format!("L{}",lbody) });
-            val_stack.push(IrInstr::BeginScope);
+            val_stack.push(IrInstr::BeginScope{stack_ptr:*stack_ptr});
             for i in body{
                 compile_ast_node_to_ir(i, val_stack, variable_counter, stack_ptr,&mut loop_pop_table, name_table, functions, types, label_counter,None);
             } 
@@ -1198,12 +1198,12 @@ pub fn compile_ast_node_to_ir(
             let lbody = *label_counter + 2;
             *label_counter += 3;
             val_stack.push(IrInstr::Label { name: format!("L{}", base )}); 
-            val_stack.push(IrInstr::BeginScope);   
+            val_stack.push(IrInstr::BeginScope{stack_ptr:*stack_ptr});   
             let tmp = compile_ast_node_to_ir(condition, val_stack, variable_counter, stack_ptr, pop_table, name_table, functions, types, label_counter,None)?; 
             val_stack.push(IrInstr::CondGoto { cond: tmp, target: format!("L{}",lbody)});
             val_stack.push(IrInstr::Goto { target: format!("L{}",end) });
             val_stack.push(IrInstr::Label { name: format!("L{}",lbody) });
-            val_stack.push(IrInstr::BeginScope);
+            val_stack.push(IrInstr::BeginScope{stack_ptr:*stack_ptr});
             let mut loop_pop_table = vec![];
             for i in body{
                 compile_ast_node_to_ir(i, val_stack, variable_counter, stack_ptr, &mut loop_pop_table, name_table, functions, types, label_counter,None);
@@ -1308,9 +1308,9 @@ pub fn compile_function_to_ir(
     functions: &HashMap<String, FunctionTable>,
     types: &HashMap<String, Type>,
 ) -> Vec<IrInstr> {
-    let mut out = vec![IrInstr::BeginScope];
+    let mut out = vec![IrInstr::BeginScope{stack_ptr:0}];
     let mut variable_counter = 0;
-    let mut stack_ptr = 0;
+    let mut stack_ptr = 32;
     let mut pop_table = vec![];
     let mut name_table = vec![HashMap::new()];
     let mut label_counter = 0;

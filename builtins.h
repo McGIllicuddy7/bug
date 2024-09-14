@@ -22,7 +22,7 @@ void gc_double(void * ptr);
 void gc_char(void * ptr);
 void gc_bool(void * ptr);
 String operator_plus_String_String(String a, String b);
-String user_int_to_string_long(long a);
+String user_to_string_long(long a);
 String make_string_from(const char * str, size_t len);
 size_t get_allocation_count();
 void gc_collect();

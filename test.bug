@@ -3,7 +3,9 @@ fn calc_stat_bonus(stat:int)->int{
 }
 pub fn main()->int{
    let a = calc_stat_bonus(20);
-   put_str_ln(int_to_string(a));
+   put_str_ln("testing "+to_string(a));
+   put_str_ln(to_string(1+2*3));
+   put_str_ln("hey toast i love you");
    return 0;
 }
 

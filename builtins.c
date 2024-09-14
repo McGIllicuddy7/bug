@@ -199,7 +199,7 @@ String operator_plus_String_String(String a, String b){
     String out =  (String){out_buff, out_l};
     return out;
 }
-String user_int_to_string_long(long a){
+String user_to_string_long(long a){
     char buffer[100] = {0};
     snprintf(buffer, 99, "%ld", a);
     size_t l = strlen(buffer);
@@ -236,16 +236,4 @@ int main(int argc,const char ** argv){
         gc_collect(); 
         assert(get_allocation_count() == 0);
         return result;
-}
-long user_test_long_long_long_long_long_long_long_long_long(long arg0, long arg1, long arg2, long arg3, long arg4, long arg5, long arg6, long arg7, long arg8){
-    printf("%ld\n", arg0);
-    printf("%ld\n", arg1);
-    printf("%ld\n", arg2);
-    printf("%ld\n", arg3);
-    printf("%ld\n", arg4);
-    printf("%ld\n", arg5);
-    printf("%ld\n", arg6);
-    printf("%ld\n", arg7);
-    printf("%ld\n", arg8);
-    return 0;
 }

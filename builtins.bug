@@ -1,6 +1,6 @@
 pub fn put_str(a:string)->void;
 pub fn put_str_ln(a:string)->void;
 pub fn +(a:string b:string)->string;
-pub fn int_to_string(a:int)->string;
+pub fn to_string(a:int)->string;
 pub fn mod(a:int b:int)->int;
 pub fn test(arg0:int arg1:int arg2:int arg3:int arg4:int arg5:int arg6:int arg7:int arg8:int)->int;

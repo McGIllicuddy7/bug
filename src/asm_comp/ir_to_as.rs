@@ -58,7 +58,7 @@ pub fn compile_ir_op_to_x86(op:&IrOperand, left:bool,stack:&mut String, statics:
         }
         IrOperand::TakeRef { to_ref }=>{
             let base =compile_ir_op_to_x86(&to_ref, left, stack, statics, statics_count);
-            *stack += &format!("lea {}, {}\n", get_sreg(left),base);
+            *stack += &format!("    lea {}, {}\n", get_sreg(left),base);
             return get_sreg(left);
         } 
         IrOperand::StringLiteral { value }=>{
@@ -77,7 +77,7 @@ pub fn compile_ir_op_to_x86(op:&IrOperand, left:bool,stack:&mut String, statics:
                 }
                 _=>{
                     let base = compile_ir_op_to_x86(base, left, stack, statics, statics_count);
-                    *stack += &format!("add {}, {}", base, offset);
+                    *stack += &format!("    add {}, {}", base, offset);
                     return get_sreg(left);
                 }
             }
@@ -213,28 +213,40 @@ pub fn compile_ir_instr_to_x86(instr: &IrInstr, _depth :&mut usize, _used_types:
         IrInstr::LessThanOrEq { target, left, right, vtype }=>{
             todo!();
         }
-        IrInstr::BeginScope{}=>{
-            match cmp_target{
-                Target::MacOs { arm:_ }=>{
-                    return format!("    call _gc_push_frame\n   push r10\n");
-                }_=>{
-                    return format!("    call gc_push_frame\n    push r10\n");
-                }
-            }
-
-        }
-        IrInstr::EndScope{stack_ptr}=>{
-           let mut out = (if stack_ptr%16 != 0{
+        IrInstr::BeginScope{stack_ptr}=>{
+            let mut out = (if stack_ptr%16 != 0{
                 "   push r10\n"
             } else{
                 ""
             }).to_owned();
             out += match cmp_target{
                 Target::MacOs { arm:_ }=>{
-                    "  call _gc_pop_frame\n"
+                    "    call _gc_push_frame\n"
                 }
                 _=>{
-                    "  call gc_pop_frame\n"
+                    "    call gc_push_frame\n"
+                }
+            };
+            out += if stack_ptr%16 != 0{
+                "    pop r10\n"
+            } else{
+                ""
+            };
+            return out;
+
+        }
+        IrInstr::EndScope{stack_ptr}=>{
+           let mut out = (if stack_ptr%16 != 0{
+                "    push r10\n"
+            } else{
+                ""
+            }).to_owned();
+            out += match cmp_target{
+                Target::MacOs { arm:_ }=>{
+                    "    call _gc_pop_frame\n"
+                }
+                _=>{
+                    "    call gc_pop_frame\n"
                 }
             };
             out += if stack_ptr%16 != 0{
@@ -250,8 +262,9 @@ pub fn compile_ir_instr_to_x86(instr: &IrInstr, _depth :&mut usize, _used_types:
             let mut pop_count = 0;
             let mut vs = vec![];
             for i in args{
-                let s = compile_ir_op_to_x86(i, true,&mut st, statics, statics_count);
-                vs.push(ag.generate_arg(&s, &i.get_type(), &mut pop_count));
+                let mut tmp_st = String::new();
+                let s = compile_ir_op_to_x86(i, true,&mut tmp_st, statics, statics_count);
+                vs.push(tmp_st+&ag.generate_arg(&s, &i.get_type(), &mut pop_count));
             }
             vs.reverse();
             if (stack_ptr_when_called) %16 != 0{
@@ -263,10 +276,10 @@ pub fn compile_ir_instr_to_x86(instr: &IrInstr, _depth :&mut usize, _used_types:
             }
             match cmp_target{
                 Target::MacOs { arm:_ }=>{
-                    st += &format!(" call _{}\n", func_name);
+                    st += &format!("    call _{}\n", func_name);
                 } 
                 _=>{
-                    st += &format!(" call {}\n", func_name);
+                    st += &format!("    call {}\n", func_name);
                 }
             }
             for _ in 0..pop_count{
@@ -280,22 +293,23 @@ pub fn compile_ir_instr_to_x86(instr: &IrInstr, _depth :&mut usize, _used_types:
             let mut pop_count = 0;
             let mut vs = vec![];
             for i in args{
-                let s = compile_ir_op_to_x86(i, true,&mut st, statics, statics_count);
-                vs.push(ag.generate_arg(&s, &i.get_type(), &mut pop_count));
+                let mut tmp_st = String::new();
+                let s = compile_ir_op_to_x86(i, true,&mut tmp_st, statics, statics_count);
+                vs.push(tmp_st+&ag.generate_arg(&s, &i.get_type(), &mut pop_count));
             }
             vs.reverse();
             if (stack_ptr_when_called) %16 != 0{
-                st += " push r10\n";
+                st += "    push r10\n";
             }
             for i in &vs{
                 st += i;
             }
             match cmp_target{
                 Target::MacOs { arm:_ }=>{
-                    st += &format!(" call _{}\n", func_name);
+                    st += &format!("    call _{}\n", func_name);
                 } 
                 _=>{
-                    st += &format!(" call {}\n", func_name);
+                    st += &format!("    call {}\n", func_name);
                 }
             }
             let tstr = compile_ir_op_to_x86(target, true, &mut st, statics, statics_count);
@@ -319,8 +333,8 @@ pub fn compile_ir_instr_to_x86(instr: &IrInstr, _depth :&mut usize, _used_types:
             let r = compile_ir_op_to_x86(right, false,&mut stack, statics, statics_count);
             let total = vtype.get_size_bytes();
             let mut count = 0;
-            stack += &format!("  mov rax, {}\n",l);
-            stack += &format!("  mov rbx, {}\n", r);
+            stack += &format!("    mov rax, {}\n",l);
+            stack += &format!("    mov rbx, {}\n", r);
             while count<total{
                 stack += &format!("    mov rcx,QWORD [rbx]\n");
                 stack += &format!("    mov QWORD [rax], rcx\n");
@@ -332,7 +346,7 @@ pub fn compile_ir_instr_to_x86(instr: &IrInstr, _depth :&mut usize, _used_types:
             return stack;
         }
         IrInstr::Goto { target }=>{
-            return format!("    jmp {target}");
+            return format!("     jmp {target}");
         }
         IrInstr::Label { name }=>{
             return format!("{name}:");
@@ -340,7 +354,7 @@ pub fn compile_ir_instr_to_x86(instr: &IrInstr, _depth :&mut usize, _used_types:
         IrInstr::VariableDeclaration { name:_, vtype }=>{
             let mut total = 0;
             let sz = vtype.get_size_bytes();
-            let mut out = format!("   xor r10,r10;\n");
+            let mut out = format!("    xor r10,r10;\n");
             while total<sz{
                 out += "    push r10\n";
                 total += 8;
@@ -350,8 +364,8 @@ pub fn compile_ir_instr_to_x86(instr: &IrInstr, _depth :&mut usize, _used_types:
         IrInstr::CondGoto { cond, target }=>{
             let mut stack = "".to_owned();
             let cond = compile_ir_op_to_x86(cond, true, &mut stack, statics, statics_count);
-            stack += &format!("cmp {}, 0\n", cond);
-            stack += &format!("jne {}", target);
+            stack += &format!("    cmp {}, 0\n", cond);
+            stack += &format!("    jne {}", target);
             return stack;
         }
         IrInstr::Equals { target, left, right, vtype }=>{
@@ -363,43 +377,44 @@ pub fn compile_ir_instr_to_x86(instr: &IrInstr, _depth :&mut usize, _used_types:
         IrInstr::Ret { to_return, stack_ptr}=>{
             let t =  to_return.get_type();
             let mut out = (if stack_ptr%16 != 0{
-                "   push r10\n      push r10\n      push r10\n"
+                "    push r10\n"
             } else{
                 ""
             }).to_owned();
             out += match cmp_target{
                 Target::MacOs { arm:_ }=>{
-                    "  call _gc_pop_frame\n"
+                    "    call _gc_pop_frame\n"
                 }
                 _=>{
-                    "  call gc_pop_frame\n"
+                    "    call gc_pop_frame\n"
                 }
             };
-            out += if stack_ptr%16 != 0{
-                "   pop r10\n      pop r10\n       pop r10\n"
-            } else{
-                ""
-            };
+            if stack_ptr%16 != 0{
+                out += "    pop r10\n";
+            }
             let a = compile_ir_op_to_x86(to_return, true,&mut out, statics, statics_count);
             if t.get_size_bytes()== 0{
             }
             else if t.get_size_bytes()<=8{
                 if a.contains("r"){
-                    out += & format!("   mov rax, QWORD [{}]\n",a);
+                    out += & format!("    mov rax, QWORD [{}]\n",a);
                 }
                 else{
-                    out += & format!("   mov rax, {}\n",a);
+                    out += & format!("    mov rax, {}\n",a);
                 }
 
             } else if t.get_size_bytes()<=16{
                 todo!();
             }
             out += "    mov rsp, rbp\n";
-            out += "    pop rbp\n";
+            out += "    sub rsp, 32\n";
+            out += "    pop r10\n";
             out += "    pop rdx\n";
             out += "    pop rcx\n";
             out += "    pop rbx\n";
-            out += "ret\n";
+            out += "    mov rsp, rbp\n";
+            out += "    pop rbp\n";
+            out += "    ret\n";
             return out;
         }
         IrInstr::Not { target, value, vtype }=>{
@@ -416,7 +431,14 @@ pub fn compile_ir_instr_to_x86(instr: &IrInstr, _depth :&mut usize, _used_types:
             return out;
         }
         IrInstr::Pop { vtype }=>{
-            return "".to_owned();
+            let mut total = 0;
+            let sz = vtype.get_size_bytes();
+            let mut out = format!("   xor r10, r10\n");
+            while total<sz{
+                out += "    pop r10\n";
+                total += 8;
+            }
+            return out;
         }
    } 
    todo!();

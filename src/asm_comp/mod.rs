@@ -50,11 +50,12 @@ pub fn compile_function(func:&mut Function, filename:&str, functions:&HashMap<St
     }
     out += &name_mangle_function(func, filename);
     out += ":\n";
+    out += "    push rbp\n";
+    out += "    mov rbp,rsp\n";
     out += "    push rbx\n";
     out += "    push rcx\n";
     out += "    push rdx\n";
-    out += "    push rbp\n";
-    out += "    mov rbp,rsp\n";
+    out += "    push r10\n";
     let mut arg_state = ArgCPU::new(); 
     let mut stack_count = 8;
     for count in 0..func.args.len(){
@@ -75,10 +76,13 @@ pub fn compile_function(func:&mut Function, filename:&str, functions:&HashMap<St
         out += "\n";
     }
     out += "    mov rsp, rbp\n";
-    out += "    pop rbp\n";
+    out += "    sub rsp, 32\n";
+    out += "    pop r10\n";
     out += "    pop rdx\n";
     out += "    pop rcx\n";
     out += "    pop rbx\n";
+    out += "    mov rsp, rbp\n";
+    out += "    pop rbp\n";
     out += "    ret\n";
     return Ok(out);
 }
