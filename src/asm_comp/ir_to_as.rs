@@ -350,10 +350,10 @@ pub fn compile_ir_instr_to_x86(instr: &IrInstr, _depth :&mut usize, _used_types:
             let t =  to_return.get_type();
             let mut out = match cmp_target{
                 Target::MacOs { arm:_ }=>{
-                        String::from("  ;call _gc_pop_frame\n")
+                        String::from("  call _gc_pop_frame\n")
                 }
                 _=>{
-                    String::from("  ;call gc_pop_frame\n")
+                    String::from("  call gc_pop_frame\n")
                 }
             };
             let a = compile_ir_op_to_x86(to_return, true,&mut out, statics, statics_count);

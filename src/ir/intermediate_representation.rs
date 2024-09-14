@@ -1307,7 +1307,7 @@ pub fn compile_function_to_ir(
     functions: &HashMap<String, FunctionTable>,
     types: &HashMap<String, Type>,
 ) -> Vec<IrInstr> {
-    let mut out = vec![];
+    let mut out = vec![IrInstr::BeginScope];
     let mut variable_counter = 0;
     let mut stack_ptr = 8;
     let mut pop_table = vec![];
@@ -1342,6 +1342,6 @@ pub fn compile_function_to_ir(
     for i in pop_table{
         out.push(IrInstr::Pop { vtype:i });
     }
-    //out.push(IrInstr::EndScope);
+    out.push(IrInstr::EndScope);
     return out;
 }
