@@ -5,7 +5,7 @@ mod ir_to_as;
 mod x86;
 use x86::ArgCPU;
 
-use crate::{ir::{compile_function_to_ir, compile_ir_instr_to_c}, name_mangle_function, name_mangle_type, name_mangle_type_for_names, Function, FunctionTable, Program, Target, Type};
+use crate::{ir::compile_function_to_ir, name_mangle_function, name_mangle_type, name_mangle_type_for_names, Function, FunctionTable, Program, Target, Type};
 pub fn compile_function_header(func:&Function, filename:&str, target:&Target)->Result<String,String>{
     if func.forward_declared {
         match target{
@@ -56,27 +56,20 @@ pub fn compile_function(func:&mut Function, filename:&str, functions:&HashMap<St
     out += "    push rbp\n";
     out += "    mov rbp,rsp\n";
     let mut arg_state = ArgCPU::new(); 
+    let mut stack_count = 8;
+    for count in 0..func.args.len(){
+        let mut v = 0;
+        while v<func.args[count].get_size_bytes(){
+            out += &format!("   push r10\n");
+            out += &format!("   mov QWORD[rbp-{}], {}\n",stack_count,arg_state.get_next_location().expect(""));
+            v+= 8;
+            stack_count += 8;
+        }
+    }
     let ir = compile_function_to_ir(func, functions, types);
     println!("ir representation:{:#?}", ir);
     let mut depth = 1;
-    let arg_count = func.args.len();
-    let mut count = 0;
-    let mut stack_count = 16;
-    let mut is_start = true;
     for i in &ir{
-        if count<arg_count&&!is_start{
-            let mut v = 0;
-            while v<func.args[count].get_size_bytes(){
-                out += &format!("   push r10\n");
-                out += &format!("   mov QWORD[rbp-{}], {}\n",stack_count,arg_state.get_next_location().expect(""));
-                v+= 8;
-                stack_count += 8;
-            }
-            count += 1;
-        }
-        else{
-            is_start = false;
-        }
         let tmp = ir_to_as::compile_ir_instr_to_x86(i, &mut depth, used_types,statics_count, static_section, target);
         out += &tmp;
         out += "\n";
@@ -287,13 +280,11 @@ pub fn compile_to_asm_x86(prog:Program,base_filename:&String, target:&Target)->R
     fout.write(out.as_bytes()).expect("testing expect");
     drop(fout);
     let mut cmd=std::process::Command::new("nasm");
-    cmd.arg(&out_file_name);
-    println!("{}", std::env::consts::OS);
     if std::env::consts::OS == "linux"{ 
-        let _ = cmd.arg("-f elf64").output();
+        cmd.arg("-f elf64");
     } else{
-        let _ = cmd.arg("-f macho64").output();
+        cmd.arg("-f macho64");
     }
-
+    let _ = cmd.arg(&out_file_name).output();
     return Ok(());
 }

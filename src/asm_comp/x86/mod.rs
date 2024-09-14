@@ -1,6 +1,4 @@
-use std::fmt::format;
-
-use crate::{ir::IrOperand, types, Type};
+use crate::{types, Type};
 
 #[allow(unused)]
 pub enum Registers {

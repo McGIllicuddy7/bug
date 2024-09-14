@@ -216,21 +216,33 @@ pub fn compile_ir_instr_to_x86(instr: &IrInstr, _depth :&mut usize, _used_types:
         IrInstr::BeginScope{}=>{
             match cmp_target{
                 Target::MacOs { arm:_ }=>{
-                    return format!("    call _gc_push_frame");
+                    return format!("    call _gc_push_frame\n   push r10\n");
                 }_=>{
-                    return format!("    call gc_push_frame");
+                    return format!("    call gc_push_frame\n    push r10\n");
                 }
             }
 
         }
-        IrInstr::EndScope{}=>{
-            match cmp_target{
+        IrInstr::EndScope{stack_ptr}=>{
+           let mut out = (if stack_ptr%16 != 0{
+                "   push r10\n"
+            } else{
+                ""
+            }).to_owned();
+            out += match cmp_target{
                 Target::MacOs { arm:_ }=>{
-                    return format!("    call _gc_pop_frame");
-                }_=>{
-                    return format!("    call gc_pop_frame");
+                    "  call _gc_pop_frame\n"
                 }
-            }
+                _=>{
+                    "  call gc_pop_frame\n"
+                }
+            };
+            out += if stack_ptr%16 != 0{
+                "   pop r10\n"
+            } else{
+                ""
+            };
+            return out;
         }
         IrInstr::Call { func_name, args ,stack_ptr_when_called}=>{
             let mut st = String::new();
@@ -242,7 +254,7 @@ pub fn compile_ir_instr_to_x86(instr: &IrInstr, _depth :&mut usize, _used_types:
                 vs.push(ag.generate_arg(&s, &i.get_type(), &mut pop_count));
             }
             vs.reverse();
-            if (stack_ptr_when_called+pop_count*8) %16 != 0{
+            if (stack_ptr_when_called) %16 != 0{
                 st += " push r10\n";
                 pop_count += 1;
             }
@@ -272,9 +284,8 @@ pub fn compile_ir_instr_to_x86(instr: &IrInstr, _depth :&mut usize, _used_types:
                 vs.push(ag.generate_arg(&s, &i.get_type(), &mut pop_count));
             }
             vs.reverse();
-            if (stack_ptr_when_called+pop_count*8) %16 != 0{
-                st += "push r10\n";
-                pop_count += 1;
+            if (stack_ptr_when_called) %16 != 0{
+                st += " push r10\n";
             }
             for i in &vs{
                 st += i;
@@ -293,6 +304,9 @@ pub fn compile_ir_instr_to_x86(instr: &IrInstr, _depth :&mut usize, _used_types:
                 if vtype.get_size_bytes()>8{
                     st += &format!("    mov QWORD[{}-8], rdx\n", tstr);
                 }
+            }
+            if stack_ptr_when_called%16 != 0{
+                st += &format!("    pop r10");
             }
             for _ in 0..pop_count{
                 st += "    pop r10\n";
@@ -346,15 +360,25 @@ pub fn compile_ir_instr_to_x86(instr: &IrInstr, _depth :&mut usize, _used_types:
         IrInstr::NotEquals { target, left, right, vtype }=>{
             todo!();
         }
-        IrInstr::Ret { to_return}=>{
+        IrInstr::Ret { to_return, stack_ptr}=>{
             let t =  to_return.get_type();
-            let mut out = match cmp_target{
+            let mut out = (if stack_ptr%16 != 0{
+                "   push r10\n      push r10\n      push r10\n"
+            } else{
+                ""
+            }).to_owned();
+            out += match cmp_target{
                 Target::MacOs { arm:_ }=>{
-                        String::from("  call _gc_pop_frame\n")
+                    "  call _gc_pop_frame\n"
                 }
                 _=>{
-                    String::from("  call gc_pop_frame\n")
+                    "  call gc_pop_frame\n"
                 }
+            };
+            out += if stack_ptr%16 != 0{
+                "   pop r10\n      pop r10\n       pop r10\n"
+            } else{
+                ""
             };
             let a = compile_ir_op_to_x86(to_return, true,&mut out, statics, statics_count);
             if t.get_size_bytes()== 0{

@@ -14,7 +14,7 @@ fn main() {
         "linux"=>{
             Target::Linux { arm: false }
         }
-        "MacOs"=>{
+        "macos"=>{
             Target::MacOs { arm: false }
         }
         _=>{
@@ -33,7 +33,7 @@ fn main() {
         }
     }
     print!("linking...");
-    let mut cmd =   std::process::Command::new("gcc");
+    let mut cmd =   std::process::Command::new("clang");
     for i in &comp_que{
         if i == "builtins.bug"{
             continue;
@@ -42,7 +42,7 @@ fn main() {
         print!("{} ",name);
         cmd.arg(name);
     }
-    cmd.arg("builtins.c").arg("-std=c2x").arg("-g3");
+    cmd.arg("builtins.c").arg("-std=c2x");
     let t = cmd.output().expect("input should be ok");
     println!("\n{}",String::from_utf8(t.stderr).expect("should be ut8"));
     print!("\ncleaning up...");
@@ -51,10 +51,11 @@ fn main() {
         if i == "builtins.bug"{
             continue;
         }
-        let name = "".to_owned()+&i[0..i.len()-4]+".o";
+        let name = "output/".to_owned()+&i[0..i.len()-4]+".o";
         print!("{name} ");
         cmd.arg(name);
     }
     cmd.arg("builtins.o");
+    cmd.arg("output/builtins.o");
     let _= cmd.output().expect("command should work");
 }

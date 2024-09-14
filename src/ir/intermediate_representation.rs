@@ -214,6 +214,7 @@ pub enum IrInstr {
     },
     Ret {
         to_return: IrOperand,
+        stack_ptr:usize,
     },
     Push {
         vtype: Type,
@@ -223,7 +224,7 @@ pub enum IrInstr {
         vtype: Type,
     },
     BeginScope,
-    EndScope,
+    EndScope{stack_ptr:usize}
 }
 
 fn stack_push(
@@ -1136,9 +1137,9 @@ pub fn compile_ast_node_to_ir(
             }
             body_pop_table.reverse();
             for i in body_pop_table{
-                val_stack.push(IrInstr::Pop {vtype:i });
+                val_stack.push(IrInstr::Pop {vtype:i});
             }
-            val_stack.push(IrInstr::EndScope);
+            val_stack.push(IrInstr::EndScope{stack_ptr:*stack_ptr});
             val_stack.push(IrInstr::Goto{target:format!("L{}",end_label)});
             val_stack.push(IrInstr::Label { name: format!("L{}",else_label )});
             if r#else.is_some(){
@@ -1150,9 +1151,9 @@ pub fn compile_ast_node_to_ir(
                 }
                 pop_stack.reverse();
                 for i in pop_stack{
-                    val_stack.push(IrInstr::Pop { vtype: i });
+                    val_stack.push(IrInstr::Pop { vtype: i});
                 }
-                val_stack.push(IrInstr::EndScope);
+                val_stack.push(IrInstr::EndScope{stack_ptr:*stack_ptr});
             }
      
             val_stack.push(IrInstr::Label { name: format!("L{}",end_label)});
@@ -1185,11 +1186,11 @@ pub fn compile_ast_node_to_ir(
             for i in loop_pop_table{
                 val_stack.push(IrInstr::Pop { vtype: i });
             }
-            val_stack.push(IrInstr::EndScope);
-            val_stack.push(IrInstr::EndScope);
+            val_stack.push(IrInstr::EndScope{stack_ptr:*stack_ptr});
+            val_stack.push(IrInstr::EndScope{stack_ptr:*stack_ptr});
             val_stack.push(IrInstr::Goto { target: format!("L{}",base) });
             val_stack.push(IrInstr::Label { name: format!("L{}",end) });
-            val_stack.push(IrInstr::EndScope);
+            val_stack.push(IrInstr::EndScope{stack_ptr:*stack_ptr});
         }
         AstNode::Loop { condition, body } => {
             let base = *label_counter;
@@ -1211,8 +1212,8 @@ pub fn compile_ast_node_to_ir(
             for i in loop_pop_table{
                 val_stack.push(IrInstr::Pop { vtype: i});
             }
-            val_stack.push(IrInstr::EndScope);
-            val_stack.push(IrInstr::EndScope);
+            val_stack.push(IrInstr::EndScope{stack_ptr:*stack_ptr});
+            val_stack.push(IrInstr::EndScope{stack_ptr:*stack_ptr});
             val_stack.push(IrInstr::Goto { target: format!("L{}",base) });
             val_stack.push(IrInstr::Label { name: format!("L{}",end) });
         }
@@ -1230,7 +1231,7 @@ pub fn compile_ast_node_to_ir(
                 None,
             )
             .expect("should return"); 
-            val_stack.push(IrInstr::Ret { to_return});
+            val_stack.push(IrInstr::Ret { to_return, stack_ptr:*stack_ptr});
         }
         AstNode::OperatorMake { vtype, size } => {
             let out = stack_push(
@@ -1309,7 +1310,7 @@ pub fn compile_function_to_ir(
 ) -> Vec<IrInstr> {
     let mut out = vec![IrInstr::BeginScope];
     let mut variable_counter = 0;
-    let mut stack_ptr = 8;
+    let mut stack_ptr = 0;
     let mut pop_table = vec![];
     let mut name_table = vec![HashMap::new()];
     let mut label_counter = 0;
@@ -1340,8 +1341,8 @@ pub fn compile_function_to_ir(
     }
     pop_table.reverse();
     for i in pop_table{
-        out.push(IrInstr::Pop { vtype:i });
+        out.push(IrInstr::Pop { vtype:i});
     }
-    out.push(IrInstr::EndScope);
+    out.push(IrInstr::EndScope{stack_ptr:stack_ptr});
     return out;
 }

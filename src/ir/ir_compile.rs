@@ -203,7 +203,7 @@ pub fn compile_ir_instr_to_c(instr: &IrInstr, depth :&mut usize, used_types:&mut
             used_types.insert(vtype.clone());
             depth_format!(depth, "{} = !{};", compile_ir_op_to_c(target), compile_ir_op_to_c(value))
         }
-        IrInstr::Call { func_name, args, stack_ptr_when_called:_ } => {
+        IrInstr::Call { func_name, args , stack_ptr_when_called:_} => {
             let mut base = depth_format!(depth, "{}(", func_name);
             let mut is_start = true;
             for i in args{
@@ -236,7 +236,7 @@ pub fn compile_ir_instr_to_c(instr: &IrInstr, depth :&mut usize, used_types:&mut
             base += ");";
             return base;
         }
-        IrInstr::Ret { to_return} => {
+        IrInstr::Ret { to_return , stack_ptr:_} => {
             return depth_format!(depth,"gc_pop_frame();\n")+&depth_format!(depth, "return {};", compile_ir_op_to_c(to_return));
         }
         IrInstr::Push { vtype, val_idx } => {
@@ -251,7 +251,7 @@ pub fn compile_ir_instr_to_c(instr: &IrInstr, depth :&mut usize, used_types:&mut
             *depth += 1;
             return out;
         }
-        IrInstr::EndScope => {            
+        IrInstr::EndScope {stack_ptr:_}=> {            
             *depth -= 1;
             let out = "\n".to_owned()+&depth_format!(depth, "}");
             return out;

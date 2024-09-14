@@ -59,6 +59,7 @@ impl Type{
             }
         }
     }
+    #[allow(unused)]
     pub fn is_array(&self)->bool{
         match &self{
             &Self::ArrayT { size:_, array_type:_ }=>{
@@ -146,7 +147,7 @@ impl Type{
    pub fn get_variable_offset(&self, name:&str)->Option<usize>{
     let mut count = 0;
     match self{
-        Self::SliceT { ptr_type }=>{
+        Self::SliceT { ptr_type:_ }=>{
             return Some(8);
         }
         Self::StringT=>{
@@ -169,7 +170,7 @@ impl Type{
 }
 pub fn get_variable_type(&self, name:&str)->Option<Type>{
     match self{
-        Self::SliceT { ptr_type }=>{
+        Self::SliceT { ptr_type:_ }=>{
             return Some(Type::IntegerT);
         }
         Self::StringT=>{
@@ -1411,6 +1412,7 @@ pub fn get_function_by_args(name:&str, args:&[Type], functions:&HashMap<String, 
     }
     return None;
 }
+#[allow(unused)]
 pub enum Target{
     MacOs{arm:bool}, Linux{arm:bool}, Windows{arm:bool}
 }
