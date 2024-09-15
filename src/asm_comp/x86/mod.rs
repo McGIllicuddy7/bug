@@ -28,8 +28,8 @@ const FLOAT_ARG_NAMES: &[&'static str] = &[
     "xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6", "xmm7",
 ];
 pub struct ArgCPU {
-    int_registers: [u8; 6],
-    float_registers: [u8; 8],
+    pub int_registers: [u8; 6],
+    pub float_registers: [u8; 8],
 }
 impl ArgCPU {
     pub fn new() -> Self {

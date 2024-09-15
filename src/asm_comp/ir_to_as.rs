@@ -12,10 +12,7 @@ fn get_asmx86_type_name(vtype:&Type)->&'static str{
         }
     }
 }
-/*
-left operand rcx
-right operand rdx
- */
+
 fn get_sreg(left:bool)->String{
     if left{
         return "r9".to_owned();
@@ -290,8 +287,13 @@ pub fn compile_ir_instr_to_x86(instr: &IrInstr, _depth :&mut usize, _used_types:
         IrInstr::CallWithRet { target, func_name, args, vtype ,stack_ptr_when_called}=>{
             let mut st = String::new();
             let mut ag = x86::ArgCPU::new();
+            let tstr = compile_ir_op_to_x86(target, true, &mut st, statics, statics_count);
             let mut pop_count = 0;
             let mut vs = vec![];
+            if target.get_type().get_size_bytes()>16{
+                ag.int_registers[0] = 8;
+                st += &format!(" mov rdi, {tstr}\n");
+            }
             for i in args{
                 let mut tmp_st = String::new();
                 let s = compile_ir_op_to_x86(i, true,&mut tmp_st, statics, statics_count);
@@ -312,8 +314,7 @@ pub fn compile_ir_instr_to_x86(instr: &IrInstr, _depth :&mut usize, _used_types:
                     st += &format!("    call {}\n", func_name);
                 }
             }
-            let tstr = compile_ir_op_to_x86(target, true, &mut st, statics, statics_count);
-            if vtype.get_size_bytes()>= 8{
+            if vtype.get_size_bytes()<= 16{
                 st += &format!("    mov QWORD[{}], rax\n", tstr);
                 if vtype.get_size_bytes()>8{
                     st += &format!("    mov QWORD[{}-8], rdx\n", tstr);
@@ -332,6 +333,22 @@ pub fn compile_ir_instr_to_x86(instr: &IrInstr, _depth :&mut usize, _used_types:
             let l = compile_ir_op_to_x86(left, true,&mut stack, statics, statics_count);
             let r = compile_ir_op_to_x86(right, false,&mut stack, statics, statics_count);
             let total = vtype.get_size_bytes();
+            match right{
+                IrOperand::IntLiteral { value }=>{
+                    stack += &format!("   mov rax, {l}\n    mov QWORD[rax], {r}\n");
+                    return stack;
+                }
+                IrOperand::CharLiteral { value }=>{
+                    stack += &format!("   mov rax, {l}\n    mov BYTE [rax], {r}\n");
+                    return stack; 
+                }
+                IrOperand::FloatLiteral { value }=>{
+                    todo!();
+                }
+                _=>{
+
+                }
+            }
             let mut count = 0;
             stack += &format!("    mov rax, {}\n",l);
             stack += &format!("    mov rbx, {}\n", r);
@@ -404,7 +421,23 @@ pub fn compile_ir_instr_to_x86(instr: &IrInstr, _depth :&mut usize, _used_types:
                 }
 
             } else if t.get_size_bytes()<=16{
-                todo!();
+                if a.contains("r"){
+                    out += & format!("    mov rax, QWORD [{}]\n",a);
+                    out += & format!("    mov rdx, QWORD [{}]\n",a);
+                }
+                else{
+                    out += & format!("    mov rax, {}\n",a);          
+                    out += & format!("    mov rdx, {}\n",a); 
+                }
+            }
+            else {
+                let max = to_return.get_type().get_size_bytes();
+                let mut  count = 0;
+                out += "    mov rdi, QWORD [rbp -32]\n";
+                while count<max{
+                    out += &format!("    mov rax, QWORD [r9]\n    mov [rdi-{}], rax\n    sub r9, 8\n", max-count);
+                    count += 8;
+                }
             }
             out += "    mov rsp, rbp\n";
             out += "    sub rsp, 32\n";

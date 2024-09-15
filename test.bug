@@ -1,11 +1,17 @@
-fn calc_stat_bonus(stat:int)->int{
-   return stat;
+struct Stats {
+   strength:int
+   dexterity:int 
+   constitution:int 
+   intelligence:int
+   wisdom:int 
+   charisma:int
+};
+pub fn new_stats()->Stats{
+   let out = Stats{10,10,10,10,10,10};
+   return out;
 }
 pub fn main()->int{
-   let a = calc_stat_bonus(20);
-   put_str_ln("testing "+to_string(a));
-   put_str_ln(to_string(1+2*3));
-   put_str_ln("hey toast i love you");
+   let s = new_stats();
    return 0;
 }
 
