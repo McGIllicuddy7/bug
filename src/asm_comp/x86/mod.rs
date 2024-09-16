@@ -133,7 +133,7 @@ impl ArgCPU {
                 let mut offset = 0;
                 for i in components {
                     let op = format!("{arg_v}-{offset}");
-                    out += &self.generate_arg(&op, arg_t, to_pop_stack);
+                    out += &self.generate_arg(&op, &i.1, to_pop_stack);
                     offset += i.1.get_size_bytes();
                 }
                 return out;

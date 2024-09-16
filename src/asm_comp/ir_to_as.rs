@@ -88,7 +88,7 @@ pub fn compile_ir_op_to_x86(
                     *stack += &format!(
                         "    lea {}, [rbp-{}]\n",
                         get_sreg(left),
-                        stack_offset + 8 + offset
+                        stack_offset+8  + offset
                     );
                     return get_sreg(left);
                 }
@@ -376,10 +376,12 @@ pub fn compile_ir_instr_to_x86(
             }
             for i in args {
                 let mut tmp_st = String::new();
-                let s = compile_ir_op_to_x86(i, true, &mut tmp_st, statics, statics_count);
+                let s = compile_ir_op_to_x86(i, false, &mut tmp_st, statics, statics_count);
                 vs.push(tmp_st + &ag.generate_arg(&s, &i.get_type(), &mut pop_count));
             }
             vs.reverse();
+            st += "    push r9\n";
+            st += "    push r10\n";
             if (stack_ptr_when_called) % 16 != 0 {
                 st += "    push r10\n";
             }
@@ -394,14 +396,16 @@ pub fn compile_ir_instr_to_x86(
                     st += &format!("    call {}\n", func_name);
                 }
             }
+            if stack_ptr_when_called % 16 != 0 {
+                st += &format!("    pop r10");
+            }
+            st += "    pop r10\n";
+            st += "    pop r9\n";
             if vtype.get_size_bytes() <= 16 {
                 st += &format!("    mov QWORD[{}], rax\n", tstr);
                 if vtype.get_size_bytes() > 8 {
                     st += &format!("    mov QWORD[{}-8], rdx\n", tstr);
                 }
-            }
-            if stack_ptr_when_called % 16 != 0 {
-                st += &format!("    pop r10");
             }
             for _ in 0..pop_count {
                 st += "    pop r10\n";

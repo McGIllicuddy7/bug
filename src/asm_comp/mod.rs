@@ -62,11 +62,29 @@ pub fn compile_function(func:&mut Function, filename:&str, functions:&HashMap<St
         out += &format!("   mov QWORD[rbp-{}], {}\n",32,arg_state.get_next_location().expect(""));
         stack_count += 8;
     }
+    let mut v = 0;
+    let arg_total;
+    out += &{
+        let mut total = 0;
+        func.args[0..func.args.len()].iter().for_each(|i| total+= i.get_size_bytes()); 
+        arg_total = total+stack_count;
+        format!("   sub rsp, {}\n", total)
+    };
+    let mut stack_arg_count = 0;
+    let mut stack_arg_size = 0;
     for count in 0..func.args.len(){
-        let mut v = 0;
         while v<func.args[count].get_size_bytes(){
-            out += &format!("   push r10\n");
-            out += &format!("   mov QWORD[rbp-{}], {}\n",stack_count,arg_state.get_next_location().expect(""));
+            let n = arg_state.get_next_location();
+            if let Some(next) = n{
+                out += &format!("   mov QWORD[rbp-{}], {}\n",arg_total-stack_count,next);
+            } else{
+                if stack_arg_size == 0{
+                    func.args[count..func.args.len()].iter().for_each(|i| stack_arg_size+= i.get_size_bytes());
+                }
+                out += &format!("   mov r10, QWORD[rbp+{}]\n", stack_arg_size-stack_arg_count);
+                out += &format!("   mov QWORD[rbp-{}], r10\n",arg_total-stack_count);
+                stack_arg_count += 8;
+            }
             v+= 8;
             stack_count += 8;
         }

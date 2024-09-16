@@ -79,15 +79,18 @@ impl IrOperand{
             Self::StacKOperand { var_idx:_, name:_, stack_offset:_, vtype }=>{
                 return vtype.clone();
             }
-            Self::FieldAccess { base, name:_ }=>{
+            Self::FieldAccess { base, name }=>{
+                let fname = name;
                 let bs = base.get_type();
                 match &bs{
-                    Type::StructT { name, components }=>{
+                    Type::StructT { name:_, components }=>{
                         for i in components{
-                            if &i.0 == name.as_ref(){
+                            if &i.0 == fname.as_ref(){
                                return i.1.clone(); 
                             }
                         }
+                        println!("struct:{:#?}, name:{}", bs, fname.as_ref());
+                        unreachable!();
                     }
                     _=>{
                         unreachable!();
@@ -1310,7 +1313,7 @@ pub fn compile_function_to_ir(
 ) -> Vec<IrInstr> {
     let mut out = vec![IrInstr::BeginScope{stack_ptr:0}];
     let mut variable_counter = 0;
-    let mut stack_ptr = 32;
+    let mut stack_ptr = 40;
     if func.return_type.get_size_bytes()>16{
         stack_ptr += 8;
     }
