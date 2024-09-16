@@ -57,9 +57,9 @@ pub fn compile_function(func:&mut Function, filename:&str, functions:&HashMap<St
     out += "    push rdx\n";
     out += "    push r10\n";
     let mut arg_state = ArgCPU::new(); 
-    let mut stack_count = 32;
+    let mut stack_count = 48;
     if func.return_type.get_size_bytes()>16{
-        out += &format!("   mov QWORD[rbp-{}], {}\n",stack_count,arg_state.get_next_location().expect(""));
+        out += &format!("   mov QWORD[rbp-{}], {}\n",32,arg_state.get_next_location().expect(""));
         stack_count += 8;
     }
     for count in 0..func.args.len(){

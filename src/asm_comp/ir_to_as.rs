@@ -433,8 +433,8 @@ pub fn compile_ir_instr_to_x86(
             while count < total {
                 stack += &format!("    mov rcx,QWORD [rbx]\n");
                 stack += &format!("    mov QWORD [rax], rcx\n");
-                stack += &format!("    add rax,8\n");
-                stack += &format!("    add rbx, 8\n");
+                stack += &format!("    sub rax,8\n");
+                stack += &format!("    sub rbx, 8\n");
                 count += 8;
             }
             stack += &format!("");
