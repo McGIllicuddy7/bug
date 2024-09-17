@@ -1313,7 +1313,7 @@ pub fn compile_function_to_ir(
 ) -> Vec<IrInstr> {
     let mut out = vec![IrInstr::BeginScope{stack_ptr:0}];
     let mut variable_counter = 0;
-    let mut stack_ptr = 40;
+    let mut stack_ptr = 32;
     if func.return_type.get_size_bytes()>16{
         stack_ptr += 8;
     }

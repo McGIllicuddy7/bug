@@ -385,7 +385,7 @@ pub fn compile_ir_instr_to_x86(
             }
             st += "    push r11\n";
             st += "    push r10\n";
-            if (stack_ptr_when_called) % 16 != 0 {
+            if (stack_ptr_when_called) % 16 != 0{
                 st += "    push r10\n";
             }
             match cmp_target {
@@ -488,7 +488,7 @@ pub fn compile_ir_instr_to_x86(
             stack_ptr,
         } => {
             let t = to_return.get_type();
-            let mut out = (if stack_ptr % 16 != 8 {
+            let mut out = (if stack_ptr % 16 != 0 {
                 "    push r10\n"
             } else {
                 ""
@@ -503,7 +503,7 @@ pub fn compile_ir_instr_to_x86(
             }
             let a = compile_ir_op_to_x86(to_return, true, &mut out, statics, statics_count);
             if t.get_size_bytes() == 0 {
-            } else if t.get_size_bytes() <= 8 {
+            } else if t.get_size_bytes() <= 0 {
                 if a.contains("r") {
                     out += &format!("    mov rax, QWORD [{}]\n", a);
                 } else {
