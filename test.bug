@@ -6,14 +6,14 @@ struct Stats {
    wisdom:int 
    charisma:int
 };
-pub fn print_stats(stats:Stats)->void{
-   put_str_ln(stats.strength);
+pub fn print_stats(name:string stats:Stats)->string{
+   return name;
 }
 pub fn main()->int{
    let a = Stats{10,10,10,10,10,10};
    let b = Stats{10,10,10,10,10,10};
    b.strength = 32;
-   print_stats(b);
+   print_stats("hello world",b);
    return 0;
 }
 

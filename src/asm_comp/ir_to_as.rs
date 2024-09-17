@@ -11,7 +11,7 @@ fn get_asmx86_type_name(vtype: &Type) -> &'static str {
 
 fn get_sreg(left: bool) -> String {
     if left {
-        return "r9".to_owned();
+        return "r11".to_owned();
     } else {
         return "r10".to_owned();
     }
@@ -380,13 +380,13 @@ pub fn compile_ir_instr_to_x86(
                 vs.push(tmp_st + &ag.generate_arg(&s, &i.get_type(), &mut pop_count));
             }
             vs.reverse();
-            st += "    push r9\n";
+            for i in &vs {
+                st += i;
+            }
+            st += "    push r11\n";
             st += "    push r10\n";
             if (stack_ptr_when_called) % 16 != 0 {
                 st += "    push r10\n";
-            }
-            for i in &vs {
-                st += i;
             }
             match cmp_target {
                 Target::MacOs { arm: _ } => {
@@ -397,10 +397,10 @@ pub fn compile_ir_instr_to_x86(
                 }
             }
             if stack_ptr_when_called % 16 != 0 {
-                st += &format!("    pop r10");
+                st += &format!("    pop r10\n");
             }
             st += "    pop r10\n";
-            st += "    pop r9\n";
+            st += "    pop r11\n";
             if vtype.get_size_bytes() <= 16 {
                 st += &format!("    mov QWORD[{}], rax\n", tstr);
                 if vtype.get_size_bytes() > 8 {
@@ -488,7 +488,7 @@ pub fn compile_ir_instr_to_x86(
             stack_ptr,
         } => {
             let t = to_return.get_type();
-            let mut out = (if stack_ptr % 16 != 0 {
+            let mut out = (if stack_ptr % 16 != 8 {
                 "    push r10\n"
             } else {
                 ""
@@ -498,7 +498,7 @@ pub fn compile_ir_instr_to_x86(
                 Target::MacOs { arm: _ } => "    call _gc_pop_frame\n",
                 _ => "    call gc_pop_frame\n",
             };
-            if stack_ptr % 16 != 0 {
+            if stack_ptr % 16 != 8 {
                 out += "    pop r10\n";
             }
             let a = compile_ir_op_to_x86(to_return, true, &mut out, statics, statics_count);
