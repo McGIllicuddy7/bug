@@ -1,6 +1,4 @@
-use crate::{
-    get_function_by_args, Function, FunctionTable
-};
+use crate::{get_function_by_args, Function, FunctionTable};
 use crate::{AstNode, Type};
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -44,63 +42,72 @@ pub enum IrOperand {
         value: Box<IrOperand>,
     },
 }
-impl IrOperand{
-    pub fn get_type(&self)->Type{
-        match self{
-            Self::IntLiteral { value:_}=>{
+impl IrOperand {
+    pub fn get_type(&self) -> Type {
+        match self {
+            Self::IntLiteral { value: _ } => {
                 return Type::IntegerT;
-            
             }
-            Self::FloatLiteral { value:_ }=>{
+            Self::FloatLiteral { value: _ } => {
                 return Type::FloatT;
             }
-            Self::ArrayAccess { base, value:_ }=>{
+            Self::ArrayAccess { base, value: _ } => {
                 return base.get_type().get_array_type().expect("");
             }
-            Self::CharLiteral { value:_ }=>{
+            Self::CharLiteral { value: _ } => {
                 return Type::CharT;
             }
-            Self::Deref { to_deref }=>{
-                match to_deref.get_type(){
-                    Type::PointerT{ptr_type}=>{
-                        return ptr_type.as_ref().clone();
-                    }
-                    _=>{ 
-                        unreachable!();
-                    }
+            Self::Deref { to_deref } => match to_deref.get_type() {
+                Type::PointerT { ptr_type } => {
+                    return ptr_type.as_ref().clone();
                 }
+                _ => {
+                    unreachable!();
+                }
+            },
+            Self::TakeRef { to_ref } => {
+                return Type::PointerT {
+                    ptr_type: Rc::new(to_ref.get_type().clone()),
+                };
             }
-            Self::TakeRef { to_ref } =>{
-                return Type::PointerT { ptr_type: Rc::new(to_ref.get_type().clone())};
-            }
-            Self::Name { name:_, vtype }=>{
+            Self::Name { name: _, vtype } => {
                 return vtype.clone();
             }
-            Self::StacKOperand { var_idx:_, name:_, stack_offset:_, vtype }=>{
+            Self::StacKOperand {
+                var_idx: _,
+                name: _,
+                stack_offset: _,
+                vtype,
+            } => {
                 return vtype.clone();
             }
-            Self::FieldAccess { base, name }=>{
+            Self::FieldAccess { base, name } => {
                 let fname = name;
                 let bs = base.get_type();
-                match &bs{
-                    Type::StructT { name:_, components }=>{
-                        for i in components{
-                            if &i.0 == fname.as_ref(){
-                               return i.1.clone(); 
+                match &bs {
+                    Type::StructT {
+                        name: _,
+                        components,
+                    } => {
+                        for i in components {
+                            if &i.0 == fname.as_ref() {
+                                return i.1.clone();
                             }
                         }
                         println!("struct:{:#?}, name:{}", bs, fname.as_ref());
                         unreachable!();
                     }
-                    _=>{
+                    _ => {
                         unreachable!();
                     }
                 }
             }
-            Self::StringLiteral { value:_ }=>{
-                return Type::PointerT { ptr_type: Rc::new(Type::CharT) };
+            Self::StringLiteral { value: _ } => {
+                return Type::PointerT {
+                    ptr_type: Rc::new(Type::CharT),
+                };
             }
-        } 
+        }
         todo!();
     }
 }
@@ -206,18 +213,18 @@ pub enum IrInstr {
     Call {
         func_name: String,
         args: Vec<IrOperand>,
-        stack_ptr_when_called:usize,
+        stack_ptr_when_called: usize,
     },
     CallWithRet {
         target: IrOperand,
         func_name: String,
         args: Vec<IrOperand>,
         vtype: Type,
-        stack_ptr_when_called:usize,
+        stack_ptr_when_called: usize,
     },
     Ret {
         to_return: IrOperand,
-        stack_ptr:usize,
+        stack_ptr: usize,
     },
     Push {
         vtype: Type,
@@ -226,8 +233,12 @@ pub enum IrInstr {
     Pop {
         vtype: Type,
     },
-    BeginScope{stack_ptr:usize},
-    EndScope{stack_ptr:usize}
+    BeginScope {
+        stack_ptr: usize,
+    },
+    EndScope {
+        stack_ptr: usize,
+    },
 }
 
 fn stack_push(
@@ -263,7 +274,7 @@ pub fn compile_ast_node_to_ir(
     functions: &HashMap<String, FunctionTable>,
     types: &HashMap<String, Type>,
     label_counter: &mut usize,
-    target:Option<IrOperand>
+    target: Option<IrOperand>,
 ) -> Option<IrOperand> {
     //println!("{:#?}", node);
     match node {
@@ -296,26 +307,64 @@ pub fn compile_ast_node_to_ir(
                 label_counter,
                 lv.clone(),
             );
-            match right.as_ref(){
-                AstNode::Add { left:_, right:_, data:_ } | 
-                AstNode::Sub { left:_, right:_, data:_ } |
-                AstNode::Mult { left:_, right:_, data:_ } |
-                AstNode::Div { left:_, right:_, data:_ } |
-                AstNode::And { left:_, right:_, data:_ } |
-                AstNode::Or{ left:_, right:_, data:_ } |
-                AstNode::GreaterOrEq { left:_, right:_, data:_ } |  
-                AstNode::LessOrEq { left:_, right:_, data:_ } |
-                AstNode::GreaterThan { left:_, right:_, data:_ } | 
-                AstNode::LessThan{ left:_, right:_, data:_ } | 
-                AstNode::Not { value:_, data:_ } =>{
-                    
+            match right.as_ref() {
+                AstNode::Add {
+                    left: _,
+                    right: _,
+                    data: _,
                 }
-                _=>{
-                val_stack.push(IrInstr::Mov {
-                left: lv?,
-                right: rv?,
-                vtype: left.get_type(functions, types).expect("bruh"),
-                });
+                | AstNode::Sub {
+                    left: _,
+                    right: _,
+                    data: _,
+                }
+                | AstNode::Mult {
+                    left: _,
+                    right: _,
+                    data: _,
+                }
+                | AstNode::Div {
+                    left: _,
+                    right: _,
+                    data: _,
+                }
+                | AstNode::And {
+                    left: _,
+                    right: _,
+                    data: _,
+                }
+                | AstNode::Or {
+                    left: _,
+                    right: _,
+                    data: _,
+                }
+                | AstNode::GreaterOrEq {
+                    left: _,
+                    right: _,
+                    data: _,
+                }
+                | AstNode::LessOrEq {
+                    left: _,
+                    right: _,
+                    data: _,
+                }
+                | AstNode::GreaterThan {
+                    left: _,
+                    right: _,
+                    data: _,
+                }
+                | AstNode::LessThan {
+                    left: _,
+                    right: _,
+                    data: _,
+                }
+                | AstNode::Not { value: _, data: _ } => {}
+                _ => {
+                    val_stack.push(IrInstr::Mov {
+                        left: lv?,
+                        right: rv?,
+                        vtype: left.get_type(functions, types).expect("bruh"),
+                    });
                 }
             }
         }
@@ -348,13 +397,17 @@ pub fn compile_ast_node_to_ir(
                 label_counter,
                 None,
             );
-            let target = if target.is_some(){ target.unwrap()} else{stack_push(
-                left.get_type(functions, types).expect("please work"),
-                val_stack,
-                variable_counter,
-                stack_ptr,
-                pop_table,
-            )};
+            let target = if target.is_some() {
+                target.unwrap()
+            } else {
+                stack_push(
+                    left.get_type(functions, types).expect("please work"),
+                    val_stack,
+                    variable_counter,
+                    stack_ptr,
+                    pop_table,
+                )
+            };
             val_stack.push(IrInstr::Add {
                 target: target.clone(),
                 left: lv?,
@@ -392,13 +445,17 @@ pub fn compile_ast_node_to_ir(
                 label_counter,
                 None,
             );
-            let target = if target.is_some(){ target.unwrap()} else{stack_push(
-                left.get_type(functions, types).expect("please work"),
-                val_stack,
-                variable_counter,
-                stack_ptr,
-                pop_table,
-            )};
+            let target = if target.is_some() {
+                target.unwrap()
+            } else {
+                stack_push(
+                    left.get_type(functions, types).expect("please work"),
+                    val_stack,
+                    variable_counter,
+                    stack_ptr,
+                    pop_table,
+                )
+            };
             val_stack.push(IrInstr::Sub {
                 target: target.clone(),
                 left: lv?,
@@ -436,13 +493,17 @@ pub fn compile_ast_node_to_ir(
                 label_counter,
                 None,
             );
-            let target = if target.is_some(){ target.unwrap()} else{stack_push(
-                left.get_type(functions, types).expect("please work"),
-                val_stack,
-                variable_counter,
-                stack_ptr,
-                pop_table,
-            )};
+            let target = if target.is_some() {
+                target.unwrap()
+            } else {
+                stack_push(
+                    left.get_type(functions, types).expect("please work"),
+                    val_stack,
+                    variable_counter,
+                    stack_ptr,
+                    pop_table,
+                )
+            };
             val_stack.push(IrInstr::Mul {
                 target: target.clone(),
                 left: lv?,
@@ -480,13 +541,17 @@ pub fn compile_ast_node_to_ir(
                 label_counter,
                 None,
             );
-            let target = if target.is_some(){ target.unwrap()} else{stack_push(
-                left.get_type(functions, types).expect("please work"),
-                val_stack,
-                variable_counter,
-                stack_ptr,
-                pop_table,
-            )};
+            let target = if target.is_some() {
+                target.unwrap()
+            } else {
+                stack_push(
+                    left.get_type(functions, types).expect("please work"),
+                    val_stack,
+                    variable_counter,
+                    stack_ptr,
+                    pop_table,
+                )
+            };
             val_stack.push(IrInstr::Div {
                 target: target.clone(),
                 left: lv?,
@@ -524,13 +589,17 @@ pub fn compile_ast_node_to_ir(
                 label_counter,
                 None,
             );
-            let target = if target.is_some(){ target.unwrap()} else{stack_push(
-                left.get_type(functions, types).expect("please work"),
-                val_stack,
-                variable_counter,
-                stack_ptr,
-                pop_table,
-            )};
+            let target = if target.is_some() {
+                target.unwrap()
+            } else {
+                stack_push(
+                    left.get_type(functions, types).expect("please work"),
+                    val_stack,
+                    variable_counter,
+                    stack_ptr,
+                    pop_table,
+                )
+            };
             val_stack.push(IrInstr::And {
                 target: target.clone(),
                 left: lv?,
@@ -568,13 +637,17 @@ pub fn compile_ast_node_to_ir(
                 label_counter,
                 None,
             );
-            let target = if target.is_some(){ target.unwrap()} else{stack_push(
-                left.get_type(functions, types).expect("please work"),
-                val_stack,
-                variable_counter,
-                stack_ptr,
-                pop_table,
-            )};
+            let target = if target.is_some() {
+                target.unwrap()
+            } else {
+                stack_push(
+                    left.get_type(functions, types).expect("please work"),
+                    val_stack,
+                    variable_counter,
+                    stack_ptr,
+                    pop_table,
+                )
+            };
             val_stack.push(IrInstr::Add {
                 target: target.clone(),
                 left: lv?,
@@ -612,13 +685,17 @@ pub fn compile_ast_node_to_ir(
                 label_counter,
                 None,
             );
-            let target = if target.is_some(){ target.unwrap()} else{stack_push(
-                left.get_type(functions, types).expect("please work"),
-                val_stack,
-                variable_counter,
-                stack_ptr,
-                pop_table,
-            )};
+            let target = if target.is_some() {
+                target.unwrap()
+            } else {
+                stack_push(
+                    left.get_type(functions, types).expect("please work"),
+                    val_stack,
+                    variable_counter,
+                    stack_ptr,
+                    pop_table,
+                )
+            };
             val_stack.push(IrInstr::Equals {
                 target: target.clone(),
                 left: lv?,
@@ -656,13 +733,17 @@ pub fn compile_ast_node_to_ir(
                 label_counter,
                 None,
             );
-            let target = if target.is_some(){ target.unwrap()} else{stack_push(
-                left.get_type(functions, types).expect("please work"),
-                val_stack,
-                variable_counter,
-                stack_ptr,
-                pop_table,
-            )};
+            let target = if target.is_some() {
+                target.unwrap()
+            } else {
+                stack_push(
+                    left.get_type(functions, types).expect("please work"),
+                    val_stack,
+                    variable_counter,
+                    stack_ptr,
+                    pop_table,
+                )
+            };
             val_stack.push(IrInstr::GreaterThan {
                 target: target.clone(),
                 left: lv?,
@@ -700,13 +781,17 @@ pub fn compile_ast_node_to_ir(
                 label_counter,
                 None,
             );
-            let target = if target.is_some(){ target.unwrap()} else{stack_push(
-                left.get_type(functions, types).expect("please work"),
-                val_stack,
-                variable_counter,
-                stack_ptr,
-                pop_table,
-            )};
+            let target = if target.is_some() {
+                target.unwrap()
+            } else {
+                stack_push(
+                    left.get_type(functions, types).expect("please work"),
+                    val_stack,
+                    variable_counter,
+                    stack_ptr,
+                    pop_table,
+                )
+            };
             val_stack.push(IrInstr::LessThan {
                 target: target.clone(),
                 left: lv?,
@@ -744,13 +829,17 @@ pub fn compile_ast_node_to_ir(
                 label_counter,
                 None,
             );
-            let target = if target.is_some(){ target.unwrap()} else{stack_push(
-                left.get_type(functions, types).expect("please work"),
-                val_stack,
-                variable_counter,
-                stack_ptr,
-                pop_table,
-            )};
+            let target = if target.is_some() {
+                target.unwrap()
+            } else {
+                stack_push(
+                    left.get_type(functions, types).expect("please work"),
+                    val_stack,
+                    variable_counter,
+                    stack_ptr,
+                    pop_table,
+                )
+            };
             val_stack.push(IrInstr::GreaterThanOrEq {
                 target: target.clone(),
                 left: lv?,
@@ -788,13 +877,17 @@ pub fn compile_ast_node_to_ir(
                 label_counter,
                 None,
             );
-            let target = if target.is_some(){ target.unwrap()} else{stack_push(
-                left.get_type(functions, types).expect("please work"),
-                val_stack,
-                variable_counter,
-                stack_ptr,
-                pop_table,
-            )};
+            let target = if target.is_some() {
+                target.unwrap()
+            } else {
+                stack_push(
+                    left.get_type(functions, types).expect("please work"),
+                    val_stack,
+                    variable_counter,
+                    stack_ptr,
+                    pop_table,
+                )
+            };
             val_stack.push(IrInstr::LessThanOrEq {
                 target: target.clone(),
                 left: lv?,
@@ -803,7 +896,7 @@ pub fn compile_ast_node_to_ir(
             });
             return Some(target);
         }
-        AstNode::Not { value, data :_} => {
+        AstNode::Not { value, data: _ } => {
             let v = compile_ast_node_to_ir(
                 value,
                 val_stack,
@@ -816,13 +909,17 @@ pub fn compile_ast_node_to_ir(
                 label_counter,
                 None,
             )?;
-            let target = if target.is_some(){ target.unwrap()} else{stack_push(
-                value.get_type(functions, types).expect("please work"),
-                val_stack,
-                variable_counter,
-                stack_ptr,
-                pop_table,
-            )};
+            let target = if target.is_some() {
+                target.unwrap()
+            } else {
+                stack_push(
+                    value.get_type(functions, types).expect("please work"),
+                    val_stack,
+                    variable_counter,
+                    stack_ptr,
+                    pop_table,
+                )
+            };
             val_stack.push(IrInstr::Not {
                 target: target.clone(),
                 value: v.clone(),
@@ -858,13 +955,17 @@ pub fn compile_ast_node_to_ir(
                 label_counter,
                 None,
             );
-            let target = if target.is_some(){ target.unwrap()} else{stack_push(
-                left.get_type(functions, types).expect("please work"),
-                val_stack,
-                variable_counter,
-                stack_ptr,
-                pop_table,
-            )};
+            let target = if target.is_some() {
+                target.unwrap()
+            } else {
+                stack_push(
+                    left.get_type(functions, types).expect("please work"),
+                    val_stack,
+                    variable_counter,
+                    stack_ptr,
+                    pop_table,
+                )
+            };
             val_stack.push(IrInstr::NotEquals {
                 target: target.clone(),
                 left: lv?,
@@ -879,9 +980,14 @@ pub fn compile_ast_node_to_ir(
             value_assigned,
             data: _,
         } => {
-            let op = IrOperand::StacKOperand { var_idx:*variable_counter, name: ("user_".to_owned()+&name).into(), stack_offset: *stack_ptr, vtype: var_type.clone() };
+            let op = IrOperand::StacKOperand {
+                var_idx: *variable_counter,
+                name: ("user_".to_owned() + &name).into(),
+                stack_offset: *stack_ptr,
+                vtype: var_type.clone(),
+            };
             val_stack.push(IrInstr::VariableDeclaration {
-                name: ("user_".to_owned()+&name).into(),
+                name: ("user_".to_owned() + &name).into(),
                 vtype: var_type.clone(),
             });
             pop_table.push(var_type.clone());
@@ -939,7 +1045,7 @@ pub fn compile_ast_node_to_ir(
                 let tmp = IrInstr::Call {
                     func_name: fname,
                     args: f_args,
-                    stack_ptr_when_called:*stack_ptr,
+                    stack_ptr_when_called: *stack_ptr,
                 };
                 val_stack.push(tmp);
             } else {
@@ -955,7 +1061,7 @@ pub fn compile_ast_node_to_ir(
                     func_name: fname,
                     args: f_args,
                     vtype: func.return_type,
-                    stack_ptr_when_called:*stack_ptr,
+                    stack_ptr_when_called: *stack_ptr,
                 };
                 val_stack.push(tmp);
                 return Some(return_v);
@@ -1042,7 +1148,7 @@ pub fn compile_ast_node_to_ir(
             });
         }
         AstNode::Deref { thing_to_deref } => {
-            return Some(IrOperand::Deref{
+            return Some(IrOperand::Deref {
                 to_deref: Box::new(compile_ast_node_to_ir(
                     thing_to_deref,
                     val_stack,
@@ -1087,7 +1193,7 @@ pub fn compile_ast_node_to_ir(
                 func_name: "make_string_from".to_owned(),
                 args: vec![tmp, ln],
                 vtype: Type::StringT,
-                stack_ptr_when_called:*stack_ptr,
+                stack_ptr_when_called: *stack_ptr,
             });
             return Some(out);
         }
@@ -1096,70 +1202,182 @@ pub fn compile_ast_node_to_ir(
                 size: nodes.len(),
                 array_type: Rc::new(nodes[0].get_type(functions, types).expect("must have type")),
             };
-            let ops:Vec<IrOperand> = nodes.iter().map(|i| compile_ast_node_to_ir(i, val_stack, variable_counter, stack_ptr, pop_table, name_table, functions, types, label_counter,None).expect("")).collect();
-            let out = stack_push(vtype.clone(), val_stack, variable_counter, stack_ptr, pop_table);
-            for i in 0..nodes.len(){
-               val_stack.push(IrInstr::Mov { left: IrOperand::ArrayAccess { base: Box::new(out.clone()), value: Box::new(IrOperand::IntLiteral { value: i as i64 }) }, right: ops[i].clone(), vtype:vtype.clone()}); 
+            let ops: Vec<IrOperand> = nodes
+                .iter()
+                .map(|i| {
+                    compile_ast_node_to_ir(
+                        i,
+                        val_stack,
+                        variable_counter,
+                        stack_ptr,
+                        pop_table,
+                        name_table,
+                        functions,
+                        types,
+                        label_counter,
+                        None,
+                    )
+                    .expect("")
+                })
+                .collect();
+            let out = stack_push(
+                vtype.clone(),
+                val_stack,
+                variable_counter,
+                stack_ptr,
+                pop_table,
+            );
+            for i in 0..nodes.len() {
+                val_stack.push(IrInstr::Mov {
+                    left: IrOperand::ArrayAccess {
+                        base: Box::new(out.clone()),
+                        value: Box::new(IrOperand::IntLiteral { value: i as i64 }),
+                    },
+                    right: ops[i].clone(),
+                    vtype: vtype.clone(),
+                });
             }
-            return Some(out); 
+            return Some(out);
         }
         AstNode::StructLiteral { vtype, nodes } => {
-            let ops:Vec<IrOperand> = nodes.iter().map(|i| compile_ast_node_to_ir(i, val_stack, variable_counter, stack_ptr, pop_table, name_table, functions, types, label_counter,None).expect("")).collect();
-            let out = stack_push(vtype.clone(), val_stack, variable_counter, stack_ptr, pop_table);
-            let comps = match vtype{
-                Type::StructT { name, components }=>{
-                    components.clone()
-                }
-                _=>{
+            let ops: Vec<IrOperand> = nodes
+                .iter()
+                .map(|i| {
+                    compile_ast_node_to_ir(
+                        i,
+                        val_stack,
+                        variable_counter,
+                        stack_ptr,
+                        pop_table,
+                        name_table,
+                        functions,
+                        types,
+                        label_counter,
+                        None,
+                    )
+                    .expect("")
+                })
+                .collect();
+            let out = stack_push(
+                vtype.clone(),
+                val_stack,
+                variable_counter,
+                stack_ptr,
+                pop_table,
+            );
+            let comps = match vtype {
+                Type::StructT { name, components } => components.clone(),
+                _ => {
                     unreachable!();
                 }
             };
-            for i in 0..nodes.len(){
-                let tmp = IrOperand::FieldAccess { base: Box::new(out.clone()), name: comps[i].0.clone().into() };
-                val_stack.push(IrInstr::Mov { left: tmp, right: ops[i].clone(), vtype: comps[i].1.clone() })
+            for i in 0..nodes.len() {
+                let tmp = IrOperand::FieldAccess {
+                    base: Box::new(out.clone()),
+                    name: comps[i].0.clone().into(),
+                };
+                val_stack.push(IrInstr::Mov {
+                    left: tmp,
+                    right: ops[i].clone(),
+                    vtype: comps[i].1.clone(),
+                })
             }
-            return Some(out); 
+            return Some(out);
         }
         AstNode::If {
             condition,
             thing_to_do,
             r#else,
         } => {
-            let cond = compile_ast_node_to_ir(&condition, val_stack, variable_counter, stack_ptr, pop_table, name_table, functions, types, label_counter,None)?;
+            let cond = compile_ast_node_to_ir(
+                &condition,
+                val_stack,
+                variable_counter,
+                stack_ptr,
+                pop_table,
+                name_table,
+                functions,
+                types,
+                label_counter,
+                None,
+            )?;
             let base_label = *label_counter;
-            let else_label = *label_counter+1;
-            let end_label = *label_counter+2;
+            let else_label = *label_counter + 1;
+            let end_label = *label_counter + 2;
             *label_counter += 3;
-            val_stack.push(IrInstr::CondGoto { cond: cond, target: format!("L{}",base_label) });
-            val_stack.push(IrInstr::Goto { target: format!("L{}",else_label) });
-            val_stack.push(IrInstr::Label { name: format!("L{}",base_label) });
-            val_stack.push(IrInstr::BeginScope{stack_ptr:*stack_ptr});
+            val_stack.push(IrInstr::CondGoto {
+                cond: cond,
+                target: format!("L{}", base_label),
+            });
+            val_stack.push(IrInstr::Goto {
+                target: format!("L{}", else_label),
+            });
+            val_stack.push(IrInstr::Label {
+                name: format!("L{}", base_label),
+            });
+            val_stack.push(IrInstr::BeginScope {
+                stack_ptr: *stack_ptr,
+            });
             let mut body_pop_table = vec![];
-            for i in thing_to_do{
-                compile_ast_node_to_ir(i, val_stack, variable_counter, stack_ptr, &mut body_pop_table, name_table, functions, types, label_counter,None);
+            for i in thing_to_do {
+                compile_ast_node_to_ir(
+                    i,
+                    val_stack,
+                    variable_counter,
+                    stack_ptr,
+                    &mut body_pop_table,
+                    name_table,
+                    functions,
+                    types,
+                    label_counter,
+                    None,
+                );
             }
             body_pop_table.reverse();
-            for i in body_pop_table{
-                val_stack.push(IrInstr::Pop {vtype:i});
+            for i in body_pop_table {
+                val_stack.push(IrInstr::Pop { vtype: i });
             }
-            val_stack.push(IrInstr::EndScope{stack_ptr:*stack_ptr});
-            val_stack.push(IrInstr::Goto{target:format!("L{}",end_label)});
-            val_stack.push(IrInstr::Label { name: format!("L{}",else_label )});
-            if r#else.is_some(){
-                val_stack.push(IrInstr::BeginScope{stack_ptr:*stack_ptr});
+            val_stack.push(IrInstr::EndScope {
+                stack_ptr: *stack_ptr,
+            });
+            val_stack.push(IrInstr::Goto {
+                target: format!("L{}", end_label),
+            });
+            val_stack.push(IrInstr::Label {
+                name: format!("L{}", else_label),
+            });
+            if r#else.is_some() {
+                val_stack.push(IrInstr::BeginScope {
+                    stack_ptr: *stack_ptr,
+                });
                 let elblk = r#else.as_ref().expect("is some");
                 let mut pop_stack = vec![];
-                for i in elblk{
-                    compile_ast_node_to_ir(i, val_stack, variable_counter, stack_ptr, &mut pop_stack, name_table, functions, types, label_counter,None);
+                for i in elblk {
+                    compile_ast_node_to_ir(
+                        i,
+                        val_stack,
+                        variable_counter,
+                        stack_ptr,
+                        &mut pop_stack,
+                        name_table,
+                        functions,
+                        types,
+                        label_counter,
+                        None,
+                    );
                 }
                 pop_stack.reverse();
-                for i in pop_stack{
-                    val_stack.push(IrInstr::Pop { vtype: i});
+                for i in pop_stack {
+                    val_stack.push(IrInstr::Pop { vtype: i });
                 }
-                val_stack.push(IrInstr::EndScope{stack_ptr:*stack_ptr});
+                val_stack.push(IrInstr::EndScope {
+                    stack_ptr: *stack_ptr,
+                });
             }
-     
-            val_stack.push(IrInstr::Label { name: format!("L{}",end_label)});
+
+            val_stack.push(IrInstr::Label {
+                name: format!("L{}", end_label),
+            });
         }
         AstNode::ForLoop {
             variable,
@@ -1168,57 +1386,169 @@ pub fn compile_ast_node_to_ir(
             body,
         } => {
             let base = *label_counter;
-            let end = *label_counter+1;
+            let end = *label_counter + 1;
             let lbody = *label_counter + 2;
             *label_counter += 3;
-            val_stack.push(IrInstr::BeginScope{stack_ptr:*stack_ptr}); 
-            let _ = compile_ast_node_to_ir(variable, val_stack, variable_counter, stack_ptr, pop_table, name_table, functions, types, label_counter,None);
-            val_stack.push(IrInstr::Label { name: format!("L{}", base )}); 
-            val_stack.push(IrInstr::BeginScope{stack_ptr:*stack_ptr});    
+            val_stack.push(IrInstr::BeginScope {
+                stack_ptr: *stack_ptr,
+            });
+            let _ = compile_ast_node_to_ir(
+                variable,
+                val_stack,
+                variable_counter,
+                stack_ptr,
+                pop_table,
+                name_table,
+                functions,
+                types,
+                label_counter,
+                None,
+            );
+            val_stack.push(IrInstr::Label {
+                name: format!("L{}", base),
+            });
+            val_stack.push(IrInstr::BeginScope {
+                stack_ptr: *stack_ptr,
+            });
             let mut loop_pop_table = vec![];
-            let tmp = compile_ast_node_to_ir(condition, val_stack, variable_counter, stack_ptr, pop_table, name_table, functions, types, label_counter,None)?; 
-            val_stack.push(IrInstr::CondGoto { cond: tmp, target: format!("L{}",lbody)});
-            val_stack.push(IrInstr::Goto { target: format!("L{}",end) });
-            val_stack.push(IrInstr::Label { name: format!("L{}",lbody) });
-            val_stack.push(IrInstr::BeginScope{stack_ptr:*stack_ptr});
-            for i in body{
-                compile_ast_node_to_ir(i, val_stack, variable_counter, stack_ptr,&mut loop_pop_table, name_table, functions, types, label_counter,None);
-            } 
-            compile_ast_node_to_ir(post_op, val_stack, variable_counter, stack_ptr, &mut loop_pop_table, name_table, functions, types, label_counter,None);
+            let tmp = compile_ast_node_to_ir(
+                condition,
+                val_stack,
+                variable_counter,
+                stack_ptr,
+                pop_table,
+                name_table,
+                functions,
+                types,
+                label_counter,
+                None,
+            )?;
+            val_stack.push(IrInstr::CondGoto {
+                cond: tmp,
+                target: format!("L{}", lbody),
+            });
+            val_stack.push(IrInstr::Goto {
+                target: format!("L{}", end),
+            });
+            val_stack.push(IrInstr::Label {
+                name: format!("L{}", lbody),
+            });
+            val_stack.push(IrInstr::BeginScope {
+                stack_ptr: *stack_ptr,
+            });
+            for i in body {
+                compile_ast_node_to_ir(
+                    i,
+                    val_stack,
+                    variable_counter,
+                    stack_ptr,
+                    &mut loop_pop_table,
+                    name_table,
+                    functions,
+                    types,
+                    label_counter,
+                    None,
+                );
+            }
+            compile_ast_node_to_ir(
+                post_op,
+                val_stack,
+                variable_counter,
+                stack_ptr,
+                &mut loop_pop_table,
+                name_table,
+                functions,
+                types,
+                label_counter,
+                None,
+            );
             loop_pop_table.reverse();
-            for i in loop_pop_table{
+            for i in loop_pop_table {
                 val_stack.push(IrInstr::Pop { vtype: i });
             }
-            val_stack.push(IrInstr::EndScope{stack_ptr:*stack_ptr});
-            val_stack.push(IrInstr::EndScope{stack_ptr:*stack_ptr});
-            val_stack.push(IrInstr::Goto { target: format!("L{}",base) });
-            val_stack.push(IrInstr::Label { name: format!("L{}",end) });
-            val_stack.push(IrInstr::EndScope{stack_ptr:*stack_ptr});
+            val_stack.push(IrInstr::EndScope {
+                stack_ptr: *stack_ptr,
+            });
+            val_stack.push(IrInstr::EndScope {
+                stack_ptr: *stack_ptr,
+            });
+            val_stack.push(IrInstr::Goto {
+                target: format!("L{}", base),
+            });
+            val_stack.push(IrInstr::Label {
+                name: format!("L{}", end),
+            });
+            val_stack.push(IrInstr::EndScope {
+                stack_ptr: *stack_ptr,
+            });
         }
         AstNode::Loop { condition, body } => {
             let base = *label_counter;
-            let end = *label_counter+1;
+            let end = *label_counter + 1;
             let lbody = *label_counter + 2;
             *label_counter += 3;
-            val_stack.push(IrInstr::Label { name: format!("L{}", base )}); 
-            val_stack.push(IrInstr::BeginScope{stack_ptr:*stack_ptr});   
-            let tmp = compile_ast_node_to_ir(condition, val_stack, variable_counter, stack_ptr, pop_table, name_table, functions, types, label_counter,None)?; 
-            val_stack.push(IrInstr::CondGoto { cond: tmp, target: format!("L{}",lbody)});
-            val_stack.push(IrInstr::Goto { target: format!("L{}",end) });
-            val_stack.push(IrInstr::Label { name: format!("L{}",lbody) });
-            val_stack.push(IrInstr::BeginScope{stack_ptr:*stack_ptr});
+            val_stack.push(IrInstr::Label {
+                name: format!("L{}", base),
+            });
+            val_stack.push(IrInstr::BeginScope {
+                stack_ptr: *stack_ptr,
+            });
+            let tmp = compile_ast_node_to_ir(
+                condition,
+                val_stack,
+                variable_counter,
+                stack_ptr,
+                pop_table,
+                name_table,
+                functions,
+                types,
+                label_counter,
+                None,
+            )?;
+            val_stack.push(IrInstr::CondGoto {
+                cond: tmp,
+                target: format!("L{}", lbody),
+            });
+            val_stack.push(IrInstr::Goto {
+                target: format!("L{}", end),
+            });
+            val_stack.push(IrInstr::Label {
+                name: format!("L{}", lbody),
+            });
+            val_stack.push(IrInstr::BeginScope {
+                stack_ptr: *stack_ptr,
+            });
             let mut loop_pop_table = vec![];
-            for i in body{
-                compile_ast_node_to_ir(i, val_stack, variable_counter, stack_ptr, &mut loop_pop_table, name_table, functions, types, label_counter,None);
+            for i in body {
+                compile_ast_node_to_ir(
+                    i,
+                    val_stack,
+                    variable_counter,
+                    stack_ptr,
+                    &mut loop_pop_table,
+                    name_table,
+                    functions,
+                    types,
+                    label_counter,
+                    None,
+                );
             }
             loop_pop_table.reverse();
-            for i in loop_pop_table{
-                val_stack.push(IrInstr::Pop { vtype: i});
+            for i in loop_pop_table {
+                val_stack.push(IrInstr::Pop { vtype: i });
             }
-            val_stack.push(IrInstr::EndScope{stack_ptr:*stack_ptr});
-            val_stack.push(IrInstr::EndScope{stack_ptr:*stack_ptr});
-            val_stack.push(IrInstr::Goto { target: format!("L{}",base) });
-            val_stack.push(IrInstr::Label { name: format!("L{}",end) });
+            val_stack.push(IrInstr::EndScope {
+                stack_ptr: *stack_ptr,
+            });
+            val_stack.push(IrInstr::EndScope {
+                stack_ptr: *stack_ptr,
+            });
+            val_stack.push(IrInstr::Goto {
+                target: format!("L{}", base),
+            });
+            val_stack.push(IrInstr::Label {
+                name: format!("L{}", end),
+            });
         }
         AstNode::Return { body } => {
             let to_return = compile_ast_node_to_ir(
@@ -1233,8 +1563,11 @@ pub fn compile_ast_node_to_ir(
                 label_counter,
                 None,
             )
-            .expect("should return"); 
-            val_stack.push(IrInstr::Ret { to_return, stack_ptr:*stack_ptr});
+            .expect("should return");
+            val_stack.push(IrInstr::Ret {
+                to_return,
+                stack_ptr: *stack_ptr,
+            });
         }
         AstNode::OperatorMake { vtype, size } => {
             let out = stack_push(
@@ -1272,7 +1605,7 @@ pub fn compile_ast_node_to_ir(
                 vtype: Type::SliceT {
                     ptr_type: Rc::new(vtype.clone()),
                 },
-                stack_ptr_when_called:*stack_ptr,
+                stack_ptr_when_called: *stack_ptr,
             });
             return Some(out);
         }
@@ -1296,7 +1629,7 @@ pub fn compile_ast_node_to_ir(
                 vtype: Type::SliceT {
                     ptr_type: Rc::new(vtype.clone()),
                 },
-                stack_ptr_when_called:*stack_ptr,
+                stack_ptr_when_called: *stack_ptr,
             });
             return Some(out);
         }
@@ -1310,21 +1643,24 @@ pub fn compile_function_to_ir(
     func: &Function,
     functions: &HashMap<String, FunctionTable>,
     types: &HashMap<String, Type>,
+    stack_ptr: &mut usize,
 ) -> Vec<IrInstr> {
-    let mut out = vec![IrInstr::BeginScope{stack_ptr:0}];
+    let mut out = vec![IrInstr::BeginScope { stack_ptr: 0 }];
     let mut variable_counter = 0;
-    let mut stack_ptr = 32;
-    if func.return_type.get_size_bytes()>16{
-        stack_ptr += 8;
+    if func.return_type.get_size_bytes() > 16 {
+        *stack_ptr += 8;
     }
     let mut pop_table = vec![];
     let mut name_table = vec![HashMap::new()];
     let mut label_counter = 0;
     for i in 0..func.args.len() {
-        let op = IrOperand::StacKOperand { var_idx: variable_counter, 
-            name:("user_".to_owned()+&func.arg_names[i]).into(), 
-         stack_offset: stack_ptr, vtype:func.args[i].clone() };
-        stack_ptr += func.args[i].get_size_bytes();
+        let op = IrOperand::StacKOperand {
+            var_idx: variable_counter,
+            name: ("user_".to_owned() + &func.arg_names[i]).into(),
+            stack_offset: *stack_ptr,
+            vtype: func.args[i].clone(),
+        };
+        *stack_ptr += func.args[i].get_size_bytes();
         variable_counter += 1;
         let name = func.arg_names[i].clone();
         name_table[0].insert(name, op);
@@ -1336,7 +1672,7 @@ pub fn compile_function_to_ir(
             i,
             &mut out,
             &mut variable_counter,
-            &mut stack_ptr,
+            stack_ptr,
             &mut pop_table,
             &mut name_table,
             functions,
@@ -1346,9 +1682,11 @@ pub fn compile_function_to_ir(
         );
     }
     pop_table.reverse();
-    for i in pop_table{
-        out.push(IrInstr::Pop { vtype:i});
+    for i in pop_table {
+        out.push(IrInstr::Pop { vtype: i });
     }
-    out.push(IrInstr::EndScope{stack_ptr:stack_ptr});
+    out.push(IrInstr::EndScope {
+        stack_ptr: *stack_ptr,
+    });
     return out;
 }
