@@ -9,7 +9,7 @@ struct Stats {
 pub fn print_stats(s:Stats)->void{
    put_str("str:");
    put_str_ln(s.strength);
-   put_str("dex");
+   put_str("dex:");
    put_str_ln(s.dexterity);
    put_str("con:");
    put_str_ln(s.constitution);
@@ -24,6 +24,9 @@ pub fn main()->int{
    let s = Stats{10,10,10,10,10,10};
    print_stats(s);
    put_str_ln(1+2*3);
+   if (true){
+      return 1;
+   }
    return 0;
 }
 

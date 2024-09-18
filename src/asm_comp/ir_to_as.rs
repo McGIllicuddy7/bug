@@ -104,7 +104,7 @@ pub fn compile_ir_op_to_x86(
 }
 pub fn compile_ir_instr_to_x86(
     instr: &IrInstr,
-    _depth: &mut usize,
+    depth: &mut usize,
     _used_types: &mut HashSet<Type>,
     statics_count: &mut usize,
     statics: &mut String,
@@ -436,7 +436,8 @@ pub fn compile_ir_instr_to_x86(
         IrInstr::CondGoto { cond, target } => {
             let mut stack = "".to_owned();
             let cond = compile_ir_op_to_x86(cond, true, &mut stack, statics, statics_count);
-            stack += &format!("    cmp {}, 0\n", cond);
+            stack += &format!("    mov rax, {}\n", cond);
+            stack += &format!("    cmp rax, 0\n");
             stack += &format!("    jne {}", target);
             return stack;
         }
@@ -458,14 +459,16 @@ pub fn compile_ir_instr_to_x86(
         }
         IrInstr::Ret {
             to_return,
-            stack_ptr,
+            stack_ptr:_,
         } => {
             let t = to_return.get_type();
             let mut out = "".to_owned();
-            out += match cmp_target {
-                Target::MacOs { arm: _ } => "    call _gc_pop_frame\n",
-                _ => "    call gc_pop_frame\n",
-            };
+            for i in 0..*depth+1{
+                out += match cmp_target {
+                    Target::MacOs { arm: _ } => "    call _gc_pop_frame\n",
+                    _ => "    call gc_pop_frame\n",
+                };
+            }
             let a = compile_ir_op_to_x86(to_return, true, &mut out, statics, statics_count);
             if t.get_size_bytes() == 0 {
             } else if t.get_size_bytes() <= 0 {
