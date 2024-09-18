@@ -1,33 +1,11 @@
-struct Stats {
-   strength:int
-   dexterity:int 
-   constitution:int 
-   intelligence:int
-   wisdom:int 
-   charisma:int
-};
-pub fn print_stats(s:Stats)->void{
-   put_str("str:");
-   put_str_ln(s.strength);
-   put_str("dex:");
-   put_str_ln(s.dexterity);
-   put_str("con:");
-   put_str_ln(s.constitution);
-   put_str("int:");
-   put_str_ln(s.intelligence);   
-   put_str("wis:");
-   put_str_ln(s.wisdom);
-   put_str("cha:");
-   put_str_ln(s.charisma);
-}
+
 pub fn main()->int{
-   let s = Stats{10,10,10,10,10,10};
-   print_stats(s);
-   put_str_ln(1+2*3);
-   if (true){
+   let i =0;
+   if (i>10){
       return 1;
+   } else{
+      return 0;
    }
-   return 0;
 }
 
  

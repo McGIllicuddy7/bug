@@ -261,7 +261,26 @@ pub fn compile_ir_instr_to_x86(
             right,
             vtype,
         } => {
-            todo!();
+            let mut stack = "".to_owned();
+            let l = compile_ir_op_to_x86(left, true, &mut stack, statics, statics_count);
+            let r = compile_ir_op_to_x86(right, false, &mut stack, statics, statics_count);
+            if l.as_bytes()[0] == b'r' {
+                stack += &format!("    mov rax, QWORD [{}]\n", l);
+            } else {
+                stack += &format!("    mov rax, rcx\n");
+            }
+            if r.as_bytes()[0] == b'r' {
+                stack += &format!("    mov rbx, QWORD [{}]\n", r);
+            } else {
+                stack += &format!("    mov rbx, rdx\n");
+            }
+            stack += &format!("    cmp rax, rbx\n");
+            stack += &format!("    pushf\n");
+            stack += &format!("    pop rax\n");
+            stack += &format!("    and rax,128\n");
+            let v = compile_ir_op_to_x86(target, true, &mut stack, statics, statics_count);
+            stack += &format!("    mov {} [{}], rax\n", get_asmx86_type_name(vtype), v);
+            return stack;
         }
         IrInstr::GreaterThanOrEq {
             target,
@@ -277,7 +296,26 @@ pub fn compile_ir_instr_to_x86(
             right,
             vtype,
         } => {
-            todo!();
+            let mut stack = "".to_owned();
+            let l = compile_ir_op_to_x86(left, true, &mut stack, statics, statics_count);
+            let r = compile_ir_op_to_x86(right, false, &mut stack, statics, statics_count);
+            if l.as_bytes()[0] == b'r' {
+                stack += &format!("    mov rax, QWORD [{}]\n", l);
+            } else {
+                stack += &format!("    mov rax, rcx\n");
+            }
+            if r.as_bytes()[0] == b'r' {
+                stack += &format!("    mov rbx, QWORD [{}]\n", r);
+            } else {
+                stack += &format!("    mov rbx, rdx\n");
+            }
+            stack += &format!("    cmp rbx, rax\n");
+            stack += &format!("    pushf\n");
+            stack += &format!("    pop rax\n");
+            stack += &format!("    and rax, 128\n");
+            let v = compile_ir_op_to_x86(target, true, &mut stack, statics, statics_count);
+            stack += &format!("    mov {} [{}], rax\n", get_asmx86_type_name(vtype), v);
+            return stack;
         }
         IrInstr::LessThanOrEq {
             target,
