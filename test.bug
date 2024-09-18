@@ -6,7 +6,7 @@ struct Stats {
    wisdom:int 
    charisma:int
 };
-pub fn print_stats(s:Stats)->Stats{
+pub fn print_stats(s:Stats)->void{
    put_str("str:");
    put_str_ln(s.strength);
    put_str("dex");
@@ -19,12 +19,10 @@ pub fn print_stats(s:Stats)->Stats{
    put_str_ln(s.wisdom);
    put_str("cha:");
    put_str_ln(s.charisma);
-   return s;
 }
 pub fn main()->int{
    let s = Stats{10,10,10,10,10,10};
    print_stats(s);
-   put_str_ln(1+2*3+5);
    return 0;
 }
 

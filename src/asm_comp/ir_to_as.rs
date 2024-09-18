@@ -317,6 +317,9 @@ pub fn compile_ir_instr_to_x86(
                 let s = compile_ir_op_to_x86(i, true, &mut tmp_st, statics, statics_count);
                 vs.push(tmp_st + &ag.generate_arg(&s, &i.get_type(), &mut pop_count));
             }
+            if pop_count%2 != 0{
+                st += "    push r10\n";
+            }
             vs.reverse();
             for i in &vs {
                 st += i;
@@ -328,6 +331,9 @@ pub fn compile_ir_instr_to_x86(
                 _ => {
                     st += &format!("    call {}\n", func_name);
                 }
+            }
+            if pop_count%2 != 0{
+                st += "    pop r10\n";
             }
             return st;
         }
@@ -351,13 +357,16 @@ pub fn compile_ir_instr_to_x86(
                 let s = compile_ir_op_to_x86(i, false, &mut tmp_st, statics, statics_count);
                 vs.push(tmp_st + &ag.generate_arg(&s, &i.get_type(), &mut pop_count));
             }
-            st += &format!("   mov rdi, {tstr}\n");
+            st += &format!("  mov rdi, [{tstr}]\n");
             vs.reverse();
             for i in &vs {
                 st += i;
             }
             st += "    push r11\n";
             st += "    push r10\n";
+            if pop_count%2 != 0{
+                st += "    push r10\n";
+            }
             match cmp_target {
                 Target::MacOs { arm: _ } => {
                     st += &format!("    call _{}\n", func_name);
@@ -365,6 +374,9 @@ pub fn compile_ir_instr_to_x86(
                 _ => {
                     st += &format!("    call {}\n", func_name);
                 }
+            }
+            if pop_count%2 != 0{
+                st += "    pop r10\n";
             }
             st += "    pop r10\n";
             st += "    pop r11\n";
@@ -473,10 +485,10 @@ pub fn compile_ir_instr_to_x86(
             } else {
                 let max = to_return.get_type().get_size_bytes();
                 let mut count = 0;
-                out += "    mov rdi, QWORD [rbp -32]\n";
+                out += "    lea rdi, QWORD [rbp -32]\n";
                 while count < max {
                     out += &format!(
-                        "    mov rax, QWORD [r9]\n    mov [rdi-{}], rax\n    sub r9, 8\n",
+                        "    mov rax, QWORD [r11]\n    mov [rdi-{}], rax\n    sub r11, 8\n",
                         max - count
                     );
                     count += 8;

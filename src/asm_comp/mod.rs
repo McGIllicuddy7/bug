@@ -70,13 +70,14 @@ pub fn compile_function(
     target: &Target,
 ) -> Result<String, String> {
     let mut out = String::new();
+    let mut base = String::new();
     match target {
         Target::MacOs { arm: _ } => {
-            out += "_";
+            base += "_";
         }
         _ => {}
     }
-    let mut base = name_mangle_function(func, filename);
+    base += &name_mangle_function(func, filename);
     base += ":\n";
     base += "    push rbp\n";
     base += "    mov rbp,rsp\n";
@@ -85,24 +86,24 @@ pub fn compile_function(
     base += "    push rdx\n";
     base += "    push r10\n";
     let mut arg_state = ArgCPU::new();
-    let mut stack_count = 48;
+    let mut stack_count = 32;
     if func.return_type.get_size_bytes() > 16 {
         out += &format!(
             "   mov QWORD[rbp-{}], {}\n",
             32,
             arg_state.get_next_location().expect("")
         );
-        stack_count += 8;
+        stack_count +=8;
     }
     let mut v = 0;
     let arg_total;
-    out += &{
+    base += &{
         let mut total = 0;
         func.args[0..func.args.len()]
             .iter()
             .for_each(|i| total += i.get_size_bytes());
         arg_total = total + stack_count;
-        format!("   sub rsp, {}\n", total)
+        format!("   sub rsp, {}\n", total+16-total%16)
     };
     let mut stack_arg_count = 0;
     let mut stack_arg_size = 0;
@@ -128,11 +129,12 @@ pub fn compile_function(
             stack_count += 8;
         }
     }
+    stack_count = 32;
     let ir = compile_function_to_ir(func, functions, types, &mut stack_count);
     if stack_count % 16 != 0 {
         stack_count += 16 - stack_count % 16;
     }
-    base += &format!("sub rsp, {}\n", stack_count - 32);
+    base += &format!("   sub rsp, {}\n", stack_count - 32);
     println!("ir representation:{:#?}", ir);
     let mut depth = 1;
     for i in &ir {
