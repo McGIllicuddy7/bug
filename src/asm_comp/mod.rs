@@ -111,7 +111,7 @@ pub fn compile_function(
         while v < func.args[count].get_size_bytes() {
             let n = arg_state.get_next_location();
             if let Some(next) = n {
-                out += &format!("   mov QWORD[rbp-{}], {}\n", arg_total - stack_count, next);
+                out += &format!("   mov QWORD[rbp-{}], {}\n", arg_total - stack_count+32, next);
             } else {
                 if stack_arg_size == 0 {
                     func.args[count..func.args.len()]
@@ -122,7 +122,7 @@ pub fn compile_function(
                     "   mov r10, QWORD[rbp+{}]\n",
                     stack_arg_size - stack_arg_count
                 );
-                out += &format!("   mov QWORD[rbp-{}], r10\n", arg_total - stack_count);
+                out += &format!("   mov QWORD[rbp-{}], r10\n", arg_total- stack_count);
                 stack_arg_count += 8;
             }
             v += 8;

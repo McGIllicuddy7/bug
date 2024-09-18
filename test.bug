@@ -23,6 +23,7 @@ pub fn print_stats(s:Stats)->void{
 pub fn main()->int{
    let s = Stats{10,10,10,10,10,10};
    print_stats(s);
+   put_str_ln(1+2*3);
    return 0;
 }
 
