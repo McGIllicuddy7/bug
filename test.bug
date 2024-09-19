@@ -1,7 +1,7 @@
 
 pub fn main()->int{
-   if(1>10){
-      return 1;
+   for(let i:int = 0; i<100; i = i+1){
+      put_str_ln(i);
    }
    return 0;
 }

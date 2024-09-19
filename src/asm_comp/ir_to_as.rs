@@ -264,20 +264,20 @@ pub fn compile_ir_instr_to_x86(
             let mut stack = "".to_owned();
             let l = compile_ir_op_to_x86(left, true, &mut stack, statics, statics_count);
             let r = compile_ir_op_to_x86(right, false, &mut stack, statics, statics_count);
-            if l.contains('r') {
+            if l.as_bytes()[0] == b'r' {
                 stack += &format!("    mov rax, QWORD [{}]\n", l);
             } else {
-                stack += &format!("    mov rax, {}\n", l);
+                stack += &format!("    mov rax, {}\n",l);
             }
-            if r.contains('r') {
+            if r.as_bytes()[0] == b'r' {
                 stack += &format!("    mov rbx, QWORD [{}]\n", r);
             } else {
-                stack += &format!("    mov rbx,{}\n",r);
+                stack += &format!("    mov rbx, {}\n", r);
             }
-            stack += &format!("    cmp rax, rbx\n");
-            stack += &format!("    pushf\n");
-            stack += &format!("    pop rax\n");
-            stack += &format!("    and rax,64\n");
+            stack += &format!("    cmp rbx, rax\n");
+            stack += &format!("    mov rbx, 0\n");
+            stack += &format!("    mov rax, 1\n");
+            stack += &format!("    cmovg rax, rbx\n");
             let v = compile_ir_op_to_x86(target, true, &mut stack, statics, statics_count);
             stack += &format!("    mov {} [{}], rax\n", get_asmx86_type_name(vtype), v);
             return stack;
@@ -288,7 +288,26 @@ pub fn compile_ir_instr_to_x86(
             right,
             vtype,
         } => {
-            todo!();
+            let mut stack = "".to_owned();
+            let l = compile_ir_op_to_x86(left, true, &mut stack, statics, statics_count);
+            let r = compile_ir_op_to_x86(right, false, &mut stack, statics, statics_count);
+            if l.as_bytes()[0] == b'r' {
+                stack += &format!("    mov rax, QWORD [{}]\n", l);
+            } else {
+                stack += &format!("    mov rax, {}\n",l);
+            }
+            if r.as_bytes()[0] == b'r' {
+                stack += &format!("    mov rbx, QWORD [{}]\n", r);
+            } else {
+                stack += &format!("    mov rbx, {}\n", r);
+            }
+            stack += &format!("    cmp rbx, rax\n");
+            stack += &format!("    mov rbx, 0\n");
+            stack += &format!("    mov rax, 1\n");
+            stack += &format!("    cmovge rax, rbx\n");
+            let v = compile_ir_op_to_x86(target, true, &mut stack, statics, statics_count);
+            stack += &format!("    mov {} [{}], rax\n", get_asmx86_type_name(vtype), v);
+            return stack;
         }
         IrInstr::LessThan {
             target,
@@ -310,9 +329,9 @@ pub fn compile_ir_instr_to_x86(
                 stack += &format!("    mov rbx, {}\n", r);
             }
             stack += &format!("    cmp rbx, rax\n");
-            stack += &format!("    pushf\n");
-            stack += &format!("    pop rax\n");
-            stack += &format!("    and rax, 64\n");
+            stack += &format!("    mov rbx, 0\n");
+            stack += &format!("    mov rax, 1\n");
+            stack += &format!("    cmovl rax, rbx\n");
             let v = compile_ir_op_to_x86(target, true, &mut stack, statics, statics_count);
             stack += &format!("    mov {} [{}], rax\n", get_asmx86_type_name(vtype), v);
             return stack;
@@ -323,9 +342,28 @@ pub fn compile_ir_instr_to_x86(
             right,
             vtype,
         } => {
-            todo!();
+            let mut stack = "".to_owned();
+            let l = compile_ir_op_to_x86(left, true, &mut stack, statics, statics_count);
+            let r = compile_ir_op_to_x86(right, false, &mut stack, statics, statics_count);
+            if l.as_bytes()[0] == b'r' {
+                stack += &format!("    mov rax, QWORD [{}]\n", l);
+            } else {
+                stack += &format!("    mov rax, {}\n",l);
+            }
+            if r.as_bytes()[0] == b'r' {
+                stack += &format!("    mov rbx, QWORD [{}]\n", r);
+            } else {
+                stack += &format!("    mov rbx, {}\n", r);
+            }
+            stack += &format!("    cmp rbx, rax\n");
+            stack += &format!("    mov rbx, 0\n");
+            stack += &format!("    mov rax, 1\n");
+            stack += &format!("    cmovle rax, rbx\n");
+            let v = compile_ir_op_to_x86(target, true, &mut stack, statics, statics_count);
+            stack += &format!("    mov {} [{}], rax\n", get_asmx86_type_name(vtype), v);
+            return stack;
         }
-        IrInstr::BeginScope { stack_ptr } => {
+        IrInstr::BeginScope { stack_ptr:_ } => {
             *depth += 1;
             let mut out = "".to_owned();
             out += match cmp_target {
@@ -334,7 +372,7 @@ pub fn compile_ir_instr_to_x86(
             };
             return out;
         }
-        IrInstr::EndScope { stack_ptr } => {
+        IrInstr::EndScope { stack_ptr:_ } => {
             *depth -= 1;
             let mut out = "".to_owned();
             out += match cmp_target {
@@ -346,7 +384,7 @@ pub fn compile_ir_instr_to_x86(
         IrInstr::Call {
             func_name,
             args,
-            stack_ptr_when_called,
+            stack_ptr_when_called:_,
         } => {
             let mut st = String::new();
             let mut ag = x86::ArgCPU::new();
@@ -487,7 +525,26 @@ pub fn compile_ir_instr_to_x86(
             right,
             vtype,
         } => {
-            todo!();
+            let mut stack = "".to_owned();
+            let l = compile_ir_op_to_x86(left, true, &mut stack, statics, statics_count);
+            let r = compile_ir_op_to_x86(right, false, &mut stack, statics, statics_count);
+            if l.as_bytes()[0] == b'r' {
+                stack += &format!("    mov rax, QWORD [{}]\n", l);
+            } else {
+                stack += &format!("    mov rax, {}\n",l);
+            }
+            if r.as_bytes()[0] == b'r' {
+                stack += &format!("    mov rbx, QWORD [{}]\n", r);
+            } else {
+                stack += &format!("    mov rbx, {}\n", r);
+            }
+            stack += &format!("    cmp rbx, rax\n");
+            stack += &format!("    mov rbx, 0\n");
+            stack += &format!("    mov rax, 1\n");
+            stack += &format!("    cmove rax, rbx\n");
+            let v = compile_ir_op_to_x86(target, true, &mut stack, statics, statics_count);
+            stack += &format!("    mov {} [{}], rax\n", get_asmx86_type_name(vtype), v);
+            return stack;
         }
         IrInstr::NotEquals {
             target,
@@ -495,7 +552,26 @@ pub fn compile_ir_instr_to_x86(
             right,
             vtype,
         } => {
-            todo!();
+            let mut stack = "".to_owned();
+            let l = compile_ir_op_to_x86(left, true, &mut stack, statics, statics_count);
+            let r = compile_ir_op_to_x86(right, false, &mut stack, statics, statics_count);
+            if l.as_bytes()[0] == b'r' {
+                stack += &format!("    mov rax, QWORD [{}]\n", l);
+            } else {
+                stack += &format!("    mov rax, {}\n",l);
+            }
+            if r.as_bytes()[0] == b'r' {
+                stack += &format!("    mov rbx, QWORD [{}]\n", r);
+            } else {
+                stack += &format!("    mov rbx, {}\n", r);
+            }
+            stack += &format!("    cmp rbx, rax\n");
+            stack += &format!("    mov rbx, 0\n");
+            stack += &format!("    mov rax, 1\n");
+            stack += &format!("    cmovne rax, rbx\n");
+            let v = compile_ir_op_to_x86(target, true, &mut stack, statics, statics_count);
+            stack += &format!("    mov {} [{}], rax\n", get_asmx86_type_name(vtype), v);
+            return stack;
         }
         IrInstr::Ret {
             to_return,
