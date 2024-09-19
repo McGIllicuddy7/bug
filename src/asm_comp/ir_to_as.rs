@@ -541,7 +541,7 @@ pub fn compile_ir_instr_to_x86(
             stack += &format!("    cmp rbx, rax\n");
             stack += &format!("    mov rbx, 0\n");
             stack += &format!("    mov rax, 1\n");
-            stack += &format!("    cmove rax, rbx\n");
+            stack += &format!("    cmovne rax, rbx\n");
             let v = compile_ir_op_to_x86(target, true, &mut stack, statics, statics_count);
             stack += &format!("    mov {} [{}], rax\n", get_asmx86_type_name(vtype), v);
             return stack;
@@ -568,7 +568,7 @@ pub fn compile_ir_instr_to_x86(
             stack += &format!("    cmp rbx, rax\n");
             stack += &format!("    mov rbx, 0\n");
             stack += &format!("    mov rax, 1\n");
-            stack += &format!("    cmovne rax, rbx\n");
+            stack += &format!("    cmove rax, rbx\n");
             let v = compile_ir_op_to_x86(target, true, &mut stack, statics, statics_count);
             stack += &format!("    mov {} [{}], rax\n", get_asmx86_type_name(vtype), v);
             return stack;
