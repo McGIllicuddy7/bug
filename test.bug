@@ -1,11 +1,9 @@
 
 pub fn main()->int{
-   let i =0;
-   if (i>10){
+   if(1>10){
       return 1;
-   } else{
-      return 0;
    }
+   return 0;
 }
 
  

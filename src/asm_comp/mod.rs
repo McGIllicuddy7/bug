@@ -136,7 +136,7 @@ pub fn compile_function(
     }
     base += &format!("   sub rsp, {}\n", stack_count - 32);
     println!("ir representation:{:#?}", ir);
-    let mut depth = 1;
+    let mut depth = 0;
     for i in &ir {
         let tmp = ir_to_as::compile_ir_instr_to_x86(
             i,

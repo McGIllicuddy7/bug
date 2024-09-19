@@ -264,20 +264,20 @@ pub fn compile_ir_instr_to_x86(
             let mut stack = "".to_owned();
             let l = compile_ir_op_to_x86(left, true, &mut stack, statics, statics_count);
             let r = compile_ir_op_to_x86(right, false, &mut stack, statics, statics_count);
-            if l.as_bytes()[0] == b'r' {
+            if l.contains('r') {
                 stack += &format!("    mov rax, QWORD [{}]\n", l);
             } else {
-                stack += &format!("    mov rax, rcx\n");
+                stack += &format!("    mov rax, {}\n", l);
             }
-            if r.as_bytes()[0] == b'r' {
+            if r.contains('r') {
                 stack += &format!("    mov rbx, QWORD [{}]\n", r);
             } else {
-                stack += &format!("    mov rbx, rdx\n");
+                stack += &format!("    mov rbx,{}\n",r);
             }
             stack += &format!("    cmp rax, rbx\n");
             stack += &format!("    pushf\n");
             stack += &format!("    pop rax\n");
-            stack += &format!("    and rax,128\n");
+            stack += &format!("    and rax,64\n");
             let v = compile_ir_op_to_x86(target, true, &mut stack, statics, statics_count);
             stack += &format!("    mov {} [{}], rax\n", get_asmx86_type_name(vtype), v);
             return stack;
@@ -302,17 +302,17 @@ pub fn compile_ir_instr_to_x86(
             if l.as_bytes()[0] == b'r' {
                 stack += &format!("    mov rax, QWORD [{}]\n", l);
             } else {
-                stack += &format!("    mov rax, rcx\n");
+                stack += &format!("    mov rax, {}\n",l);
             }
             if r.as_bytes()[0] == b'r' {
                 stack += &format!("    mov rbx, QWORD [{}]\n", r);
             } else {
-                stack += &format!("    mov rbx, rdx\n");
+                stack += &format!("    mov rbx, {}\n", r);
             }
             stack += &format!("    cmp rbx, rax\n");
             stack += &format!("    pushf\n");
             stack += &format!("    pop rax\n");
-            stack += &format!("    and rax, 128\n");
+            stack += &format!("    and rax, 64\n");
             let v = compile_ir_op_to_x86(target, true, &mut stack, statics, statics_count);
             stack += &format!("    mov {} [{}], rax\n", get_asmx86_type_name(vtype), v);
             return stack;
@@ -326,6 +326,7 @@ pub fn compile_ir_instr_to_x86(
             todo!();
         }
         IrInstr::BeginScope { stack_ptr } => {
+            *depth += 1;
             let mut out = "".to_owned();
             out += match cmp_target {
                 Target::MacOs { arm: _ } => "    call _gc_push_frame\n",
@@ -334,6 +335,7 @@ pub fn compile_ir_instr_to_x86(
             return out;
         }
         IrInstr::EndScope { stack_ptr } => {
+            *depth -= 1;
             let mut out = "".to_owned();
             out += match cmp_target {
                 Target::MacOs { arm: _ } => "    call _gc_pop_frame\n",
@@ -474,7 +476,7 @@ pub fn compile_ir_instr_to_x86(
         IrInstr::CondGoto { cond, target } => {
             let mut stack = "".to_owned();
             let cond = compile_ir_op_to_x86(cond, true, &mut stack, statics, statics_count);
-            stack += &format!("    mov rax, {}\n", cond);
+            stack += &format!("    mov rax, QWORD[{}]\n", cond);
             stack += &format!("    cmp rax, 0\n");
             stack += &format!("    jne {}", target);
             return stack;
@@ -501,7 +503,7 @@ pub fn compile_ir_instr_to_x86(
         } => {
             let t = to_return.get_type();
             let mut out = "".to_owned();
-            for i in 0..*depth+1{
+            for i in 0..*depth{
                 out += match cmp_target {
                     Target::MacOs { arm: _ } => "    call _gc_pop_frame\n",
                     _ => "    call gc_pop_frame\n",
