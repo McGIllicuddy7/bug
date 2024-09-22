@@ -7,7 +7,7 @@ struct Stats{
    charisma:int
 };
 pub fn new_stats()->Stats{
-   return Stats{10,10,10,10,10,10};
+   return Stats{20,10,10,10,10,20};
 }
 pub fn main()->int{
    let a = new_stats();
