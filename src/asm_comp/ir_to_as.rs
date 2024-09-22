@@ -429,13 +429,14 @@ pub fn compile_ir_instr_to_x86(
             let mut vs = vec![];
             if target.get_type().get_size_bytes() > 16 {
                 ag.int_registers[0] = 8;
+                st += &format!("  mov rdi, {}\n", tstr);
             }
             for i in args {
                 let mut tmp_st = String::new();
                 let s = compile_ir_op_to_x86(i, false, &mut tmp_st, statics, statics_count);
                 vs.push(tmp_st + &ag.generate_arg(&s, &i.get_type(), &mut pop_count));
             }
-            st += &format!("  mov rdi, [{tstr}]\n");
+
             vs.reverse();
             for i in &vs {
                 st += i;
@@ -604,11 +605,11 @@ pub fn compile_ir_instr_to_x86(
             } else {
                 let max = to_return.get_type().get_size_bytes();
                 let mut count = 0;
-                out += "    lea rdi, QWORD [rbp -32]\n";
+                out += "    mov rdi, QWORD [rbp -32]\n";
                 while count < max {
                     out += &format!(
                         "    mov rax, QWORD [r11]\n    mov [rdi-{}], rax\n    sub r11, 8\n",
-                        max - count
+                            count
                     );
                     count += 8;
                 }

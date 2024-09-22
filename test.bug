@@ -10,13 +10,13 @@ pub fn new_stats()->Stats{
    return Stats{10,10,10,10,10,10};
 }
 pub fn main()->int{
-   for(let i:int = 1; i<100; i = i+1){
-      if(mod(i,10) == 0){
-         put_str_ln(i);
-      }
-   }
    let a = new_stats();
    put_str_ln(a.strength);
+   put_str_ln(a.dexterity);
+   put_str_ln(a.consitution);
+   put_str_ln(a.intelligence);
+   put_str_ln(a.wisdom);
+   put_str_ln(a.charisma);
    return 0;
 }
 
