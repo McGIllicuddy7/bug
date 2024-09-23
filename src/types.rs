@@ -156,7 +156,7 @@ impl Type{
         Self::StructT { name: _, components }=>{
             for i in components{
                 if &i.0 == name{
-                    return Some(count);
+                    return Some(self.get_size_bytes()-count-i.1.get_size_bytes());
                 } else{
                     count += i.1.get_size_bytes();
                 }

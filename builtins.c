@@ -192,12 +192,12 @@ void gc_bool(void * ptr){
     
 }
 String operator_plus_String_String(String a, String b){
-    printf("%s\n",b.start);
+    printf("a len:%zu, b len: %zu\n", a.len, b.len);
     size_t out_l = a.len+b.len;
     char * out_buff = gc_alloc(out_l);
     memcpy(out_buff, a.start, a.len);
-    memcpy(out_buff+a.len, b.start, b.len);
-    String out =  (String){out_buff, out_l+1};
+    memcpy(out_buff+a.len, b.start, b.len+2);
+    String out =  (String){out_buff, out_l};
     return out;
 }
 String user_to_string_long(long a){
@@ -241,6 +241,23 @@ void user_put_str_ln_long(long a){
     snprintf(buffer, 99, "%ld\n", a);
     size_t l = strlen(buffer);
     write(1, buffer, l);
+}
+typedef struct{
+    long strength;
+    long dexterity;
+    long constitution;
+    long intelligence;
+    long wisdom;
+    long charisma;
+} u_Stats;
+
+void user_print_stats_c_u_Stats(u_Stats stats){
+    printf("%ld\n",stats.strength);
+    printf("%ld\n",stats.dexterity);
+    printf("%ld\n",stats.constitution);
+    printf("%ld\n",stats.intelligence);
+    printf("%ld\n", stats.wisdom);
+    printf("%ld\n",stats.charisma);
 }
 extern long user_main();
 int main(int argc,const char ** argv){

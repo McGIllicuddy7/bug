@@ -441,8 +441,8 @@ pub fn compile_ir_instr_to_x86(
             for i in &vs {
                 st += i;
             }
-            st += "    push r11\n";
-            st += "    push r10\n";
+            //st += "    push r10\n";
+            //st += "    push r9\n";
             if pop_count%2 != 0{
                 st += "    push r10\n";
             }
