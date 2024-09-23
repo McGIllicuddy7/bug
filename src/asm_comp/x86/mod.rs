@@ -27,6 +27,7 @@ const INT_ARG_NAMES: &[&'static str] = &["rdi", "rsi", "rdx", "rcx", "r8", "r9"]
 const FLOAT_ARG_NAMES: &[&'static str] = &[
     "xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6", "xmm7",
 ];
+#[derive(Debug)]
 pub struct ArgCPU {
     pub int_registers: [u8; 6],
     pub float_registers: [u8; 8],
@@ -37,6 +38,10 @@ impl ArgCPU {
             int_registers: [0, 0, 0, 0, 0, 0],
             float_registers: [0, 0, 0, 0, 0, 0, 0, 0],
         };
+    }
+    pub fn reset(&mut self){
+        self.int_registers = [0,0,0,0,0,0];
+        self.float_registers =[0, 0, 0, 0, 0, 0, 0, 0]; 
     }
     pub fn get_next_location(&mut self) -> Option<String> {
         for i in 0..6 {

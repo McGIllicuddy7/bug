@@ -69,6 +69,7 @@ pub fn compile_function(
     static_section: &mut String,
     target: &Target,
 ) -> Result<String, String> {
+    println!("{}",func.name);
     let mut out = String::new();
     let mut base = String::new();
     match target {
@@ -107,9 +108,15 @@ pub fn compile_function(
     };
     let mut stack_arg_count = 0;
     let mut stack_arg_size = 0;
+    arg_state = ArgCPU::new();
+    if func.return_type.get_size_bytes()>16{
+        arg_state.get_next_location();
+    }
     for count in 0..func.args.len() {
+        v = 0;
         while v < func.args[count].get_size_bytes() {
             let n = arg_state.get_next_location();
+            println!("{:#?}",n);
             if let Some(next) = n {
                 out += &format!("   mov QWORD[rbp-{}], {}\n", arg_total - stack_count+32, next);
             } else {
@@ -135,7 +142,7 @@ pub fn compile_function(
         stack_count += 16 - stack_count % 16;
     }
     base += &format!("   sub rsp, {}\n", stack_count - 32);
-    println!("ir representation:{:#?}", ir);
+    //println!("ir representation:{:#?}", ir);
     let mut depth = 0;
     for i in &ir {
         let tmp = ir_to_as::compile_ir_instr_to_x86(
