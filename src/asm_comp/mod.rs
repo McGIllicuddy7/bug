@@ -116,7 +116,6 @@ pub fn compile_function(
         v = 0;
         while v < func.args[count].get_size_bytes() {
             let n = arg_state.get_next_location();
-            println!("{:#?}",n);
             if let Some(next) = n {
                 out += &format!("   mov QWORD[rbp-{}], {}\n", arg_total - stack_count+32, next);
             } else {

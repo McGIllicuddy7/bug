@@ -5,9 +5,10 @@ struct Stats{
    intelligence:int 
    wisdom:int 
    charisma:int
+   id:int
 };
 pub fn new_stats()->Stats{
-   return Stats{1,2,3,4,5,6};
+   return Stats{1,2,3,4,5,6,42069};
 }
 pub fn print_stats(stats:Stats)->void{
   put_str_ln(stats.strength);
@@ -16,15 +17,12 @@ pub fn print_stats(stats:Stats)->void{
   put_str_ln(stats.intelligence);
   put_str_ln(stats.wisdom);
   put_str_ln(stats.charisma);
+  put_str_ln(stats.id);
 }
 pub fn print_stats_c(stats:Stats)->void;
-pub fn call_add(a:int b:int)->void{
-   put_str_ln(a+b);
-}
 pub fn main()->int{
    let a = new_stats();
    print_stats_c(a);
-   call_add(1,2);
    return 0;
 }
 

@@ -27,7 +27,7 @@ const INT_ARG_NAMES: &[&'static str] = &["rdi", "rsi", "rdx", "rcx", "r8", "r9"]
 const FLOAT_ARG_NAMES: &[&'static str] = &[
     "xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6", "xmm7",
 ];
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ArgCPU {
     pub int_registers: [u8; 6],
     pub float_registers: [u8; 8],
@@ -39,10 +39,6 @@ impl ArgCPU {
             float_registers: [0, 0, 0, 0, 0, 0, 0, 0],
         };
     }
-    pub fn reset(&mut self){
-        self.int_registers = [0,0,0,0,0,0];
-        self.float_registers =[0, 0, 0, 0, 0, 0, 0, 0]; 
-    }
     pub fn get_next_location(&mut self) -> Option<String> {
         for i in 0..6 {
             if self.int_registers[i] == 0 {
@@ -51,6 +47,14 @@ impl ArgCPU {
             }
         }
         None
+    }
+    pub fn handle_capacity_for(&mut self, arg_v: &str, arg_t:&Type){
+        let saved_state = self.clone();
+        let mut discarded_pop_stack =0;
+        let _discard = self.generate_arg(arg_v, arg_t, &mut discarded_pop_stack);
+        if discarded_pop_stack==0{
+            *self = saved_state;
+        }
     }
     pub fn get_next_fp_location(&mut self) -> Option<String> {
         for i in 0..6 {
@@ -99,6 +103,7 @@ impl ArgCPU {
     pub fn generate_arg(&mut self, arg_v: &str, arg_t: &Type, to_pop_stack: &mut usize) -> String {
         let mut out = String::new();
         let is_addr = arg_v.contains('r');
+        
         match arg_t {
             types::Type::ArrayT {
                 size: _,

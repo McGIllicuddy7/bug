@@ -436,15 +436,14 @@ pub fn compile_ir_instr_to_x86(
                 let s = compile_ir_op_to_x86(i, false, &mut tmp_st, statics, statics_count);
                 vs.push(tmp_st + &ag.generate_arg(&s, &i.get_type(), &mut pop_count));
             }
-
             vs.reverse();
-            for i in &vs {
-                st += i;
-            }
-            //st += "    push r10\n";
-            //st += "    push r9\n";
             if pop_count%2 != 0{
                 st += "    push r10\n";
+            }
+            st += "    push r10\n";
+            st += "    push r9\n";
+            for i in &vs {
+                st += i;
             }
             match cmp_target {
                 Target::MacOs { arm: _ } => {
