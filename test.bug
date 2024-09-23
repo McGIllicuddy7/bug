@@ -7,16 +7,18 @@ struct Stats{
    charisma:int
 };
 pub fn new_stats()->Stats{
-   return Stats{20,10,10,10,10,20};
+   return Stats{10,10,10,10,10,20};
+}
+pub fn print_stats(stats:Stats)->string{
+  let out = ""; 
+  out = out+"strength:";
+  out = out+ to_string(stats.strength);
+  put_str_ln(stats.strength);
+  return out;
 }
 pub fn main()->int{
    let a = new_stats();
-   put_str_ln(a.strength);
-   put_str_ln(a.dexterity);
-   put_str_ln(a.consitution);
-   put_str_ln(a.intelligence);
-   put_str_ln(a.wisdom);
-   put_str_ln(a.charisma);
+   put_str_ln(print_stats(a));
    return 0;
 }
 
