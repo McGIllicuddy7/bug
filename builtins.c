@@ -192,11 +192,12 @@ void gc_bool(void * ptr){
     
 }
 String operator_plus_String_String(String a, String b){
+    printf("%s\n",b.start);
     size_t out_l = a.len+b.len;
     char * out_buff = gc_alloc(out_l);
     memcpy(out_buff, a.start, a.len);
     memcpy(out_buff+a.len, b.start, b.len);
-    String out =  (String){out_buff, out_l};
+    String out =  (String){out_buff, out_l+1};
     return out;
 }
 String user_to_string_long(long a){
