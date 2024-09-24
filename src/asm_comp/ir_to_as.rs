@@ -398,6 +398,8 @@ pub fn compile_ir_instr_to_x86(
             if pop_count%2 != 0{
                 st += "    push r10\n";
             }
+            st += "  push r10\n";
+            st += "  push r11\n";
             vs.reverse();
             for i in &vs {
                 st += i;
@@ -410,6 +412,8 @@ pub fn compile_ir_instr_to_x86(
                     st += &format!("    call {}\n", func_name);
                 }
             }
+            st += "  pop r11\n";
+            st += "  pop r10\n";
             if pop_count%2 != 0{
                 st += "    pop r10\n";
             }            

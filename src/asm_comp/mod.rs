@@ -146,6 +146,7 @@ pub fn compile_function(
         stack_count += 16 - stack_count % 16;
     }
     base += &format!("   sub rsp, {}\n", stack_count - 32);
+    get_types_used_in_ir(&ir,used_types);
     //println!("ir representation:{:#?}", ir);
     let mut depth = 0;
     for i in &ir {
