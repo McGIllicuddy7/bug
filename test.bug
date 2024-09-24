@@ -23,6 +23,7 @@ pub fn print_stats_c(stats:Stats)->void;
 pub fn main()->int{
    let a = new_stats();
    print_stats(a);
+   print_stats_c(a);
    return 0;
 }
 

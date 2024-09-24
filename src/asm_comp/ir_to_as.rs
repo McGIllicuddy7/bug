@@ -412,6 +412,9 @@ pub fn compile_ir_instr_to_x86(
             }
             if pop_count%2 != 0{
                 st += "    pop r10\n";
+            }            
+            for _ in 0..pop_count {
+                st += "    pop r10\n";
             }
             return st;
         }

@@ -114,11 +114,13 @@ pub fn compile_function(
     }
     for count in 0..func.args.len() {
         v = 0;
+        let base_ptr = stack_count;
+        let arg_sz = func.args[count].get_size_bytes();
         arg_state.handle_capacity_for("",&func.args[count]);
         while v < func.args[count].get_size_bytes() {
             let n = arg_state.get_next_location();
             if let Some(next) = n {
-                out += &format!("   mov QWORD[rbp-{}], {}\n", arg_total - stack_count+32, next);
+                out += &format!("   mov QWORD[rbp-{}], {}\n", arg_total - stack_count, next);
             } else {
                 if stack_arg_size == 0 {
                     func.args[count..func.args.len()]
@@ -129,7 +131,7 @@ pub fn compile_function(
                     "   mov r10, QWORD[rbp+{}]\n",
                     (stack_arg_size - stack_arg_count) as i64+8
                 );
-                out += &format!("   mov QWORD[rbp-{}], r10\n", arg_total- stack_count+32);
+                out += &format!("   mov QWORD[rbp-{}], r10\n", base_ptr+arg_sz-v);
                 stack_arg_count += 8;
             }
             v += 8;
