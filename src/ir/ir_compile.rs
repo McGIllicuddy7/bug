@@ -61,7 +61,7 @@ macro_rules!  depth_format {
 }
 pub fn compile_ir_instr_to_c(instr: &IrInstr, depth :&mut usize, used_types:&mut HashSet<Type>) -> String {
     match instr {
-        IrInstr::VariableDeclaration { name, vtype } => {
+        IrInstr::VariableDeclaration { name, vtype, stack_offset:_} => {
             used_types.insert(vtype.clone());
             let out = 
             match vtype{
@@ -239,7 +239,7 @@ pub fn compile_ir_instr_to_c(instr: &IrInstr, depth :&mut usize, used_types:&mut
         IrInstr::Ret { to_return , stack_ptr:_} => {
             return depth_format!(depth,"gc_pop_frame();\n")+&depth_format!(depth, "return {};", compile_ir_op_to_c(to_return));
         }
-        IrInstr::Push { vtype, val_idx } => {
+        IrInstr::Push { vtype, val_idx , stack_offset_of_value:_} => {
             used_types.insert(vtype.clone());
             return depth_format!(depth, "{} tmp{};\n", name_mangle_type(vtype), val_idx)+&depth_format!(depth, "gc_register_ptr(&tmp{},{});",val_idx,gc_function_name(&vtype));
         }

@@ -74,6 +74,7 @@ pub fn compile_function(
     println!("{}",func.name);
     let mut out = String::new();
     let mut base = String::new();
+    base += "align 8\n";
     match target {
         Target::MacOs { arm: _ } => {
             base += "_";
@@ -218,7 +219,7 @@ fn compile_gc_functions(types: &HashSet<Type>, target: &Target) -> String {
         if i.1.is_partially_defined() {
             continue;
         }
-        out += &("void ".to_string()+&(gc_function_name(&i.1) + "(void * ptr){"));
+        out += &("inline void ".to_string()+&(gc_function_name(&i.1) + "(void * ptr){\n"));
         out += &("  ".to_owned() + &(name_mangle_type(&i.1) + "* var = ptr;\n"));
         match &i.1 {
             Type::PointerT { ptr_type } => {
@@ -277,7 +278,7 @@ fn compile_gc_func_header(types: &HashSet<Type>, target: &Target)->String{
                         "extern "
                     }
                 };
-                out += &(gc_function_name(&i.1) + ":\n");
+                out += &(gc_function_name(&i.1) + "\n");
             }
         }
     }
@@ -392,14 +393,14 @@ pub fn compile_to_asm_x86(
     }
     match target {
         Target::MacOs { arm: _ } => {
-            func_decs += "extern _gc_push_frame\nextern _gc_pop_frame\n";
+            func_decs += "extern _gc_push_frame\nextern _gc_pop_frame\nextern _gc_register_ptr\nextern _gc_String\n";
         }
         _ => {
-            func_decs += "extern gc_push_frame\nextern gc_pop_frame\n";
+            func_decs += "extern gc_push_frame\nextern gc_pop_frame\nextern gc_register_ptr\nextern gc_String\n";
         }
     }
     let mut statics = "section .data\n".to_owned();
-    let mut functions = String::new();
+    let mut functions = "section .text\n".to_string();
     let mut statics_count = 0;
     for i in &prog.functions {
         for func in &i.1.functions {

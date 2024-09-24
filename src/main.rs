@@ -43,9 +43,10 @@ fn main() {
         if i == "builtins.bug"{
             continue;
         }
-        let name = "output/".to_owned()+&i[0..i.len()-4]+".o";
+        let name = "output/".to_owned()+&i[0..i.len()-4];
         print!("{} ",name);
-        cmd.arg(name);
+        cmd.arg(name.clone()+"_gc_funcs.c");
+        cmd.arg(name+".o");
     }
     cmd.arg("builtins.c").arg("-std=c2x");
     let t = cmd.output().expect("input should be ok");
@@ -59,7 +60,7 @@ fn main() {
         let name = "output/".to_owned()+&i[0..i.len()-4]+".o";
         print!("{name} ");
         cmd.arg(&name);
-        cmd.arg(name+"_gc_funcs.c");
+        cmd.arg(name+"_gc_funcs.o");
     }
     cmd.arg("builtins.o");
     cmd.arg("output/builtins.o");

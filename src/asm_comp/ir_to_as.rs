@@ -1,4 +1,4 @@
-use crate::asm_comp::x86;
+use crate::asm_comp::{gc_function_name, x86};
 use crate::ir::{IrInstr, IrOperand};
 use crate::{Target, Type};
 use std::collections::HashSet;
@@ -514,7 +514,7 @@ pub fn compile_ir_instr_to_x86(
         IrInstr::Label { name } => {
             return format!("{name}:");
         }
-        IrInstr::VariableDeclaration { name: _, vtype: _ } => {
+        IrInstr::VariableDeclaration { name: _, vtype: _ ,stack_offset} => {
             let out = "".to_owned();
             return out;
         }
@@ -639,10 +639,19 @@ pub fn compile_ir_instr_to_x86(
             todo!();
         }
         IrInstr::Push {
-            vtype: _,
+            vtype,
             val_idx: _,
+            stack_offset_of_value,
         } => {
-            return "".to_owned();
+            match cmp_target{
+                Target::MacOs { arm:_ }=>{
+                    return format!("    mov rdi, [rbp-{stack_offset_of_value}]\n    mov rsi, _{}\n    call _gc_register_ptr", gc_function_name(vtype));
+                }
+                _=>{
+                    return format!("    mov rdi, [rbp-{stack_offset_of_value}]\n    mov rsi, _{}\n    call _gc_register_ptr", gc_function_name(vtype));
+                }
+            }
+
         }
         IrInstr::Pop { vtype: _ } => {
             return "".to_owned();

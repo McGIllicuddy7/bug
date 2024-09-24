@@ -117,6 +117,7 @@ pub enum IrInstr {
     VariableDeclaration {
         name: Rc<str>,
         vtype: Type,
+        stack_offset:usize
     },
     Mov {
         left: IrOperand,
@@ -229,6 +230,7 @@ pub enum IrInstr {
     Push {
         vtype: Type,
         val_idx: usize,
+        stack_offset_of_value:usize,
     },
     Pop {
         vtype: Type,
@@ -257,6 +259,7 @@ fn stack_push(
     val_stack.push(IrInstr::Push {
         vtype: vtype.clone(),
         val_idx: *variable_counter,
+        stack_offset_of_value:stack_ptr.clone(),
     });
     pop_table.push(vtype.clone());
     *variable_counter += 1;
@@ -989,6 +992,7 @@ pub fn compile_ast_node_to_ir(
             val_stack.push(IrInstr::VariableDeclaration {
                 name: ("user_".to_owned() + &name).into(),
                 vtype: var_type.clone(),
+                stack_offset:stack_ptr.clone(),
             });
             pop_table.push(var_type.clone());
             *variable_counter += 1;
@@ -1732,7 +1736,7 @@ fn get_types_in_operand(op:&IrOperand, types:&mut HashSet<Type>){
 pub fn get_types_used_in_ir(instructions:&[IrInstr], types:&mut HashSet<Type>){
     for i in instructions{
         match i{
-            IrInstr::VariableDeclaration { name:_, vtype }=>{
+            IrInstr::VariableDeclaration { name:_, vtype ,stack_offset:_}=>{
                 types.insert(vtype.clone());
             }
             IrInstr::Mov { left, right, vtype }=>{
@@ -1834,7 +1838,7 @@ pub fn get_types_used_in_ir(instructions:&[IrInstr], types:&mut HashSet<Type>){
             IrInstr::Ret { to_return, stack_ptr:_ }=>{
                 get_types_in_operand(to_return, types);
             }
-            IrInstr::Push { vtype, val_idx :_}=>{
+            IrInstr::Push { vtype, val_idx :_, stack_offset_of_value:_}=>{
               types.insert(vtype.clone());
             }
             IrInstr::Pop { vtype }=>{
