@@ -22,11 +22,10 @@ pub fn print_stats(name:string stats:Stats)->void{
    put_str_ln(stats.hp);
    put_str_ln(stats.ac);
 }
-pub fn print_stats_c(name:string stats:Stats)->void;
 pub fn main()->int{
    let stats = new_stats();
    let name = "toast";
-   print_stats_c(name,stats);
+   print_stats(name,stats);
    return 0;
 }
 

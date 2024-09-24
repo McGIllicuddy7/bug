@@ -242,29 +242,6 @@ void user_put_str_ln_long(long a){
     size_t l = strlen(buffer);
     write(1, buffer, l);
 }
-typedef struct{
-    long strength;
-    long dexterity;
-    long constitution;
-    long intelligence;
-    long wisdom;
-    long charisma;
-    long hp; 
-    long ac;
-} u_Stats;
-
-void user_print_stats_c_String_u_Stats(String name,u_Stats stats){
-    printf("%s %ld\n",name.start, name.len);
-    user_put_str_ln_String(name);
-    printf("%ld\n",stats.strength);
-    printf("%ld\n",stats.dexterity);
-    printf("%ld\n",stats.constitution);
-    printf("%ld\n",stats.intelligence);
-    printf("%ld\n", stats.wisdom);
-    printf("%ld\n",stats.charisma);    
-    printf("%ld\n", stats.hp);
-    printf("%ld\n",stats.ac);
-}
 extern long user_main();
 int main(int argc,const char ** argv){
         long result = user_main(); 
