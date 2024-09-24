@@ -250,6 +250,7 @@ typedef struct{
     long wisdom;
     long charisma;
     long id;
+    long hp;
 } u_Stats;
 
 void user_print_stats_c_u_Stats(u_Stats stats){
@@ -260,6 +261,7 @@ void user_print_stats_c_u_Stats(u_Stats stats){
     printf("%ld\n", stats.wisdom);
     printf("%ld\n",stats.charisma);
     printf("%ld\n", stats.id);
+    printf("%ld\n", stats.hp);
 }
 extern long user_main();
 int main(int argc,const char ** argv){
