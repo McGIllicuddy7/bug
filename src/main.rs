@@ -58,7 +58,8 @@ fn main() {
         }
         let name = "output/".to_owned()+&i[0..i.len()-4]+".o";
         print!("{name} ");
-        cmd.arg(name);
+        cmd.arg(&name);
+        cmd.arg(name+"_gc_funcs.c");
     }
     cmd.arg("builtins.o");
     cmd.arg("output/builtins.o");

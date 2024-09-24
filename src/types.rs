@@ -46,6 +46,43 @@ pub enum Type {
     }
 }
 impl Type{
+    pub fn get_name(&self)->String{
+        match self{
+            Self::BoolT=>{
+                return "bool".to_string();
+            }
+            Self::CharT=>{
+                return "char".to_string();
+            }
+            Self::FloatT=>{
+                return "float".to_string();
+            }
+            Self::IntegerT=>{
+                return "int".to_string();
+            }
+            Self::PointerT { ptr_type }=>{
+                return "^".to_string()+&ptr_type.get_name();
+            }
+            Self::SliceT { ptr_type}=>{
+                return "@slice".to_string()+&ptr_type.get_name();
+            }
+            Self::StringT{}=>{
+                return "string".to_string();
+            }
+            Self::ArrayT { size, array_type }=>{
+                return "@array".to_string()+&array_type.get_name();
+            }
+            Self::VoidT=>{
+                return "void".to_string();
+            }
+            Self::StructT { name, components:_ }=>{
+                return name.to_string();
+            }
+            Self::PartiallyDefined { name}=>{
+                return name.to_string();
+            }
+        } 
+    }
     pub fn get_array_type(&self)->Option<Type>{
         match &self{
             &Self::ArrayT { size:_, array_type }=>{
