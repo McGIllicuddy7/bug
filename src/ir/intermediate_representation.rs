@@ -1692,49 +1692,154 @@ pub fn compile_function_to_ir(
 }
 fn get_types_in_operand(op:&IrOperand, types:&mut HashSet<Type>){
     match op{
-        StacKOperand {
-            var_idx: usize,
-            name: Rc<str>,
-            stack_offset: usize,
-            vtype: Type,
-        }=>{
-            
+        IrOperand::StacKOperand { var_idx:_, name:_, stack_offset:_, vtype }=>{
+            types.insert(vtype.clone());
         }
-        Name {
-            name: Rc<str>,
-            vtype: Type,
-        },
-        Deref {
-            to_deref: Box<IrOperand>,
-        },
-        TakeRef {
-            to_ref: Box<IrOperand>,
-        },
-        StringLiteral {
-            value: Rc<str>,
-        },
-        IntLiteral {
-            value: i64,
-        },
-        FloatLiteral {
-            value: f64,
-        },
-        CharLiteral {
-            value: u8,
-        },
-        FieldAccess {
-            base: Box<IrOperand>,
-            name: Rc<str>,
-        },
-        ArrayAccess {
-            base: Box<IrOperand>,
-            value: Box<IrOperand>,
-        }, 
+        IrOperand::Name { name:_, vtype }=>{
+            types.insert(vtype.clone());
+        }
+        IrOperand::Deref { to_deref }=>{
+            get_types_in_operand(&to_deref, types);
+        }
+        IrOperand::TakeRef { to_ref }=>{
+            get_types_in_operand(&to_ref, types);
+            types.insert(Type::PointerT { ptr_type: to_ref.get_type().clone().into()});
+        }
+        IrOperand::StringLiteral { value:_ }=>{
+            types.insert(Type::StringT);
+        }
+        IrOperand::IntLiteral { value:_ }=>{
+            types.insert(Type::IntegerT);
+        }
+        IrOperand::FloatLiteral { value:_ }=>{
+            types.insert(Type::FloatT);
+        }
+        IrOperand::CharLiteral { value:_ }=>{
+            types.insert(Type::CharT);
+        }
+        IrOperand::FieldAccess { base, name:_ }=>{
+            types.insert(base.get_type());
+        }
+        IrOperand::ArrayAccess { base, value}=>{
+            types.insert(base.get_type());
+            types.insert(value.get_type());
+        }
+        _=>{
+
+        }
     }
 }
 pub fn get_types_used_in_ir(instructions:&[IrInstr], types:&mut HashSet<Type>){
     for i in instructions{
         match i{
+            IrInstr::VariableDeclaration { name:_, vtype }=>{
+                types.insert(vtype.clone());
+            }
+            IrInstr::Mov { left, right, vtype }=>{
+                types.insert(vtype.clone());
+                get_types_in_operand(left, types);
+                get_types_in_operand(right, types);
+            }
+            IrInstr::CondGoto { cond, target:_ }=>{
+                get_types_in_operand(cond, types);
+            }
+            IrInstr::Add { target, left, right, vtype }=>{
+                types.insert(vtype.clone());
+                get_types_in_operand(target, types);
+                get_types_in_operand(left, types);
+                get_types_in_operand(right, types);
+            }
+            IrInstr::Sub { target, left, right, vtype }=>{
+                types.insert(vtype.clone());
+                get_types_in_operand(target, types);
+                get_types_in_operand(left, types);
+                get_types_in_operand(right, types);
+            }
+            IrInstr::Mul { target, left, right, vtype }=>{
+                types.insert(vtype.clone());
+                get_types_in_operand(target, types);
+                get_types_in_operand(left, types);
+                get_types_in_operand(right, types);
+            }
+            IrInstr::Div { target, left, right, vtype }=>{
+                types.insert(vtype.clone());
+                get_types_in_operand(target, types);
+                get_types_in_operand(left, types);
+                get_types_in_operand(right, types);
+            }
+            IrInstr::And { target, left, right, vtype } =>{
+                types.insert(vtype.clone());
+                get_types_in_operand(target, types);
+                get_types_in_operand(left, types);
+                get_types_in_operand(right, types);
+            }
+            IrInstr::Or { target, left, right, vtype }=>{
+                types.insert(vtype.clone());
+                get_types_in_operand(target, types);
+                get_types_in_operand(left, types);
+                get_types_in_operand(right, types);
+            }
+            IrInstr::Equals { target, left, right, vtype }=>{
+                types.insert(vtype.clone());
+                get_types_in_operand(target, types);
+                get_types_in_operand(left, types);
+                get_types_in_operand(right, types);
+            }
+            IrInstr::NotEquals { target, left, right, vtype }=>{
+                types.insert(vtype.clone());
+                get_types_in_operand(target, types);
+                get_types_in_operand(left, types);
+                get_types_in_operand(right, types);
+            }
+            IrInstr::GreaterThan { target, left, right, vtype }=>{
+                types.insert(vtype.clone());
+                get_types_in_operand(target, types);
+                get_types_in_operand(left, types);
+                get_types_in_operand(right, types);
+            }
+            IrInstr::GreaterThanOrEq { target, left, right, vtype }=>{
+                types.insert(vtype.clone());
+                get_types_in_operand(target, types);
+                get_types_in_operand(left, types);
+                get_types_in_operand(right, types);
+            }
+            IrInstr::LessThan { target, left, right, vtype }=>{
+                types.insert(vtype.clone());
+                get_types_in_operand(target, types);
+                get_types_in_operand(left, types);
+                get_types_in_operand(right, types);
+            }
+            IrInstr::LessThanOrEq { target, left, right, vtype }=>{
+                types.insert(vtype.clone());
+                get_types_in_operand(target, types);
+                get_types_in_operand(left, types);
+                get_types_in_operand(right, types);
+            }
+            IrInstr::Not { target, value, vtype }=>{
+                types.insert(vtype.clone());
+                get_types_in_operand(target, types);
+                get_types_in_operand(value, types);
+            }
+            IrInstr::Call { func_name:_, args, stack_ptr_when_called:_ }=>{
+                for i in args{
+                    get_types_in_operand(&i, types);
+                }
+            }
+            IrInstr::CallWithRet { target, func_name:_ ,args, vtype, stack_ptr_when_called:_ }=>{
+                for i in args{
+                    get_types_in_operand(&i, types);
+                }
+                get_types_in_operand(target, types);
+            }
+            IrInstr::Ret { to_return, stack_ptr:_ }=>{
+                get_types_in_operand(to_return, types);
+            }
+            IrInstr::Push { vtype, val_idx :_}=>{
+              types.insert(vtype.clone());
+            }
+            IrInstr::Pop { vtype }=>{
+                types.insert(vtype.clone());
+            }
             _=>{
 
             }

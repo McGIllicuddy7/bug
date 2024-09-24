@@ -8,6 +8,7 @@ mod ir_to_as;
 mod x86;
 use x86::ArgCPU;
 
+use crate::ir::get_types_used_in_ir;
 use crate::{
     ir::compile_function_to_ir, name_mangle_function, name_mangle_type, name_mangle_type_for_names,
     Function, FunctionTable, Program, Target, Type,
@@ -114,8 +115,6 @@ pub fn compile_function(
     }
     for count in 0..func.args.len() {
         v = 0;
-        let base_ptr = stack_count;
-        let arg_sz = func.args[count].get_size_bytes();
         arg_state.handle_capacity_for("",&func.args[count]);
         while v < func.args[count].get_size_bytes() {
             let n = arg_state.get_next_location();
@@ -129,9 +128,9 @@ pub fn compile_function(
                 }
                 out += &format!(
                     "   mov r10, QWORD[rbp+{}]\n",
-                    stack_arg_count as i64+16
+                    stack_arg_size - stack_arg_count
                 );
-                out += &format!("   mov QWORD[rbp-{}], r10\n", base_ptr+arg_sz-v);
+                out += &format!("   mov QWORD[rbp-{}], r10\n", arg_total- stack_count);
                 stack_arg_count += 8;
             }
             v += 8;
@@ -140,6 +139,7 @@ pub fn compile_function(
     }
     stack_count = 32;
     let ir = compile_function_to_ir(func, functions, types, &mut stack_count);
+    get_types_used_in_ir(&ir, used_types);  
     if stack_count % 16 != 0 {
         stack_count += 16 - stack_count % 16;
     }
@@ -174,6 +174,7 @@ pub fn gc_function_name(t: &Type) -> String {
 }
 fn compile_gc_functions(types: HashSet<Type>) -> String {
     let mut out = String::new();
+    
     for i in &types {
         match i {
             Type::StringT => {
