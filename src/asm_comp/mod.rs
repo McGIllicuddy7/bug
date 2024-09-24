@@ -74,7 +74,7 @@ pub fn compile_function(
     println!("{}",func.name);
     let mut out = String::new();
     let mut base = String::new();
-    base += "align 8\n";
+    base += "align 16\n";
     match target {
         Target::MacOs { arm: _ } => {
             base += "_";

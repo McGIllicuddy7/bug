@@ -645,10 +645,10 @@ pub fn compile_ir_instr_to_x86(
         } => {
             match cmp_target{
                 Target::MacOs { arm:_ }=>{
-                    return format!("    mov rdi, [rbp-{stack_offset_of_value}]\n    mov rsi, _{}\n    call _gc_register_ptr", gc_function_name(vtype));
+                    return format!("    mov rdi, [rbp-{stack_offset_of_value}]\n    mov rsi, [rel _{}]\n    call _gc_register_ptr", gc_function_name(vtype));
                 }
                 _=>{
-                    return format!("    mov rdi, [rbp-{stack_offset_of_value}]\n    mov rsi, _{}\n    call _gc_register_ptr", gc_function_name(vtype));
+                    return format!("    mov rdi, [rbp-{stack_offset_of_value}]\n    mov rsi, [rel {}]\n    call gc_register_ptr", gc_function_name(vtype));
                 }
             }
 
