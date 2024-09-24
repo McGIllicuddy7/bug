@@ -1,6 +1,6 @@
 use crate::{get_function_by_args, Function, FunctionTable};
 use crate::{AstNode, Type};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 #[allow(unused)]
 #[derive(Clone, Debug)]
@@ -1689,4 +1689,55 @@ pub fn compile_function_to_ir(
         stack_ptr: *stack_ptr,
     });
     return out;
+}
+fn get_types_in_operand(op:&IrOperand, types:&mut HashSet<Type>){
+    match op{
+        StacKOperand {
+            var_idx: usize,
+            name: Rc<str>,
+            stack_offset: usize,
+            vtype: Type,
+        }=>{
+            
+        }
+        Name {
+            name: Rc<str>,
+            vtype: Type,
+        },
+        Deref {
+            to_deref: Box<IrOperand>,
+        },
+        TakeRef {
+            to_ref: Box<IrOperand>,
+        },
+        StringLiteral {
+            value: Rc<str>,
+        },
+        IntLiteral {
+            value: i64,
+        },
+        FloatLiteral {
+            value: f64,
+        },
+        CharLiteral {
+            value: u8,
+        },
+        FieldAccess {
+            base: Box<IrOperand>,
+            name: Rc<str>,
+        },
+        ArrayAccess {
+            base: Box<IrOperand>,
+            value: Box<IrOperand>,
+        }, 
+    }
+}
+pub fn get_types_used_in_ir(instructions:&[IrInstr], types:&mut HashSet<Type>){
+    for i in instructions{
+        match i{
+            _=>{
+
+            }
+        }
+    }
 }
