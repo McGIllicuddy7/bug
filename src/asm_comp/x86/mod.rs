@@ -51,7 +51,7 @@ impl ArgCPU {
     pub fn handle_capacity_for(&mut self, arg_v: &str, arg_t:&Type){
         let saved_state = self.clone();
         let mut discarded_pop_stack =0;
-        let _discard = self.generate_arg(arg_v, arg_t, &mut discarded_pop_stack);
+        let _discard = self.generate_arg_internal(arg_v, arg_t, &mut discarded_pop_stack,true);
         if discarded_pop_stack==0{
             *self = saved_state;
         }
@@ -100,10 +100,12 @@ impl ArgCPU {
 
             }
     }
-    pub fn generate_arg(&mut self, arg_v: &str, arg_t: &Type, to_pop_stack: &mut usize) -> String {
+    fn generate_arg_internal(&mut self, arg_v:&str, arg_t: &Type,to_pop_stack: &mut usize,called_from_cap:bool)->String{
         let mut out = String::new();
         let is_addr = arg_v.contains('r');
-        
+        if !called_from_cap{
+            self.handle_capacity_for(arg_v, arg_t); 
+        }
         match arg_t {
             types::Type::ArrayT {
                 size: _,
@@ -153,5 +155,8 @@ impl ArgCPU {
             }
         }
         return out;
+    }
+    pub fn generate_arg(&mut self, arg_v: &str, arg_t: &Type, to_pop_stack: &mut usize) -> String {
+        return self.generate_arg_internal(arg_v, arg_t, to_pop_stack, false);
     }
 }

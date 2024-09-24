@@ -114,6 +114,7 @@ pub fn compile_function(
     }
     for count in 0..func.args.len() {
         v = 0;
+        arg_state.handle_capacity_for("",&func.args[count]);
         while v < func.args[count].get_size_bytes() {
             let n = arg_state.get_next_location();
             if let Some(next) = n {

@@ -22,7 +22,7 @@ pub fn print_stats(stats:Stats)->void{
 pub fn print_stats_c(stats:Stats)->void;
 pub fn main()->int{
    let a = new_stats();
-   print_stats_c(a);
+   print_stats(a);
    return 0;
 }
 
