@@ -120,7 +120,7 @@ pub fn compile_function(
         while v < func.args[count].get_size_bytes() {
             let n = arg_state.get_next_location();
             if let Some(next) = n {
-                out += &format!("   mov QWORD[rbp-{}], {}\n", arg_total - stack_count, next);
+                out += &format!("   mov QWORD[rbp-{}], {}\n", arg_total - stack_count+32, next);
             } else {
                 if stack_arg_size == 0 {
                     func.args[count..func.args.len()]

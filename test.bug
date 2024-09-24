@@ -5,11 +5,9 @@ struct Stats{
    intelligence:int 
    wisdom:int 
    charisma:int
-   id:int
-   hp:int
 };
 pub fn new_stats()->Stats{
-   return Stats{1,2,3,4,5,6,42069,10};
+   return Stats{1,2,3,4,5,6};
 }
 pub fn print_stats(stats:Stats)->void{
   put_str_ln(stats.strength);
@@ -18,14 +16,11 @@ pub fn print_stats(stats:Stats)->void{
   put_str_ln(stats.intelligence);
   put_str_ln(stats.wisdom);
   put_str_ln(stats.charisma);
-  put_str_ln(stats.id);
-  put_str_ln(stats.hp);
 }
 pub fn print_stats_c(stats:Stats)->void;
 pub fn main()->int{
-   let a = new_stats();
-   print_stats(a);
-   print_stats_c(a);
+   let stats = new_stats();
+   print_stats(stats);
    return 0;
 }
 
