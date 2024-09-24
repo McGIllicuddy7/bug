@@ -444,7 +444,7 @@ pub fn compile_ir_instr_to_x86(
                 st += "    push r10\n";
             }
             st += "    push r10\n";
-            st += "    push r9\n";
+            st += "    push r11\n";
             for i in &vs {
                 st += i;
             }
@@ -459,8 +459,8 @@ pub fn compile_ir_instr_to_x86(
             if pop_count%2 != 0{
                 st += "    pop r10\n";
             }
-            st += "    pop r10\n";
             st += "    pop r11\n";
+            st += "    pop r10\n";
             if vtype.get_size_bytes() <= 16 {
                 st += &format!("    mov QWORD[{}], rax\n", tstr);
                 if vtype.get_size_bytes() > 8 {

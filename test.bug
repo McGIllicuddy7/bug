@@ -11,21 +11,22 @@ struct Stats{
 pub fn new_stats()->Stats{
    return Stats{1,2,3,4,5,6,10,13};
 }
-pub fn print_stats(stats:Stats)->void{
-  put_str_ln(stats.strength);
-  put_str_ln(stats.dexterity);
-  put_str_ln(stats.consitution);
-  put_str_ln(stats.intelligence);
-  put_str_ln(stats.wisdom);
-  put_str_ln(stats.charisma);
-  put_str_ln(stats.hp);
-  put_str_ln(stats.ac);
+pub fn print_stats(name:string stats:Stats)->void{
+   put_str_ln(name);
+   put_str_ln(stats.strength);
+   put_str_ln(stats.dexterity);
+   put_str_ln(stats.consitution);
+   put_str_ln(stats.intelligence);
+   put_str_ln(stats.wisdom);
+   put_str_ln(stats.charisma);
+   put_str_ln(stats.hp);
+   put_str_ln(stats.ac);
 }
-pub fn print_stats_c(stats:Stats)->void;
+pub fn print_stats_c(name:string stats:Stats)->void;
 pub fn main()->int{
    let stats = new_stats();
-   print_stats(stats);
-   print_stats_c(stats);
+   let name = "toast";
+   print_stats_c(name,stats);
    return 0;
 }
 

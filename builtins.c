@@ -107,6 +107,7 @@ gc_allocation * find_allocation(allocation_buffer * buffer){
     }
 }
 void gc_collect(){
+    return;
     if(dropped_ptr_count <64 && current_frame != 0){
         return;
     }
@@ -253,7 +254,9 @@ typedef struct{
     long ac;
 } u_Stats;
 
-void user_print_stats_c_u_Stats(u_Stats stats){
+void user_print_stats_c_String_u_Stats(String name,u_Stats stats){
+    printf("%s %ld\n",name.start, name.len);
+    user_put_str_ln_String(name);
     printf("%ld\n",stats.strength);
     printf("%ld\n",stats.dexterity);
     printf("%ld\n",stats.constitution);
