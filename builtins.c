@@ -107,7 +107,6 @@ gc_allocation * find_allocation(allocation_buffer * buffer){
     }
 }
 void gc_collect(){
-    return;
     if(dropped_ptr_count <64 && current_frame != 0){
         return;
     }
