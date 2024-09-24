@@ -129,7 +129,7 @@ pub fn compile_function(
                 }
                 out += &format!(
                     "   mov r10, QWORD[rbp+{}]\n",
-                    (stack_arg_size - stack_arg_count) as i64+8
+                    stack_arg_count as i64+16
                 );
                 out += &format!("   mov QWORD[rbp-{}], r10\n", base_ptr+arg_sz-v);
                 stack_arg_count += 8;
