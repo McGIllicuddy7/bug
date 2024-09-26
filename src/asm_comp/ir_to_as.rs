@@ -65,16 +65,16 @@ fn compile_binary_comp_op(ir_instr:&str, left:&IrOperand, right:&IrOperand,targe
             let l = compile_ir_op_to_x86(left, true, &mut stack, statics, statics_count);
             let r = compile_ir_op_to_x86(right, false, &mut stack, statics, statics_count);
             if l.as_bytes()[0] == b'r' {
-                stack += &format!("    movsd xmm0, [{}]\n", l);
+                stack += &format!("    movsd xmm1, [{}]\n", l);
             } else {
-                stack += &format!("    movsd xmm0, {}\n",l);
+                stack += &format!("    movsd xmm1, {}\n",l);
             }
             if r.as_bytes()[0] == b'r' {
-                stack += &format!("    movsd xmm1, QWORD [{}]\n", r);
+                stack += &format!("    movsd xmm0, QWORD [{}]\n", r);
             } else {
-                stack += &format!("    movsd xmm1, {}\n", r);
+                stack += &format!("    movsd xmm0, {}\n", r);
             }
-            stack += &format!("    ucomisd xmm1, xmm0\n");
+            stack += &format!("    fcom\n");
             stack += &format!("    mov rbx, 0\n");
             stack += &format!("    mov rax, 1\n");
             stack += &format!("    {}\n", ir_instr);
@@ -475,10 +475,10 @@ pub fn compile_ir_instr_to_x86(
         IrInstr::VariableDeclaration { name: _, vtype ,stack_offset} => {
             match cmp_target{
                 Target::MacOs { arm:_ }=>{
-                    return format!("    mov rdi, [rbp-{stack_offset}]\n    mov rsi, [rel _{}]\n    call _gc_register_ptr", gc_function_name(vtype));
+                    return format!("    mov rdi, [rbp-{stack_offset}]\n    lea rsi, [rel _{}]\n    call _gc_register_ptr", gc_function_name(vtype));
                 }
                 _=>{
-                    return format!("    mov rdi, [rbp-{stack_offset}]\n    mov rsi, [rel {}]\n    call gc_register_ptr", gc_function_name(vtype));
+                    return format!("    mov rdi, [rbp-{stack_offset}]\n    lea rsi, [rel {}]\n    call gc_register_ptr", gc_function_name(vtype));
                 }
             }
         }
@@ -609,10 +609,10 @@ pub fn compile_ir_instr_to_x86(
         } => {
             match cmp_target{
                 Target::MacOs { arm:_ }=>{
-                    return format!("    mov rdi, [rbp-{stack_offset_of_value}]\n    mov rsi, [rel _{}]\n    call _gc_register_ptr", gc_function_name(vtype));
+                    return format!("    mov rdi, [rbp-{stack_offset_of_value}]\n    lea rsi, [rel _{}]\n    call _gc_register_ptr", gc_function_name(vtype));
                 }
                 _=>{
-                    return format!("    mov rdi, [rbp-{stack_offset_of_value}]\n    mov rsi, [rel {}]\n    call gc_register_ptr", gc_function_name(vtype));
+                    return format!("    mov rdi, [rbp-{stack_offset_of_value}]\n    lea rsi, [rel {}]\n    call gc_register_ptr", gc_function_name(vtype));
                 }
             }
 

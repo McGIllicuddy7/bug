@@ -1,10 +1,9 @@
 
 pub fn main()->int{
-   let a = 2.0/2.0+8.0;
-   if (a<1.0){
-      put_str_ln("howdy");
+   for(let i =0; i<1000; i = i+1){
+      put_str_ln("hello world");
    }
-   put_str_ln(a);
+   return 0;
 }
 
  
