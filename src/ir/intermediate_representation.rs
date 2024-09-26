@@ -108,7 +108,7 @@ impl IrOperand {
                 };
             }
         }
-        todo!();
+        //todo!();
     }
 }
 #[allow(unused)]
@@ -1270,7 +1270,7 @@ pub fn compile_ast_node_to_ir(
                 pop_table,
             );
             let comps = match vtype {
-                Type::StructT { name, components } => components.clone(),
+                Type::StructT { name:_, components } => components.clone(),
                 _ => {
                     unreachable!();
                 }
@@ -1728,9 +1728,6 @@ fn get_types_in_operand(op:&IrOperand, types:&mut HashSet<Type>){
             types.insert(base.get_type());
             types.insert(value.get_type());
         }
-        _=>{
-
-        }
     }
 }
 pub fn get_types_used_in_ir(instructions:&[IrInstr], types:&mut HashSet<Type>){
@@ -1829,7 +1826,7 @@ pub fn get_types_used_in_ir(instructions:&[IrInstr], types:&mut HashSet<Type>){
                     get_types_in_operand(&i, types);
                 }
             }
-            IrInstr::CallWithRet { target, func_name:_ ,args, vtype, stack_ptr_when_called:_ }=>{
+            IrInstr::CallWithRet { target, func_name:_ ,args, vtype:_, stack_ptr_when_called:_ }=>{
                 for i in args{
                     get_types_in_operand(&i, types);
                 }

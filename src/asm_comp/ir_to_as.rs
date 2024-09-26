@@ -472,9 +472,15 @@ pub fn compile_ir_instr_to_x86(
         IrInstr::Label { name } => {
             return format!("{name}:");
         }
-        IrInstr::VariableDeclaration { name: _, vtype: _ ,stack_offset} => {
-            let out = "".to_owned();
-            return out;
+        IrInstr::VariableDeclaration { name: _, vtype ,stack_offset} => {
+            match cmp_target{
+                Target::MacOs { arm:_ }=>{
+                    return format!("    mov rdi, [rbp-{stack_offset}]\n    mov rsi, [rel _{}]\n    call _gc_register_ptr", gc_function_name(vtype));
+                }
+                _=>{
+                    return format!("    mov rdi, [rbp-{stack_offset}]\n    mov rsi, [rel {}]\n    call gc_register_ptr", gc_function_name(vtype));
+                }
+            }
         }
         IrInstr::CondGoto { cond, target } => {
             let mut stack = "".to_owned();
@@ -544,7 +550,7 @@ pub fn compile_ir_instr_to_x86(
         } => {
             let t = to_return.get_type();
             let mut out = "".to_owned();
-            for i in 0..*depth{
+            for _ in 0..*depth{
                 out += match cmp_target {
                     Target::MacOs { arm: _ } => "    call _gc_pop_frame\n",
                     _ => "    call gc_pop_frame\n",
@@ -590,9 +596,9 @@ pub fn compile_ir_instr_to_x86(
             return out;
         }
         IrInstr::Not {
-            target,
-            value,
-            vtype,
+            target:_,
+            value:_,
+            vtype:_,
         } => {
             todo!();
         }
@@ -615,5 +621,5 @@ pub fn compile_ir_instr_to_x86(
             return "".to_owned();
         }
     }
-    todo!();
+    //todo!();
 }

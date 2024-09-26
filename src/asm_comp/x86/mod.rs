@@ -103,7 +103,7 @@ impl ArgCPU {
 fn generate_float_arg(
         &mut self,
         op_name: &str,
-        size: usize,
+        _size: usize,
         offset: usize,
         to_pop_stack: &mut usize,
         is_address_of:bool
@@ -188,7 +188,7 @@ fn generate_float_arg(
                 unreachable!();
             }
         }
-        return out;
+        //return out;
     }
     pub fn generate_arg(&mut self, arg_v: &str, arg_t: &Type, to_pop_stack: &mut usize) -> String {
         return self.generate_arg_internal(arg_v, arg_t, to_pop_stack, false);

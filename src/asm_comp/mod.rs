@@ -1,6 +1,5 @@
 use std::fs;
 use std::io::Write;
-use std::os::unix::process;
 use std::{
     collections::{HashMap, HashSet},
     rc::Rc,
@@ -58,7 +57,7 @@ pub fn compile_function_table_header(
     return Ok(out);
 }
 
-pub fn compile_static(_name: &String, _vtype: &Type, _index: usize) -> Result<String, String> {
+pub fn _compile_static(_name: &String, _vtype: &Type, _index: usize) -> Result<String, String> {
     todo!();
 }
 pub fn compile_function(
@@ -176,7 +175,7 @@ pub fn compile_function(
 pub fn gc_function_name(t: &Type) -> String {
     return "gc_".to_owned() + &name_mangle_type_for_names(t);
 }
-fn compile_gc_functions(types: &HashSet<Type>, target: &Target) -> String {
+fn compile_gc_functions(types: &HashSet<Type>, _target: &Target) -> String {
     let mut out = String::new();
     let mut stypes = HashMap::new();
     for i in types{
