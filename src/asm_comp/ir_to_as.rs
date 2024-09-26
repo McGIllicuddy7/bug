@@ -16,6 +16,25 @@ fn get_sreg(left: bool) -> String {
         return "r10".to_owned();
     }
 }
+fn compile_binary_op(ir_instr:&str, fp_instr:&str, left:&IrOperand, right:&IrOperand,target:&IrOperand,vtype: &Type,statics:&mut String, statics_count:&mut usize)->String {
+        let mut stack = "".to_owned();
+        let l = compile_ir_op_to_x86(left, true, &mut stack, statics, statics_count);
+        let r = compile_ir_op_to_x86(right, false, &mut stack, statics, statics_count);
+        if l.as_bytes()[0] == b'r' {
+            stack += &format!("    mov rax, QWORD [{}]\n", l);
+        } else {
+            stack += &format!("    mov rax, {}\n", l);
+        }
+        if r.as_bytes()[0] == b'r' {
+            stack += &format!("    mov rbx, QWORD [{}]\n", r);
+        } else {
+            stack += &format!("    mov rbx, {}\n", r);
+        }
+        stack += &format!("    {}\n", ir_instr);
+        let v = compile_ir_op_to_x86(target, true, &mut stack, statics, statics_count);
+        stack += &format!("    mov {} [{}], rax\n", get_asmx86_type_name(vtype), v);
+        return stack; 
+}
 #[allow(unused)]
 pub fn compile_ir_op_to_x86(
     op: &IrOperand,
@@ -40,7 +59,27 @@ pub fn compile_ir_op_to_x86(
             return format!("{value}");
         }
         IrOperand::FloatLiteral { value } => {
-            return format!("{value}");
+            let mut ifloat = unsafe {
+                core::mem::transmute::<f64,[u8;8]>(*value)
+            };
+            let name_str = {
+                let mut tmp = String::new();
+                for i in 0..8{
+                    tmp += &format!("{}", ifloat[i]);
+                    if i != 7{
+                        tmp += ",";
+                    }
+                }
+                tmp 
+            };
+            *statics += &format!("   static{} : db {}\n", statics_count, name_str);
+            *statics_count += 1;
+            *stack += &format!(
+                "    lea {}, [rel static{}]\n",
+                get_sreg(left),
+                *statics_count - 1
+            );
+            return get_sreg(left); 
         }
         IrOperand::Deref { to_deref } => {
             let base = compile_ir_op_to_x86(&to_deref, left, stack, statics, statics_count);
@@ -66,10 +105,10 @@ pub fn compile_ir_op_to_x86(
             return get_sreg(left);
         }
         IrOperand::StringLiteral { value } => {
-            *statics += &format!("   msg{}: db {},0x0\n", statics_count, value);
+            *statics += &format!("   static{}: db {},0x0\n", statics_count, value);
             *statics_count += 1;
             *stack += &format!(
-                "    lea {}, [rel msg{}]\n",
+                "    lea {}, [rel static{}]\n",
                 get_sreg(left),
                 *statics_count - 1
             );
@@ -117,23 +156,7 @@ pub fn compile_ir_instr_to_x86(
             right,
             vtype,
         } => {
-            let mut stack = "".to_owned();
-            let l = compile_ir_op_to_x86(left, true, &mut stack, statics, statics_count);
-            let r = compile_ir_op_to_x86(right, false, &mut stack, statics, statics_count);
-            if l.as_bytes()[0] == b'r' {
-                stack += &format!("    mov rax, QWORD [{}]\n", l);
-            } else {
-                stack += &format!("    mov rax, {}\n", l);
-            }
-            if r.as_bytes()[0] == b'r' {
-                stack += &format!("    mov rbx, QWORD [{}]\n", r);
-            } else {
-                stack += &format!("    mov rbx, {}\n", r);
-            }
-            stack += &format!("    add rax, rbx\n");
-            let v = compile_ir_op_to_x86(target, true, &mut stack, statics, statics_count);
-            stack += &format!("    mov {} [{}], rax\n", get_asmx86_type_name(vtype), v);
-            return stack;
+            return compile_binary_op("add rax,rbx","addsd xmm0, xmm1", left, right, target, vtype, statics, statics_count);
         }
         IrInstr::Sub {
             target,
@@ -141,23 +164,7 @@ pub fn compile_ir_instr_to_x86(
             right,
             vtype,
         } => {
-            let mut stack = "".to_owned();
-            let l = compile_ir_op_to_x86(left, true, &mut stack, statics, statics_count);
-            let r = compile_ir_op_to_x86(right, false, &mut stack, statics, statics_count);
-            if l.as_bytes()[0] == b'r' {
-                stack += &format!("    mov rax, QWORD [{}]\n", l);
-            } else {
-                stack += &format!("    mov rax, {}\n", l);
-            }
-            if r.as_bytes()[0] == b'r' {
-                stack += &format!("    mov rbx, QWORD [{}]\n", l);
-            } else {
-                stack += &format!("    mov rbx, {}\n", r);
-            }
-            stack += &format!("    sub rax, rbx\n");
-            let v = compile_ir_op_to_x86(target, true, &mut stack, statics, statics_count);
-            stack += &format!("    mov {} [{}], rax\n", get_asmx86_type_name(vtype), v);
-            return stack;
+            return compile_binary_op("sub rax,rbx","subsd xmm0, xmm1", left, right, target, vtype, statics, statics_count);
         }
         IrInstr::Div {
             target,
@@ -165,23 +172,7 @@ pub fn compile_ir_instr_to_x86(
             right,
             vtype,
         } => {
-            let mut stack = "".to_owned();
-            let l = compile_ir_op_to_x86(left, true, &mut stack, statics, statics_count);
-            let r = compile_ir_op_to_x86(right, false, &mut stack, statics, statics_count);
-            if l.as_bytes()[0] == b'r' {
-                stack += &format!("    mov rax, QWORD [{}]\n", l);
-            } else {
-                stack += &format!("    mov rax, {}\n", l);
-            }
-            if r.as_bytes()[0] == b'r' {
-                stack += &format!("    mov rdx, QWORD [{}]\n", r);
-            } else {
-                stack += &format!("    mov rdx, {}\n", r);
-            }
-            stack += &format!("    idiv edx\n");
-            let v = compile_ir_op_to_x86(target, true, &mut stack, statics, statics_count);
-            stack += &format!("    mov {} [{}], rax\n", get_asmx86_type_name(vtype), v);
-            return stack;
+            return compile_binary_op("idiv edx","divsd xmm0, xmm1", left, right, target, vtype, statics, statics_count);
         }
         IrInstr::Mul {
             target,
@@ -189,23 +180,7 @@ pub fn compile_ir_instr_to_x86(
             right,
             vtype,
         } => {
-            let mut stack = "".to_owned();
-            let l = compile_ir_op_to_x86(left, true, &mut stack, statics, statics_count);
-            let r = compile_ir_op_to_x86(right, false, &mut stack, statics, statics_count);
-            if l.as_bytes()[0] == b'r' {
-                stack += &format!("    mov rax, QWORD [{}]\n", l);
-            } else {
-                stack += &format!("    mov rax, {}\n", l);
-            }
-            if r.as_bytes()[0] == b'r' {
-                stack += &format!("    mov rbx, QWORD [{}]\n", r);
-            } else {
-                stack += &format!("    mov rbx, {}\n", r);
-            }
-            stack += &format!("    imul rax, rbx\n");
-            let v = compile_ir_op_to_x86(target, true, &mut stack, statics, statics_count);
-            stack += &format!("    mov {} [{}], rax\n", get_asmx86_type_name(vtype), v);
-            return stack;
+            return compile_binary_op("imul rax,rbx","mullsd xmm0, xmm1", left, right, target, vtype, statics, statics_count);
         }
         IrInstr::And {
             target,
@@ -213,23 +188,7 @@ pub fn compile_ir_instr_to_x86(
             right,
             vtype,
         } => {
-            let mut stack = "".to_owned();
-            let l = compile_ir_op_to_x86(left, true, &mut stack, statics, statics_count);
-            let r = compile_ir_op_to_x86(right, false, &mut stack, statics, statics_count);
-            if l.as_bytes()[0] == b'r' {
-                stack += &format!("    mov rax, QWORD [{}]\n", l);
-            } else {
-                stack += &format!("    mov rax, rcx\n");
-            }
-            if r.as_bytes()[0] == b'r' {
-                stack += &format!("    mov rbx, QWORD [{}]\n", r);
-            } else {
-                stack += &format!("    mov rbx, rdx\n");
-            }
-            stack += &format!("    and rax, rbx\n");
-            let v = compile_ir_op_to_x86(target, true, &mut stack, statics, statics_count);
-            stack += &format!("    mov {} [{}], rax\n", get_asmx86_type_name(vtype), v);
-            return stack;
+            return compile_binary_op("and rax,rbx","", left, right, target, vtype, statics, statics_count);
         }
         IrInstr::Or {
             target,
@@ -237,23 +196,7 @@ pub fn compile_ir_instr_to_x86(
             right,
             vtype,
         } => {
-            let mut stack = "".to_owned();
-            let l = compile_ir_op_to_x86(left, true, &mut stack, statics, statics_count);
-            let r = compile_ir_op_to_x86(right, false, &mut stack, statics, statics_count);
-            if l.as_bytes()[0] == b'r' {
-                stack += &format!("    mov rax, QWORD [{}]\n", l);
-            } else {
-                stack += &format!("    mov rax, rcx\n");
-            }
-            if r.as_bytes()[0] == b'r' {
-                stack += &format!("    mov rbx, QWORD [{}]\n", r);
-            } else {
-                stack += &format!("    mov rbx, rdx\n");
-            }
-            stack += &format!("    or rax, rbx\n");
-            let v = compile_ir_op_to_x86(target, true, &mut stack, statics, statics_count);
-            stack += &format!("    mov, {} [{}], rax\n", get_asmx86_type_name(vtype), v);
-            return stack;
+            return compile_binary_op("or rax,rbx","", left, right, target, vtype, statics, statics_count);
         }
         IrInstr::GreaterThan {
             target,

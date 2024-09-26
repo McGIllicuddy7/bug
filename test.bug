@@ -1,28 +1,7 @@
-struct Stats{
-   strength:int 
-   dexterity:int 
-   consitution:int
-   intelligence:int 
-   wisdom:int 
-   charisma:int
-};
-pub fn new_stats()->Stats{
-   return Stats{1,2,3,4,5,6};
-}
-pub fn print_stats(name:string stats:Stats)->void{
-   put_str_ln(name);
-   put_str_ln(stats.strength);
-   put_str_ln(stats.dexterity);
-   put_str_ln(stats.consitution);
-   put_str_ln(stats.intelligence);
-   put_str_ln(stats.wisdom);
-   put_str_ln(stats.charisma);
-}
+
 pub fn main()->int{
-   let stats = new_stats();
-   let name = "toast";
-   print_stats(name,stats);
-   return 0;
+   let a = 1+2;
+   put_str_ln(a);
 }
 
  

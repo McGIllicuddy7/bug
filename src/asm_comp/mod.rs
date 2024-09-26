@@ -99,7 +99,7 @@ pub fn compile_function(
         );
         stack_count +=8;
     }
-    let mut v = 0;
+    let mut v;
     let arg_total;
     base += &{
         let mut total = 0;

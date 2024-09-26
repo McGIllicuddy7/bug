@@ -242,6 +242,18 @@ void user_put_str_ln_long(long a){
     size_t l = strlen(buffer);
     write(1, buffer, l);
 }
+void user_put_str_double(double a){
+    char buffer[100] = {0};
+    snprintf(buffer, 99, "%lf", a);
+    size_t l = strlen(buffer);
+    write(1, buffer, l);
+}
+void user_put_str_ln_double(double a){
+    char buffer[100] = {0};
+    snprintf(buffer, 99, "%lf\n", a);
+    size_t l = strlen(buffer);
+    write(1, buffer, l);
+}
 extern long user_main();
 int main(int argc,const char ** argv){
         long result = user_main(); 

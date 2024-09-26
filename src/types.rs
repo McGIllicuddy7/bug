@@ -69,7 +69,7 @@ impl Type{
             Self::StringT{}=>{
                 return "string".to_string();
             }
-            Self::ArrayT { size, array_type }=>{
+            Self::ArrayT { size:_ ,array_type }=>{
                 return "@array".to_string()+&array_type.get_name();
             }
             Self::VoidT=>{
@@ -249,9 +249,6 @@ pub fn is_compatible_type(a: &Type, b: &Type) -> bool {
             }
         }
         Type::IntegerT => match b {
-            Type::FloatT => {
-                return true;
-            }
             Type::IntegerT => {
                 return true;
             }
@@ -261,9 +258,6 @@ pub fn is_compatible_type(a: &Type, b: &Type) -> bool {
         },
         Type::FloatT => match b {
             Type::FloatT => {
-                return true;
-            }
-            Type::IntegerT => {
                 return true;
             }
             _ => {

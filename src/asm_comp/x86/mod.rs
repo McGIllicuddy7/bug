@@ -100,6 +100,41 @@ impl ArgCPU {
 
             }
     }
+fn generate_float_arg(
+        &mut self,
+        op_name: &str,
+        size: usize,
+        offset: usize,
+        to_pop_stack: &mut usize,
+        is_address_of:bool
+    ) -> String {
+        static SIZES: &[&'static str] = &["BYTE", "WORD", "", "DWORD", "", "", "", "QWORD"]; 
+        if let Some(rname) = self.get_next_fp_location() {
+            if !is_address_of{
+                return format!("    mov {}, {}\n", rname, op_name);
+            }
+            else{
+                if offset != 0{
+                    return format!("    mov {}, {} [{}-{offset}]\n", rname, SIZES[size-1], op_name)
+                } else{
+                    return format!("    mov {}, {} [{}]\n", rname, SIZES[size-1], op_name);
+                }
+
+            }
+        }
+        *to_pop_stack += 1;
+            if !is_address_of{
+                return format!("    push {} {}\n", SIZES[size-1],op_name);
+            }
+            else{
+                if offset != 0{
+                    return format!("    push {} [{}-{offset}]\n", SIZES[size-1], op_name);
+                } else{
+                    return format!("    push {} [{}]\n",SIZES[size-1], op_name);
+                }
+
+            }
+    }
     fn generate_arg_internal(&mut self, arg_v:&str, arg_t: &Type,to_pop_stack: &mut usize,called_from_cap:bool)->String{
         let mut out = String::new();
         let is_addr = arg_v.contains('r');
@@ -120,9 +155,9 @@ impl ArgCPU {
                 return self.generate_basic_arg(arg_v, 8, 0, to_pop_stack,is_addr);
             }
             types::Type::FloatT => {
-                todo!();
+                return self.generate_float_arg(arg_v, 8, 0,to_pop_stack, arg_v.contains("r"));
             }
-            types::Type::IntegerT => {
+            types::Type::IntegerT => { 
                 return self.generate_basic_arg(arg_v, 8, 0, to_pop_stack,arg_v.contains("r"));
             }
             types::Type::PointerT { ptr_type: _ } => {
