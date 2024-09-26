@@ -1,6 +1,6 @@
 
 pub fn main()->int{
-   let a = 2.0*2.0+8.0;
+   let a = 2.0/2.0+8.0;
    put_str_ln(a);
 }
 

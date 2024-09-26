@@ -32,7 +32,7 @@ fn compile_binary_op(ir_instr:&str, fp_instr:&str, left:&IrOperand, right:&IrOpe
             } else {
                 stack += &format!("    movsd xmm1, {}\n", r);
             }
-            stack += &format!("    {}\n", ir_instr);
+            stack += &format!("    {}\n", fp_instr);
             let v = compile_ir_op_to_x86(target, true, &mut stack, statics, statics_count);
             stack += &format!("    movsd [{}], xmm0\n", v);
             return stack;  
@@ -203,7 +203,7 @@ pub fn compile_ir_instr_to_x86(
             right,
             vtype,
         } => {
-            return compile_binary_op("imul rax,rbx","mullsd xmm0, xmm1", left, right, target, vtype, statics, statics_count);
+            return compile_binary_op("imul rax,rbx","mulsd xmm0, xmm1", left, right, target, vtype, statics, statics_count);
         }
         IrInstr::And {
             target,
@@ -457,7 +457,7 @@ pub fn compile_ir_instr_to_x86(
                     return stack;
                 }
                 IrOperand::FloatLiteral { value } => {
-                    let mut ifloat = unsafe {
+                    let ifloat = unsafe {
                         core::mem::transmute::<f64,[u8;8]>(*value)
                     };
                     let name_str = {
