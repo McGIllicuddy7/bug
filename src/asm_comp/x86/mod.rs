@@ -108,29 +108,28 @@ fn generate_float_arg(
         to_pop_stack: &mut usize,
         is_address_of:bool
     ) -> String {
-        static SIZES: &[&'static str] = &["BYTE", "WORD", "", "DWORD", "", "", "", "QWORD"]; 
         if let Some(rname) = self.get_next_fp_location() {
             if !is_address_of{
-                return format!("    mov {}, {}\n", rname, op_name);
+                return format!("    movsd {}, {}\n", rname, op_name);
             }
             else{
                 if offset != 0{
-                    return format!("    mov {}, {} [{}-{offset}]\n", rname, SIZES[size-1], op_name)
+                    return format!("    movsd {}, [{}-{offset}]\n", rname, op_name)
                 } else{
-                    return format!("    mov {}, {} [{}]\n", rname, SIZES[size-1], op_name);
+                    return format!("    movsd {}, [{}]\n", rname ,op_name);
                 }
 
             }
         }
         *to_pop_stack += 1;
             if !is_address_of{
-                return format!("    push {} {}\n", SIZES[size-1],op_name);
+                return format!("    push {}\n" ,op_name);
             }
             else{
                 if offset != 0{
-                    return format!("    push {} [{}-{offset}]\n", SIZES[size-1], op_name);
+                    return format!("    push [{}-{offset}]\n", op_name);
                 } else{
-                    return format!("    push {} [{}]\n",SIZES[size-1], op_name);
+                    return format!("    push [{}]\n", op_name);
                 }
 
             }

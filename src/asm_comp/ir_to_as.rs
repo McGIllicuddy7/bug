@@ -17,23 +17,46 @@ fn get_sreg(left: bool) -> String {
     }
 }
 fn compile_binary_op(ir_instr:&str, fp_instr:&str, left:&IrOperand, right:&IrOperand,target:&IrOperand,vtype: &Type,statics:&mut String, statics_count:&mut usize)->String {
-        let mut stack = "".to_owned();
-        let l = compile_ir_op_to_x86(left, true, &mut stack, statics, statics_count);
-        let r = compile_ir_op_to_x86(right, false, &mut stack, statics, statics_count);
-        if l.as_bytes()[0] == b'r' {
-            stack += &format!("    mov rax, QWORD [{}]\n", l);
-        } else {
-            stack += &format!("    mov rax, {}\n", l);
+    match vtype{
+        Type::FloatT=>{
+            let mut stack = "".to_owned();
+            let l = compile_ir_op_to_x86(left, true, &mut stack, statics, statics_count);
+            let r = compile_ir_op_to_x86(right, false, &mut stack, statics, statics_count);
+            if l.as_bytes()[0] == b'r' {
+                stack += &format!("    movsd xmm0, [{}]\n", l);
+            } else {
+                stack += &format!("    movsd xmm0, {}\n", l);
+            }
+            if r.as_bytes()[0] == b'r' {
+                stack += &format!("    movsd xmm1,[{}]\n", r);
+            } else {
+                stack += &format!("    movsd xmm1, {}\n", r);
+            }
+            stack += &format!("    {}\n", ir_instr);
+            let v = compile_ir_op_to_x86(target, true, &mut stack, statics, statics_count);
+            stack += &format!("    movsd [{}], xmm0\n", v);
+            return stack;  
         }
-        if r.as_bytes()[0] == b'r' {
-            stack += &format!("    mov rbx, QWORD [{}]\n", r);
-        } else {
-            stack += &format!("    mov rbx, {}\n", r);
+        _=>{
+            let mut stack = "".to_owned();
+            let l = compile_ir_op_to_x86(left, true, &mut stack, statics, statics_count);
+            let r = compile_ir_op_to_x86(right, false, &mut stack, statics, statics_count);
+            if l.as_bytes()[0] == b'r' {
+                stack += &format!("    mov rax, QWORD [{}]\n", l);
+            } else {
+                stack += &format!("    mov rax, {}\n", l);
+            }
+            if r.as_bytes()[0] == b'r' {
+                stack += &format!("    mov rbx, QWORD [{}]\n", r);
+            } else {
+                stack += &format!("    mov rbx, {}\n", r);
+            }
+            stack += &format!("    {}\n", ir_instr);
+            let v = compile_ir_op_to_x86(target, true, &mut stack, statics, statics_count);
+            stack += &format!("    mov {} [{}], rax\n", get_asmx86_type_name(vtype), v);
+            return stack; 
         }
-        stack += &format!("    {}\n", ir_instr);
-        let v = compile_ir_op_to_x86(target, true, &mut stack, statics, statics_count);
-        stack += &format!("    mov {} [{}], rax\n", get_asmx86_type_name(vtype), v);
-        return stack; 
+    }
 }
 #[allow(unused)]
 pub fn compile_ir_op_to_x86(
@@ -434,7 +457,27 @@ pub fn compile_ir_instr_to_x86(
                     return stack;
                 }
                 IrOperand::FloatLiteral { value } => {
-                    todo!();
+                    let mut ifloat = unsafe {
+                        core::mem::transmute::<f64,[u8;8]>(*value)
+                    };
+                    let name_str = {
+                        let mut tmp = String::new();
+                        for i in 0..8{
+                            tmp += &format!("{}", ifloat[i]);
+                            if i != 7{
+                                tmp += ",";
+                            }
+                        }
+                        tmp 
+                    };
+                    *statics += &format!("   static{} : db {}\n", statics_count, name_str);
+                    *statics_count += 1;
+                    stack += &format!(
+                        "    movsd xmm0, [rel static{}]\n",
+                        *statics_count - 1
+                    );
+                    stack += &format!(" movsd [r11], xmm0\n");
+                    return stack;
                 }
                 _ => {}
             }
