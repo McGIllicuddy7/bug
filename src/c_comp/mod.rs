@@ -121,8 +121,9 @@ pub fn compile_function(
     let ir = compile_function_to_ir(func, functions, types, &mut stack_ptr);
     println!("ir representation:{:#?}", ir);
     let mut depth = 1;
+    let mut gc_depth = 0;
     for i in &ir {
-        let tmp = compile_ir_instr_to_c(i, &mut depth, used_types);
+        let tmp = compile_ir_instr_to_c(i, &mut depth,&mut gc_depth, used_types);
         out += &tmp;
         out += "\n";
     }

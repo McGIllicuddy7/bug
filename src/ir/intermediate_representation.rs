@@ -1443,6 +1443,7 @@ pub fn compile_ast_node_to_ir(
             val_stack.push(IrInstr::BeginScope {
                 stack_ptr: *stack_ptr,
             });
+            val_stack.push(IrInstr::BeginGcFrame);
             for i in body {
                 compile_ast_node_to_ir(
                     i,
@@ -1473,6 +1474,7 @@ pub fn compile_ast_node_to_ir(
             for i in loop_pop_table {
                 val_stack.push(IrInstr::Pop { vtype: i });
             }
+            val_stack.push(IrInstr::EndGcFrame);
             val_stack.push(IrInstr::EndScope {
                 stack_ptr: *stack_ptr,
             });

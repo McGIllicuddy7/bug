@@ -302,22 +302,10 @@ pub fn compile_ir_instr_to_x86(
             return compile_binary_comp_op("cmovle rax,rbx", left, right, target, vtype, statics, statics_count);
         }
         IrInstr::BeginScope { stack_ptr:_ } => {
-            *depth += 1;
-            let mut out = "".to_owned();
-            out += match cmp_target {
-                Target::MacOs { arm: _ } => "    call _gc_push_frame\n",
-                _ => "    call gc_push_frame\n",
-            };
-            return out; 
+            return "".to_string();
         }
         IrInstr::EndScope { stack_ptr:_ } => {
-            *depth -= 1;
-            let mut out = "".to_owned();
-            out += match cmp_target {
-                Target::MacOs { arm: _ } => "    call _gc_pop_frame\n",
-                _ => "    call gc_pop_frame\n",
-            };
-            return out;
+            return "".to_string();
         }
         IrInstr::Call {
             func_name,
@@ -550,7 +538,7 @@ pub fn compile_ir_instr_to_x86(
         } => {
             let t = to_return.get_type();
             let mut out = "".to_owned();
-            for _ in 0..*depth{
+            for _ in 0..*depth+1{
                 out += match cmp_target {
                     Target::MacOs { arm: _ } => "    call _gc_pop_frame\n",
                     _ => "    call gc_pop_frame\n",
@@ -621,10 +609,26 @@ pub fn compile_ir_instr_to_x86(
             return "".to_owned();
         }
         IrInstr::BeginGcFrame=>{
-            return "".to_string();
+            *depth += 1;
+            match cmp_target{
+                Target::MacOs { arm:_ }=>{
+                    return format!("    call _gc_push_frame\n");
+                }
+                _=>{
+                    return format!("    call gc_push_frame\n");
+                }
+            }
         }
         IrInstr::EndGcFrame=>{
-            return "".to_string()
+            *depth -= 1;
+            match cmp_target{
+                Target::MacOs { arm:_ }=>{
+                    return format!("    call _gc_pop_frame\n");
+                }
+                _=>{
+                    return format!("    call gc_pop_frame\n");
+                }
+            }
         }
     }
     //todo!();

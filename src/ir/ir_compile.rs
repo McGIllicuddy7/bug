@@ -59,7 +59,7 @@ macro_rules!  depth_format {
         depth_calc($depth)+&$lit.to_owned()
     };
 }
-pub fn compile_ir_instr_to_c(instr: &IrInstr, depth :&mut usize, used_types:&mut HashSet<Type>) -> String {
+pub fn compile_ir_instr_to_c(instr: &IrInstr, depth :&mut usize, gc_depth:&mut usize,used_types:&mut HashSet<Type>) -> String {
     match instr {
         IrInstr::VariableDeclaration { name, vtype, stack_offset:_} => {
             used_types.insert(vtype.clone());
@@ -237,7 +237,11 @@ pub fn compile_ir_instr_to_c(instr: &IrInstr, depth :&mut usize, used_types:&mut
             return base;
         }
         IrInstr::Ret { to_return , stack_ptr:_} => {
-            return depth_format!(depth,"gc_pop_frame();\n")+&depth_format!(depth, "return {};", compile_ir_op_to_c(to_return));
+            let mut out = String::new();
+            for _ in 0..*gc_depth+1{
+                out +=  &depth_format!(depth,"gc_pop_frame();\n")
+            }
+            return out+&depth_format!(depth, "return {};", compile_ir_op_to_c(to_return));
         }
         IrInstr::Push { vtype, val_idx , stack_offset_of_value:_} => {
             used_types.insert(vtype.clone());

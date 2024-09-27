@@ -1,9 +1,7 @@
 pub fn main()->int{
    let a = "hello world";
-   for(let i =0; i<10000; i = i+1){
       let b = "sophie forever";
       put_str_ln(b);
-   }
    return 0;
 }
 
