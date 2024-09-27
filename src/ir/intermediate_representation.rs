@@ -242,6 +242,8 @@ pub enum IrInstr {
     EndScope {
         stack_ptr: usize,
     },
+    BeginGcFrame,
+    EndGcFrame,
 }
 
 fn stack_push(

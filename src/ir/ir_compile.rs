@@ -256,5 +256,11 @@ pub fn compile_ir_instr_to_c(instr: &IrInstr, depth :&mut usize, used_types:&mut
             let out = "\n".to_owned()+&depth_format!(depth, "}");
             return out;
         }
+        IrInstr::BeginGcFrame=>{
+            return depth_format!(depth, "gc_push_frame();");
+        }
+        IrInstr::EndGcFrame=>{
+            return depth_format!(depth, "gc_pop_frame();");
+        }
     }
 }

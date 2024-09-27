@@ -183,6 +183,9 @@ void gc_long(void * ptr){
 
 }
 void gc_String(void * ptr){
+    if(!ptr){
+        return;
+    }
     String s= *(String *)(ptr);
     gc_any_ptr((void *)s.start);
 }

@@ -169,6 +169,14 @@ pub fn compile_function(
         out += &tmp;
         out += "\n";
     }
+    out += match target{
+        Target::MacOs { arm:_ }=>{
+            "   call _gc_pop_frame\n"
+        } 
+        _=>{
+            "   call gc_pop_frame\n"
+        }
+    };
     out += "    mov rsp, rbp\n";
     out += "    sub rsp, 32\n";
     out += "    pop r10\n";
