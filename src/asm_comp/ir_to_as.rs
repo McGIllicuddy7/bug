@@ -303,21 +303,21 @@ pub fn compile_ir_instr_to_x86(
         }
         IrInstr::BeginScope { stack_ptr:_ } => {
             *depth += 1;
-            let mut out = "".to_owned();
-            out += match cmp_target {
+            let mut _out = "".to_owned();
+            _out += match cmp_target {
                 Target::MacOs { arm: _ } => "    call _gc_push_frame\n",
                 _ => "    call gc_push_frame\n",
             };
-            return out;
+            return "".to_string();
         }
         IrInstr::EndScope { stack_ptr:_ } => {
             *depth -= 1;
-            let mut out = "".to_owned();
-            out += match cmp_target {
+            let mut _out = "".to_owned();
+            _out += match cmp_target {
                 Target::MacOs { arm: _ } => "    call _gc_pop_frame\n",
                 _ => "    call gc_pop_frame\n",
             };
-            return out;
+            return "".to_string();
         }
         IrInstr::Call {
             func_name,

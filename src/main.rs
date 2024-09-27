@@ -21,7 +21,7 @@ fn main() {
             unreachable!();
         }
     }; 
-    let to_c_code = true;
+    let to_c_code = false;
     loop{
         let tprg = "import builtins.bug;\n".to_owned()+&std::fs::read_to_string(&comp_que[i]).expect("testing expect");
         let name = comp_que[i].to_owned();
