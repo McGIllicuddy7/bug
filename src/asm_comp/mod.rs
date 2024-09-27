@@ -192,7 +192,7 @@ pub fn gc_function_name(t: &Type) -> String {
     return "gc_".to_owned() + &name_mangle_type_for_names(t);
 }
 fn compile_gc_functions(types: &HashSet<Type>, _target: &Target) -> String {
-    let mut out = String::new();
+    let mut out = String::from("#include \"../builtins.h\"\n");
     let mut stypes = HashMap::new();
     for i in types{
         stypes.insert(i.get_name(), i.clone());
@@ -408,10 +408,10 @@ pub fn compile_to_asm_x86(
     }
     match target {
         Target::MacOs { arm: _ } => {
-            func_decs += "extern _gc_push_frame\nextern _gc_pop_frame\nextern _gc_register_ptr\nextern _gc_String\n";
+            func_decs += "extern _gc_push_frame\nextern _gc_pop_frame\nextern _gc_register_ptr\nextern _gc_String\nextern _gc_alloc\n";
         }
         _ => {
-            func_decs += "extern gc_push_frame\nextern gc_pop_frame\nextern gc_register_ptr\nextern gc_String\n";
+            func_decs += "extern gc_push_frame\nextern gc_pop_frame\nextern gc_register_ptr\nextern gc_String\nextern _gc_alloc\n";
         }
     }
     let mut statics = "section .data\n".to_owned();

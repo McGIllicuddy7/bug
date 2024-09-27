@@ -1325,6 +1325,7 @@ pub fn compile_ast_node_to_ir(
             val_stack.push(IrInstr::BeginScope {
                 stack_ptr: *stack_ptr,
             });
+            val_stack.push(IrInstr::BeginGcFrame);
             let mut body_pop_table = vec![];
             for i in thing_to_do {
                 compile_ast_node_to_ir(
@@ -1344,6 +1345,7 @@ pub fn compile_ast_node_to_ir(
             for i in body_pop_table {
                 val_stack.push(IrInstr::Pop { vtype: i });
             }
+            val_stack.push(IrInstr::EndGcFrame);
             val_stack.push(IrInstr::EndScope {
                 stack_ptr: *stack_ptr,
             });
@@ -1357,6 +1359,7 @@ pub fn compile_ast_node_to_ir(
                 val_stack.push(IrInstr::BeginScope {
                     stack_ptr: *stack_ptr,
                 });
+                val_stack.push(IrInstr::BeginGcFrame);
                 let elblk = r#else.as_ref().expect("is some");
                 let mut pop_stack = vec![];
                 for i in elblk {
@@ -1377,6 +1380,7 @@ pub fn compile_ast_node_to_ir(
                 for i in pop_stack {
                     val_stack.push(IrInstr::Pop { vtype: i });
                 }
+                val_stack.push(IrInstr::EndGcFrame);
                 val_stack.push(IrInstr::EndScope {
                     stack_ptr: *stack_ptr,
                 });
@@ -1527,6 +1531,7 @@ pub fn compile_ast_node_to_ir(
             val_stack.push(IrInstr::BeginScope {
                 stack_ptr: *stack_ptr,
             });
+            val_stack.push(IrInstr::BeginGcFrame);
             let mut loop_pop_table = vec![];
             for i in body {
                 compile_ast_node_to_ir(
@@ -1546,6 +1551,7 @@ pub fn compile_ast_node_to_ir(
             for i in loop_pop_table {
                 val_stack.push(IrInstr::Pop { vtype: i });
             }
+            val_stack.push(IrInstr::EndGcFrame);
             val_stack.push(IrInstr::EndScope {
                 stack_ptr: *stack_ptr,
             });
