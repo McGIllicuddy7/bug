@@ -1,8 +1,8 @@
 pub fn main()->int{
-   let a = new ^string;
-   ^a = new string;
-   ^(^a) = "sophie forever";
-   put_str_ln(^^a);
+   let a = 1.0;
+   let b = &a;
+   ^b = 2.0;
+   put_str_ln(^b);
    return 0;
 }
 
