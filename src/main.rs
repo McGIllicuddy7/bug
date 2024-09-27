@@ -21,7 +21,7 @@ fn main() {
             unreachable!();
         }
     }; 
-    let to_c_code = false;
+    let to_c_code = true;
     loop{
         let tprg = "import builtins.bug;\n".to_owned()+&std::fs::read_to_string(&comp_que[i]).expect("testing expect");
         let name = comp_que[i].to_owned();
@@ -45,8 +45,13 @@ fn main() {
         }
         let name = "output/".to_owned()+&i[0..i.len()-4];
         print!("{} ",name);
-        cmd.arg(name.clone()+"_gc_funcs.c");
-        cmd.arg(name+".o");
+        if !to_c_code{
+            cmd.arg(name.clone()+"_gc_funcs.c");
+            cmd.arg(name+".o");
+        }else{
+            cmd.arg(name+".c");
+        }
+
     }
     cmd.arg("builtins.c").arg("-std=c2x");
     let t = cmd.output().expect("input should be ok");

@@ -1480,11 +1480,11 @@ pub fn compile_ast_node_to_ir(
             val_stack.push(IrInstr::Goto {
                 target: format!("L{}", base),
             });
-            val_stack.push(IrInstr::Label {
-                name: format!("L{}", end),
-            });
             val_stack.push(IrInstr::EndScope {
                 stack_ptr: *stack_ptr,
+            });
+            val_stack.push(IrInstr::Label {
+                name: format!("L{}", end),
             });
         }
         AstNode::Loop { condition, body } => {

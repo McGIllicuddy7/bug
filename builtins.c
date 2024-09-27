@@ -29,6 +29,7 @@ static ssize_t allocation_count = 0;
 static size_t dropped_ptr_count = 0;
 static void * stack_min = 0;
 static void * stack_max = 0;
+static long frame_counter = 0;
 void * mem_alloc(size_t size){
     allocation_count++;
     void * out = calloc(size,1);
@@ -49,6 +50,8 @@ void gc_push_frame(){
         current_frame->next = nw;
     }
     current_frame = nw;
+    frame_counter++;
+    printf("pushed frame: frame count %ld\n",frame_counter);
 }
 void gc_pop_frame(){
     gc_frame * prev = current_frame;
@@ -63,7 +66,8 @@ void gc_pop_frame(){
     } else{
         stack_min = 0;
     }
-
+    frame_counter--;
+    printf("popped frame: frame count %ld\n",frame_counter);
     gc_collect();
 }
 void gc_register_ptr(void * ptr, void (*collect_fn)(void *)){
