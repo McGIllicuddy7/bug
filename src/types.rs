@@ -96,6 +96,16 @@ impl Type{
             }
         }
     }
+    pub fn get_ptr_type(&self)->Option<Type>{
+        match &self{
+            &Self::PointerT {ptr_type }=>{
+                return Some(ptr_type.as_ref().clone());
+            }
+            _=>{
+                return None;
+            }
+        }
+    }
     #[allow(unused)]
     pub fn is_array(&self)->bool{
         match &self{
@@ -797,25 +807,9 @@ impl AstNode {
             Self::Return { body: _ } => {
                 return Some(Type::VoidT);
             }
-            Self::Deref { thing_to_deref } => match (*thing_to_deref).as_ref() {
-                Self::VariableUse {
-                    name: _,
-                    index: _,
-                    vtype,
-                    is_arg: _,
-                    data:_,
-                } => match vtype {
-                    Type::PointerT { ptr_type } => {
-                        return Some(ptr_type.as_ref().clone());
-                    }
-                    _ => {
-                        return None;
-                    }
-                },
-                _ => {
-                    return None;
-                }
-            },
+            Self::Deref { thing_to_deref } =>{
+                return thing_to_deref.get_type(function_table, types)?.get_ptr_type();
+            }
             Self::TakeRef { thing_to_ref } => match (*thing_to_ref).as_ref() {
                 Self::VariableUse {
                     name: _,
@@ -1318,13 +1312,13 @@ pub fn name_mangle_type_for_names(var:&Type)->String{
             return String::from("void");
         }
         Type::PointerT { ptr_type }=>{
-            return name_mangle_type(ptr_type)+"_ptr";
+            return name_mangle_type_for_names(ptr_type)+"_ptr";
         }
         Type::ArrayT { size:_, array_type }=>{
-            return name_mangle_type(array_type)+"Slice_t";
+            return name_mangle_type_for_names(array_type)+"Slice_t";
         }
         Type::SliceT { ptr_type }=>{
-            return name_mangle_type(ptr_type)+"Slice_t";
+            return name_mangle_type_for_names(ptr_type)+"Slice_t";
         }
         Type::StructT { name, components:_ }=>{
             return String::from("u_")+&name;
