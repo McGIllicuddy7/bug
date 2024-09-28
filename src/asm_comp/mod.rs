@@ -158,7 +158,6 @@ pub fn compile_function(
     println!("ir representation:{:#?}", ir);
     let mut depth = 0;
     for i in &ir {
-        out += &format!("{:#?}\n", i);
         let tmp = ir_to_as::compile_ir_instr_to_x86(
             i,
             &mut depth,
