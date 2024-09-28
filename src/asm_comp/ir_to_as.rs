@@ -154,7 +154,7 @@ pub fn compile_ir_op_to_x86(
         }
         IrOperand::Deref { to_deref } => {
             let base = compile_ir_op_to_x86(&to_deref, left, stack, statics, statics_count);
-            *stack += &format!("    lea {},[{}]\n", get_sreg(left), base);
+            *stack += &format!("    mov {},[{}]\n", get_sreg(left), base);
             return get_sreg(left);
         }
         IrOperand::StacKOperand {
