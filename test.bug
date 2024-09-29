@@ -1,8 +1,8 @@
 pub fn main()->int{
-   let a = new int;
+   let a =1;
    let b = &a;
-   ^a = 1;
-   put_str_ln(^^b);
+   ^b = 2;
+   put_str_ln(a);
 }
 
  
