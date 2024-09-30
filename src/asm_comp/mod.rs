@@ -123,14 +123,24 @@ pub fn compile_function(
         arg_state.get_next_location();
     }
     for count in 0..func.args.len() {
+        let a = func.args[count].flatten_to_basic_types();
         v = 0;
         let base_ptr = stack_count;
         let arg_sz = func.args[count].get_size_bytes();
         arg_state.handle_capacity_for("",&func.args[count]);
         while v < func.args[count].get_size_bytes() {
-            let n = arg_state.get_next_location();
+            let is_float;
+            let n = match a[v/8] {
+                Type::FloatT=>{is_float = true;arg_state.get_next_fp_location()}
+                _=>{is_float = false;arg_state.get_next_location()}
+            };
             if let Some(next) = n {
-                out += &format!("   mov QWORD[rbp-{}], {}\n", arg_total - stack_count, next);
+                if is_float{
+                    out += &format!("   movsd QWORD[rbp-{}], {}\n", arg_total - stack_count+32, next);
+                } else{
+                    out += &format!("   mov QWORD[rbp-{}], {}\n", arg_total - stack_count+32, next);
+                }
+
             } else {
                 if stack_arg_size == 0 {
                     func.args[count..func.args.len()]

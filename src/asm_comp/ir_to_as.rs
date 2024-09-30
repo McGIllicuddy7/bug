@@ -132,10 +132,15 @@ pub fn compile_ir_op_to_x86(
     match op {
         IrOperand::ArrayAccess { base, value } => {
             let base = compile_ir_op_to_x86(base, left, stack, statics, statics_count);
+            *stack += &format!("    lea rbx, [{}]\n", base.as_ref());
             let value = compile_ir_op_to_x86(value, left, stack, statics, statics_count);
-            *stack += &format!("    lea r11, {}\n", base.as_ref());
-            *stack += &format!("    add r11, {}", value.as_ref());
-            *stack += &format!("    mov {}, r11", get_sreg(left));
+            if value.is_address{
+                *stack += &format!("    mov rax, QWORD[{}]\n", value.as_ref());
+            }else{
+                *stack += &format!("    mov rax, {}\n", value.as_ref()); 
+            }
+            *stack += &format!("    add rbx, rax\n");
+            *stack += &format!("    mov {}, rbx\n", get_sreg(left));
             return AsmOperand::new(get_sreg(left), true);
         }
         IrOperand::CharLiteral { value } => {
@@ -457,8 +462,6 @@ pub fn compile_ir_instr_to_x86(
                 _ => {}
             }
             let mut count = 0;
-            println!("l:{:#?}", l);
-            println!("r:{:#?}", r);
             stack += &format!("    mov rax, {}\n", l.as_ref());
             stack += &format!("    mov rbx, {}\n", r.as_ref());
             while count < total {

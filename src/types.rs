@@ -236,6 +236,52 @@ pub fn get_variable_type(&self, name:&str)->Option<Type>{
     }
     return None; 
 }
+pub fn flatten_to_basic_types(&self)->Vec<Type>{
+    let mut out = vec![];
+    match self{
+        Self::BoolT=>{
+            out.push(Self::BoolT);
+        }
+        Self::CharT=>{
+            out.push(Self::CharT);
+        }
+        Self::FloatT=>{
+            out.push(Self::FloatT);
+        }
+        Self::IntegerT=>{
+            out.push(Self::IntegerT);
+        }
+        Self::PointerT { ptr_type }=>{
+            out.push(Self::PointerT { ptr_type:ptr_type.clone() });
+        }
+        Self::SliceT { ptr_type }=>{
+            out.push(Self::PointerT { ptr_type:ptr_type.clone() });
+            out.push(Self::IntegerT);
+        }
+        Self::StringT{}=>{
+            out.push(Self::PointerT { ptr_type:Rc::new(Self::CharT) });
+            out.push(Self::IntegerT); 
+        }
+        Self::ArrayT { size, array_type }=>{
+            for _ in 0..*size{
+                out.push(array_type.as_ref().clone());
+            }
+        }
+        Self::VoidT=>{
+            
+        }
+        Self::StructT { name:_, components }=>{
+            for i in components{
+                let mut base = i.1.flatten_to_basic_types();
+                out.append(&mut base);
+            }
+        }
+        Self::PartiallyDefined { name:_ }=>{
+            unreachable!();
+        }
+    }
+    return out;
+}
 }
 pub fn is_compatible_type(a: &Type, b: &Type) -> bool {
     match a {
