@@ -413,11 +413,15 @@ pub fn compile_ir_instr_to_x86(
             st += "    pop r10\n";
             if vtype.get_size_bytes() <= 16 {
                 let typs = vtype.flatten_to_basic_types();
+                let mut hit_float = false;
+                let mut hit_int = false;
                 match typs[0]{
                     Type::FloatT=>{
+                        hit_float = true;
                         st += &format!("    movsd [{}], xmm0\n", tstr.as_ref());
                     }
                     _=>{
+                        hit_int= false;
                         st += &format!("    mov QWORD[{}], rax\n", tstr.as_ref());
                     }
                 }
@@ -425,10 +429,21 @@ pub fn compile_ir_instr_to_x86(
                 if vtype.get_size_bytes() > 8 {
                     match typs[0]{
                         Type::FloatT=>{
-                            st += &format!("    movsd [{}-8], xmm1\n", tstr.as_ref());
+                            if hit_float{
+                                st += &format!("    movsd [{}-8], xmm1\n", tstr.as_ref());
+                            }
+                            else{
+                            st += &format!("    movsd [{}-8], xmm0\n", tstr.as_ref());
+                            }
+
                         }
                         _=>{
-                            st += &format!("    mov QWORD[{}-8], rdx\n", tstr.as_ref());
+                            if hit_int{
+                                st += &format!("    mov QWORD[{}-8], rdx\n", tstr.as_ref());
+                            } else{
+                                st += &format!("    mov QWORD[{}-8], rax\n", tstr.as_ref());
+                            }
+
                         }
                     }     
                 }
@@ -594,21 +609,34 @@ pub fn compile_ir_instr_to_x86(
                     out += &format!("    mov rax, {}\n", a.as_ref());
                 }
             } else if t.get_size_bytes() <= 16 {
+                let mut hit_int = false;
+                let mut hit_float = false;
                 if a.is_address {
                     match types[0]{
                         Type::FloatT=>{
+                            hit_float = true;
                             out += &format!("    movsd xmm0, [{}]\n", a.as_ref()); 
                         }
                         _=>{
+                            hit_int = true;
                             out += &format!("    mov rax, QWORD [{}]\n", a.as_ref()); 
                         }
                     }
                     match types[1]{
                         Type::FloatT=>{
-                            out += &format!("    movsd xmm1, [{}-8]\n", a.as_ref()); 
-                        }
-                        _=>{ 
-                            out += &format!("    mov rdx, QWORD [{}-8]\n", a.as_ref())
+                            if hit_float{
+                                out += &format!("    movsd xmm1, [{}-8]\n", a.as_ref()); 
+                            }
+                            else {
+                                 out += &format!("    movsd xmm0, [{}-8]\n", a.as_ref()); 
+                            }
+                        } 
+                        _=>{
+                            if hit_int{
+                                out += &format!("    mov rdx, QWORD [{}-8]\n", a.as_ref())
+                            } else{
+                                out += &format!("    mov rax, QWORD [{}-8]\n", a.as_ref()); 
+                            }
                         }
                     }  
                 } else {
