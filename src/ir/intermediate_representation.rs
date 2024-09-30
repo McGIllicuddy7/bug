@@ -417,7 +417,7 @@ pub fn compile_ast_node_to_ir(
                 None,
             );
             let rv = compile_ast_node_to_ir(
-                left,
+                right,
                 state,
                 functions,
                 types,
@@ -938,7 +938,7 @@ pub fn compile_ast_node_to_ir(
             is_arg: _,
             data: _,
         } => {
-            for i in state.name_table {
+            for i in state.name_table.clone() {
                 if i.contains_key(name) {
                     return Some(i[name].clone());
                 }
@@ -1091,8 +1091,8 @@ pub fn compile_ast_node_to_ir(
                 vtype.clone(),
                 state.val_stack,
                 state.variable_counter,
-                stack_ptr,
-                pop_table,
+                state.stack_ptr,
+                state.pop_table,
             );
             let comps = match vtype {
                 Type::StructT { name:_, components } => components.clone(),
@@ -1125,10 +1125,10 @@ pub fn compile_ast_node_to_ir(
                 types,
                 None,
             )?;
-            let base_label = *label_counter;
-            let else_label = *label_counter + 1;
-            let end_label = *label_counter + 2;
-            *label_counter += 3;
+            let base_label = *state.label_counter;
+            let else_label = *state.label_counter + 1;
+            let end_label = *state.label_counter + 2;
+            *state.label_counter += 3;
             state.val_stack.push(IrInstr::CondGoto {
                 cond: cond,
                 target: format!("L{}", base_label),
@@ -1140,21 +1140,16 @@ pub fn compile_ast_node_to_ir(
                 name: format!("L{}", base_label),
             });
             state.val_stack.push(IrInstr::BeginScope {
-                stack_ptr: *stack_ptr,
+                stack_ptr: *state.stack_ptr,
             });
             state.val_stack.push(IrInstr::BeginGcFrame);
             let mut body_pop_table = vec![];
             for i in thing_to_do {
                 compile_ast_node_to_ir(
                     i,
-                    state.val_stack,
-                    state.variable_counter,
-                    stack_ptr,
-                    &mut body_pop_table,
-                    name_table,
+                    state,
                     functions,
-                    types,
-                    label_counter,
+                    types, 
                     None,
                 );
             }
@@ -1164,7 +1159,7 @@ pub fn compile_ast_node_to_ir(
             }
             state.val_stack.push(IrInstr::EndGcFrame);
             state.val_stack.push(IrInstr::EndScope {
-                stack_ptr: *stack_ptr,
+                stack_ptr: *state.stack_ptr,
             });
             state.val_stack.push(IrInstr::Goto {
                 target: format!("L{}", end_label),
@@ -1174,7 +1169,7 @@ pub fn compile_ast_node_to_ir(
             });
             if r#else.is_some() {
                 state.val_stack.push(IrInstr::BeginScope {
-                    stack_ptr: *stack_ptr,
+                    stack_ptr: *state.stack_ptr,
                 });
                 state.val_stack.push(IrInstr::BeginGcFrame);
                 let elblk = r#else.as_ref().expect("is some");
@@ -1182,14 +1177,9 @@ pub fn compile_ast_node_to_ir(
                 for i in elblk {
                     compile_ast_node_to_ir(
                         i,
-                        state.val_stack,
-                        state.variable_counter,
-                        stack_ptr,
-                        &mut pop_stack,
-                        name_table,
+                        state,
                         functions,
-                        types,
-                        label_counter,
+                        types, 
                         None,
                     );
                 }
@@ -1199,7 +1189,7 @@ pub fn compile_ast_node_to_ir(
                 }
                 state.val_stack.push(IrInstr::EndGcFrame);
                 state.val_stack.push(IrInstr::EndScope {
-                    stack_ptr: *stack_ptr,
+                    stack_ptr: *state.stack_ptr,
                 });
             }
 
@@ -1213,42 +1203,32 @@ pub fn compile_ast_node_to_ir(
             post_op,
             body,
         } => {
-            let base = *label_counter;
-            let end = *label_counter + 1;
-            let lbody = *label_counter + 2;
-            *label_counter += 3;
+            let base = *state.label_counter;
+            let end = *state.label_counter + 1;
+            let lbody = *state.label_counter + 2;
+            *state.label_counter += 3;
             state.val_stack.push(IrInstr::BeginScope {
-                stack_ptr: *stack_ptr,
+                stack_ptr: *state.stack_ptr,
             });
             let _ = compile_ast_node_to_ir(
                 variable,
-                state.val_stack,
-                state.variable_counter,
-                stack_ptr,
-                pop_table,
-                name_table,
+                state,
                 functions,
-                types,
-                label_counter,
+                types, 
                 None,
             );
             state.val_stack.push(IrInstr::Label {
                 name: format!("L{}", base),
             });
             state.val_stack.push(IrInstr::BeginScope {
-                stack_ptr: *stack_ptr,
+                stack_ptr: *state.stack_ptr,
             });
             let mut loop_pop_table = vec![];
             let tmp = compile_ast_node_to_ir(
                 condition,
-                state.val_stack,
-                state.variable_counter,
-                stack_ptr,
-                pop_table,
-                name_table,
+                state,
                 functions,
-                types,
-                label_counter,
+                types, 
                 None,
             )?;
             state.val_stack.push(IrInstr::CondGoto {
@@ -1262,33 +1242,23 @@ pub fn compile_ast_node_to_ir(
                 name: format!("L{}", lbody),
             });
             state.val_stack.push(IrInstr::BeginScope {
-                stack_ptr: *stack_ptr,
+                stack_ptr: *state.stack_ptr,
             });
             state.val_stack.push(IrInstr::BeginGcFrame);
             for i in body {
                 compile_ast_node_to_ir(
                     i,
-                    state.val_stack,
-                    state.variable_counter,
-                    stack_ptr,
-                    &mut loop_pop_table,
-                    name_table,
+                    state,                   
                     functions,
-                    types,
-                    label_counter,
+                    types, 
                     None,
                 );
             }
             compile_ast_node_to_ir(
                 post_op,
-                state.val_stack,
-                state.variable_counter,
-                stack_ptr,
-                &mut loop_pop_table,
-                name_table,
+                state,
                 functions,
-                types,
-                label_counter,
+                types, 
                 None,
             );
             loop_pop_table.reverse();
@@ -1297,42 +1267,37 @@ pub fn compile_ast_node_to_ir(
             }
             state.val_stack.push(IrInstr::EndGcFrame);
             state.val_stack.push(IrInstr::EndScope {
-                stack_ptr: *stack_ptr,
+                stack_ptr: *state.stack_ptr,
             });
             state.val_stack.push(IrInstr::EndScope {
-                stack_ptr: *stack_ptr,
+                stack_ptr: *state.stack_ptr,
             });
             state.val_stack.push(IrInstr::Goto {
                 target: format!("L{}", base),
             });
             state.val_stack.push(IrInstr::EndScope {
-                stack_ptr: *stack_ptr,
+                stack_ptr: *state.stack_ptr,
             });
             state.val_stack.push(IrInstr::Label {
                 name: format!("L{}", end),
             });
         }
         AstNode::Loop { condition, body } => {
-            let base = *label_counter;
-            let end = *label_counter + 1;
-            let lbody = *label_counter + 2;
-            *label_counter += 3;
+            let base = *state.label_counter;
+            let end = *state.label_counter + 1;
+            let lbody = *state.label_counter + 2;
+            *state.label_counter += 3;
             state.val_stack.push(IrInstr::Label {
                 name: format!("L{}", base),
             });
             state.val_stack.push(IrInstr::BeginScope {
-                stack_ptr: *stack_ptr,
+                stack_ptr: *state.stack_ptr,
             });
             let tmp = compile_ast_node_to_ir(
                 condition,
-                state.val_stack,
-                state.variable_counter,
-                stack_ptr,
-                pop_table,
-                name_table,
+                state,
                 functions,
                 types,
-                label_counter,
                 None,
             )?;
             state.val_stack.push(IrInstr::CondGoto {
@@ -1346,21 +1311,16 @@ pub fn compile_ast_node_to_ir(
                 name: format!("L{}", lbody),
             });
             state.val_stack.push(IrInstr::BeginScope {
-                stack_ptr: *stack_ptr,
+                stack_ptr: *state.stack_ptr,
             });
             state.val_stack.push(IrInstr::BeginGcFrame);
             let mut loop_pop_table = vec![];
             for i in body {
                 compile_ast_node_to_ir(
                     i,
-                    state.val_stack,
-                    state.variable_counter,
-                    stack_ptr,
-                    &mut loop_pop_table,
-                    name_table,
+                    state,
                     functions,
-                    types,
-                    label_counter,
+                    types, 
                     None,
                 );
             }
@@ -1370,10 +1330,10 @@ pub fn compile_ast_node_to_ir(
             }
             state.val_stack.push(IrInstr::EndGcFrame);
             state.val_stack.push(IrInstr::EndScope {
-                stack_ptr: *stack_ptr,
+                stack_ptr: *state.stack_ptr,
             });
             state.val_stack.push(IrInstr::EndScope {
-                stack_ptr: *stack_ptr,
+                stack_ptr: *state.stack_ptr,
             });
             state.val_stack.push(IrInstr::Goto {
                 target: format!("L{}", base),
@@ -1385,20 +1345,15 @@ pub fn compile_ast_node_to_ir(
         AstNode::Return { body } => {
             let to_return = compile_ast_node_to_ir(
                 body,
-                state.val_stack,
-                state.variable_counter,
-                stack_ptr,
-                pop_table,
-                name_table,
+                state,
                 functions,
                 types,
-                label_counter,
                 None,
             )
             .expect("should return");
             state.val_stack.push(IrInstr::Ret {
                 to_return,
-                stack_ptr: *stack_ptr,
+                stack_ptr: *state.stack_ptr,
             });
         }
         AstNode::OperatorMake { vtype, size } => {
@@ -1408,8 +1363,8 @@ pub fn compile_ast_node_to_ir(
                 },
                 state.val_stack,
                 state.variable_counter,
-                stack_ptr,
-                pop_table,
+                state.stack_ptr,
+                state.pop_table,
             );
             let mult = AstNode::Mult {
                 left: size.clone(),
@@ -1420,14 +1375,9 @@ pub fn compile_ast_node_to_ir(
             };
             let ln = compile_ast_node_to_ir(
                 &mult,
-                state.val_stack,
-                state.variable_counter,
-                stack_ptr,
-                pop_table,
-                name_table,
+                state, 
                 functions,
-                types,
-                label_counter,
+                types, 
                 None,
             );
             state.val_stack.push(IrInstr::CallWithRet {
@@ -1437,7 +1387,7 @@ pub fn compile_ast_node_to_ir(
                 vtype: Type::SliceT {
                     ptr_type: Rc::new(vtype.clone()),
                 },
-                stack_ptr_when_called: *stack_ptr,
+                stack_ptr_when_called: *state.stack_ptr,
             });
             return Some(out);
         }
@@ -1448,8 +1398,8 @@ pub fn compile_ast_node_to_ir(
                 },
                 state.val_stack,
                 state.variable_counter,
-                stack_ptr,
-                pop_table,
+                state.stack_ptr,
+                state.pop_table,
             );
             let ln = IrOperand::IntLiteral {
                 value: vtype.get_size_bytes() as i64,
@@ -1461,7 +1411,7 @@ pub fn compile_ast_node_to_ir(
                 vtype: Type::SliceT {
                     ptr_type: Rc::new(vtype.clone()),
                 },
-                stack_ptr_when_called: *stack_ptr,
+                stack_ptr_when_called: *state.stack_ptr,
             });
             return Some(out);
         }
@@ -1478,7 +1428,7 @@ pub fn compile_function_to_ir(
     stack_ptr: &mut usize,
 ) -> Vec<IrInstr> {
     let mut out = vec![IrInstr::BeginScope { stack_ptr: *stack_ptr }];
-    let mut state.variable_counter = 0;
+    let mut variable_counter = 0;
     if func.return_type.get_size_bytes() > 16 {
         *stack_ptr += 8;
     }
@@ -1487,29 +1437,24 @@ pub fn compile_function_to_ir(
     let mut label_counter = 0;
     for i in 0..func.args.len() {
         let op = IrOperand::StacKOperand {
-            var_idx: state.variable_counter,
+            var_idx:variable_counter,
             name: ("user_".to_owned() + &func.arg_names[i]).into(),
             stack_offset: *stack_ptr,
             vtype: func.args[i].clone(),
         };
         *stack_ptr += func.args[i].get_size_bytes();
-        state.variable_counter += 1;
+        variable_counter += 1;
         let name = func.arg_names[i].clone();
         name_table[0].insert(name, op);
         pop_table.push(func.args[i].clone());
     }
-
+    let mut state = IrCompState{variable_counter:&mut variable_counter, val_stack:&mut out, stack_ptr,pop_table: &mut pop_table,name_table:&mut name_table,label_counter:&mut label_counter};
     for i in &func.program {
         let _ = compile_ast_node_to_ir(
             i,
-            &mut out,
-            &mut state.variable_counter,
-            stack_ptr,
-            &mut pop_table,
-            &mut name_table,
+            &mut state, 
             functions,
-            types,
-            &mut label_counter,
+            types, 
             None,
         );
     }

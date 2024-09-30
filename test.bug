@@ -3,6 +3,7 @@ pub fn add(a:float b:float)->float{
 }
 pub fn main()->int{
    put_str_ln(add(1.0, 2.0));
+   return 0;
 }
 
  
