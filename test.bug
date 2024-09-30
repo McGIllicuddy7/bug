@@ -1,8 +1,20 @@
-pub fn add(a:float b:float)->float{
-   return a+b;
+struct vec2{
+   x:float 
+   y:float
+};
+pub fn +(a:vec2 b:vec2)->vec2{
+   let out:vec2;
+   out.x = a.x+b.x;
+   out.y = a.y+b.y;
+   put_str_ln(out);
+   return out;
 }
+pub fn put_str_ln(a:vec2)->void;
 pub fn main()->int{
-   put_str_ln(add(1.0, 2.0));
+   let a = vec2{1.0,2.0};
+   let b = vec2{3.0, 4.0};
+   let c = a+b;
+   put_str_ln(c);
    return 0;
 }
 

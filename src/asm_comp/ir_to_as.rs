@@ -412,9 +412,25 @@ pub fn compile_ir_instr_to_x86(
             st += "    pop r11\n";
             st += "    pop r10\n";
             if vtype.get_size_bytes() <= 16 {
-                st += &format!("    mov QWORD[{}], rax\n", tstr.as_ref());
+                let typs = vtype.flatten_to_basic_types();
+                match typs[0]{
+                    Type::FloatT=>{
+                        st += &format!("    movsd [{}], xmm0\n", tstr.as_ref());
+                    }
+                    _=>{
+                        st += &format!("    mov QWORD[{}], rax\n", tstr.as_ref());
+                    }
+                }
+
                 if vtype.get_size_bytes() > 8 {
-                    st += &format!("    mov QWORD[{}-8], rdx\n", tstr.as_ref());
+                    match typs[0]{
+                        Type::FloatT=>{
+                            st += &format!("    movsd [{}-8], xmm1\n", tstr.as_ref());
+                        }
+                        _=>{
+                            st += &format!("    mov QWORD[{}-8], rdx\n", tstr.as_ref());
+                        }
+                    }     
                 }
             }
             for _ in 0..pop_count {
@@ -569,8 +585,9 @@ pub fn compile_ir_instr_to_x86(
                 };
             }
             let a = compile_ir_op_to_x86(to_return, true, &mut out, statics, statics_count);
+            let types = t.flatten_to_basic_types();
             if t.get_size_bytes() == 0 {
-            } else if t.get_size_bytes() <= 0 {
+            } else if t.get_size_bytes() <= 8 {
                 if a.is_address {
                     out += &format!("    mov rax, QWORD [{}]\n", a.as_ref());
                 } else {
@@ -578,8 +595,22 @@ pub fn compile_ir_instr_to_x86(
                 }
             } else if t.get_size_bytes() <= 16 {
                 if a.is_address {
-                    out += &format!("    mov rax, QWORD [{}]\n", a.as_ref());
-                    out += &format!("    mov rdx, QWORD [{}]\n", a.as_ref());
+                    match types[0]{
+                        Type::FloatT=>{
+                            out += &format!("    movsd xmm0, [{}]\n", a.as_ref()); 
+                        }
+                        _=>{
+                            out += &format!("    mov rax, QWORD [{}]\n", a.as_ref()); 
+                        }
+                    }
+                    match types[1]{
+                        Type::FloatT=>{
+                            out += &format!("    movsd xmm1, [{}-8]\n", a.as_ref()); 
+                        }
+                        _=>{ 
+                            out += &format!("    mov rdx, QWORD [{}-8]\n", a.as_ref())
+                        }
+                    }  
                 } else {
                     out += &format!("    mov rax, {}\n", a.as_ref());
                     out += &format!("    mov rdx, {}\n", a.as_ref());
