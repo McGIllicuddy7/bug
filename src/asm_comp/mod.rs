@@ -10,7 +10,7 @@ use x86::ArgCPU;
 
 use crate::ir::get_types_used_in_ir;
 use crate::{
-    ir::compile_function_to_ir, name_mangle_function, name_mangle_type, name_mangle_type_for_names,
+    ir::compile_function_to_ir, name_mangle_function, name_mangle_type_for_names,
     Function, FunctionTable, Program, Target, Type,
 };
 pub fn compile_function_header(
@@ -322,7 +322,6 @@ pub fn compile_to_asm_x86(
     let fname = "output/".to_owned() + &base_filename[0..base_filename.len() - 4];
     let filename = &fname;
     let mut out = String::new();
-    let mut typedecs = "".to_owned();
     let mut used_types = HashSet::new();
     let mut func_decs = String::new();
     for i in &prog.functions {
