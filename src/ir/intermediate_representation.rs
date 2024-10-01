@@ -98,6 +98,9 @@ impl IrOperand {
                         println!("struct:{:#?}, name:{}", bs, fname.as_ref());
                         unreachable!();
                     }
+                    Type::SliceT { ptr_type }=>{
+                        return Type::PointerT { ptr_type: ptr_type.clone() };
+                    }
                     _ => {
                         unreachable!();
                     }
@@ -346,6 +349,11 @@ pub fn compile_ast_node_to_ir(
                     data: _,
                 }
                 | AstNode::Not { value: _, data: _ } => {}
+                AstNode::OperatorMake { vtype, size }=>{
+                    state.val_stack.push(IrInstr::Mov { left:IrOperand::FieldAccess { base: lv.clone().expect("msg").into(), name: "start".into() }, right: rv.expect("").clone(), vtype:vtype.clone() });
+                    let sv = compile_ast_node_to_ir(size, state, functions, types, target).expect("");
+                    state.val_stack.push(IrInstr::Mov { left:IrOperand::FieldAccess { base: lv.clone().expect("msg").into(), name: "len".into() }, right: sv.clone(), vtype:vtype.clone() });
+                }
                 _ => {
                     state.val_stack.push(IrInstr::Mov {
                         left: lv?,
@@ -1096,7 +1104,7 @@ pub fn compile_ast_node_to_ir(
             });
         }
         AstNode::OperatorMake { vtype, size } => {
-            let out = stack_push(
+            let out = IrOperand::FieldAccess{base:stack_push(
                 Type::SliceT {
                     ptr_type: Rc::new(vtype.clone()),
                 },
@@ -1104,7 +1112,8 @@ pub fn compile_ast_node_to_ir(
                 state.variable_counter,
                 state.stack_ptr,
                 state.pop_table,
-            );
+            ).into(),name:"start".into()
+        };
             let mult = AstNode::Mult {
                 left: size.clone(),
                 right: Box::new(AstNode::IntLiteral {

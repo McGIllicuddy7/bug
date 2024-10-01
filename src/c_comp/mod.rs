@@ -118,7 +118,8 @@ pub fn compile_function(
     out += "){\n";
     out += "    gc_push_frame();\n";
     let mut stack_ptr = 32;
-    let ir = compile_function_to_ir(func, functions, types, &mut stack_ptr);
+    let air = compile_function_to_ir(func, functions, types, &mut stack_ptr);
+    let ir = air[1..air.len()-1].to_vec();
     println!("ir representation:{:#?}", ir);
     let mut depth = 1;
     let mut gc_depth = 0;
