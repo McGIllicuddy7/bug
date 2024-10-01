@@ -788,7 +788,7 @@ impl AstNode {
                 let lt = left.get_type(function_table, types)?;
                 let rt = right.get_type(function_table, types)?;
                 let fn_args = vec![lt, rt];
-                return Some(get_function_by_args("+", &fn_args,function_table)?.return_type.clone());
+                return Some(get_function_by_args("-", &fn_args,function_table)?.return_type.clone());
             }
             Self::Mult { left, right,data:_ } => {
                 if is_compatible_type(
