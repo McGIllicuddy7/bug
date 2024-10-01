@@ -692,6 +692,7 @@ pub fn parse_expression(
     scope: &mut Scope,
     function_table: &HashMap<String, FunctionTable>,
 ) -> Option<AstNode> {
+    println!("{:#?}", text[*cursor]);
     let start = *cursor;
     let mut out = None;
     if is_numbers(text[*cursor].string) && text[*cursor] != "."{
@@ -1086,7 +1087,8 @@ pub fn parse_expression(
     }
     if *cursor < last {
         let right = parse_expression(text, cursor, last, types, scope, function_table)?;
-        return place_expr(text, start, out?, right);
+        let out = place_expr(text, start, out?, right);
+        return out;
     } else {
         if out.is_none() {
             println!("returned none, for some reason");
@@ -1153,6 +1155,7 @@ pub fn parse_scope(
         let mut tmp = parse_expression(text, cursor, expr_end, types, scope, function_table)
         .expect("expression must be valid");
         alide_parens(&mut tmp);
+        println!("{:#?}", tmp);
         out.push(
             tmp
         );

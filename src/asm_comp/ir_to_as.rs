@@ -170,7 +170,7 @@ pub fn compile_ir_op_to_x86(
                 get_sreg(left),
                 *statics_count - 1
             );
-            return AsmOperand::new(get_sreg(left), false); 
+            return AsmOperand::new(get_sreg(left), true); 
         }
         IrOperand::Deref { to_deref } => {
             let base = compile_ir_op_to_x86(&to_deref, left, stack, statics, statics_count);
