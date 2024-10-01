@@ -1,3 +1,4 @@
+import toast.bug;
 struct vec2{
    x:float
    y:float
@@ -20,6 +21,9 @@ pub fn main()->int{
    let b:vec2 = vec2{0.0, 1.0};
 	let c:vec2 = a+b*3.0; 
 	put_str_ln(c);
+   let i = 0;
+   let j = &i;
+   test2(j);
 	return 0;
 }
 

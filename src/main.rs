@@ -4,6 +4,8 @@ mod frontend;
 mod ir;
 mod c_comp;
 mod asm_comp;
+use std::process::exit;
+
 use crate::frontend::*;
 use crate::c_comp::*;
 fn main() {
@@ -21,11 +23,18 @@ fn main() {
             unreachable!();
         }
     }; 
-    let to_c_code = false;
+    let to_c_code = true;
     loop{
         let tprg = "import builtins.bug;\n".to_owned()+&std::fs::read_to_string(&comp_que[i]).expect("testing expect");
         let name = comp_que[i].to_owned();
-        let prg = program_to_ast(&tprg,&mut comp_que, &name).expect("testing expect");
+        let prg = match program_to_ast(&tprg,&mut comp_que, &name){
+            Some(t)=>{
+                t
+            }
+            None=>{
+                exit(1);
+            }
+        };
         if to_c_code{
             let _ = compile(prg,&comp_que[i]).expect("testing expect");
         }
