@@ -118,7 +118,7 @@ pub enum IrInstr {
     VariableDeclaration {
         name: Rc<str>,
         vtype: Type,
-        stack_offset:usize
+        stack_offset: usize,
     },
     Mov {
         left: IrOperand,
@@ -231,7 +231,7 @@ pub enum IrInstr {
     Push {
         vtype: Type,
         val_idx: usize,
-        stack_offset_of_value:usize,
+        stack_offset_of_value: usize,
     },
     Pop {
         vtype: Type,
@@ -262,24 +262,25 @@ fn stack_push(
     val_stack.push(IrInstr::Push {
         vtype: vtype.clone(),
         val_idx: *variable_counter,
-        stack_offset_of_value:stack_ptr.clone(),
+        stack_offset_of_value: stack_ptr.clone(),
     });
     pop_table.push(vtype.clone());
     *variable_counter += 1;
     *stack_ptr += vtype.get_size_bytes();
     return out;
 }
-pub struct IrCompState<'a>{
-    val_stack:&'a mut Vec<IrInstr>,
-    variable_counter:&'a mut usize ,
+pub struct IrCompState<'a> {
+    val_stack: &'a mut Vec<IrInstr>,
+    variable_counter: &'a mut usize,
     stack_ptr: &'a mut usize,
     pop_table: &'a mut Vec<Type>,
-    name_table: &'a mut Vec<HashMap<String, IrOperand>>, 
+    name_table: &'a mut Vec<HashMap<String, IrOperand>>,
     label_counter: &'a mut usize,
 }
+
 pub fn compile_ast_node_to_ir(
     node: &AstNode,
-    state:&mut IrCompState,
+    state: &mut IrCompState,
     functions: &HashMap<String, FunctionTable>,
     types: &HashMap<String, Type>,
     target: Option<IrOperand>,
@@ -291,20 +292,8 @@ pub fn compile_ast_node_to_ir(
             right,
             data: _,
         } => {
-            let lv = compile_ast_node_to_ir(
-                left,
-                state,
-                functions,
-                types,
-                None,
-            );
-            let rv = compile_ast_node_to_ir(
-                right,
-                state,
-                functions,
-                types,
-                lv.clone(),
-            );
+            let lv = compile_ast_node_to_ir(left, state, functions, types, None);
+            let rv = compile_ast_node_to_ir(right, state, functions, types, lv.clone());
             match right.as_ref() {
                 AstNode::Add {
                     left: _,
@@ -371,20 +360,8 @@ pub fn compile_ast_node_to_ir(
             right,
             data: _,
         } => {
-            let lv = compile_ast_node_to_ir(
-                left,
-                state,
-                functions,
-                types,
-                None,
-            );
-            let rv = compile_ast_node_to_ir(
-                right,
-                state,
-                functions,
-                types,
-                None,
-            );
+            let lv = compile_ast_node_to_ir(left, state, functions, types, None);
+            let rv = compile_ast_node_to_ir(right, state, functions, types, None);
             let target = if target.is_some() {
                 target.unwrap()
             } else {
@@ -409,20 +386,8 @@ pub fn compile_ast_node_to_ir(
             right,
             data: _,
         } => {
-            let lv = compile_ast_node_to_ir(
-                left,
-                state,
-                functions,
-                types,
-                None,
-            );
-            let rv = compile_ast_node_to_ir(
-                right,
-                state,
-                functions,
-                types,
-                None,
-            );
+            let lv = compile_ast_node_to_ir(left, state, functions, types, None);
+            let rv = compile_ast_node_to_ir(right, state, functions, types, None);
             let target = if target.is_some() {
                 target.unwrap()
             } else {
@@ -447,20 +412,8 @@ pub fn compile_ast_node_to_ir(
             right,
             data: _,
         } => {
-            let lv = compile_ast_node_to_ir(
-                left,
-                state,
-                functions,
-                types,
-                None,
-            );
-            let rv = compile_ast_node_to_ir(
-                right,
-                state,
-                functions,
-                types,
-                None,
-            );
+            let lv = compile_ast_node_to_ir(left, state, functions, types, None);
+            let rv = compile_ast_node_to_ir(right, state, functions, types, None);
             let target = if target.is_some() {
                 target.unwrap()
             } else {
@@ -485,20 +438,8 @@ pub fn compile_ast_node_to_ir(
             right,
             data: _,
         } => {
-            let lv = compile_ast_node_to_ir(
-                left,
-                state,
-                functions,
-                types,
-                None,
-            );
-            let rv = compile_ast_node_to_ir(
-                right,
-                state,
-                functions,
-                types,
-                None,
-            );
+            let lv = compile_ast_node_to_ir(left, state, functions, types, None);
+            let rv = compile_ast_node_to_ir(right, state, functions, types, None);
             let target = if target.is_some() {
                 target.unwrap()
             } else {
@@ -523,20 +464,8 @@ pub fn compile_ast_node_to_ir(
             right,
             data: _,
         } => {
-            let lv = compile_ast_node_to_ir(
-                left,
-                state,
-                functions,
-                types,
-                None,
-            );
-            let rv = compile_ast_node_to_ir(
-                right,
-                state,
-                functions,
-                types,
-                None,
-            );
+            let lv = compile_ast_node_to_ir(left, state, functions, types, None);
+            let rv = compile_ast_node_to_ir(right, state, functions, types, None);
             let target = if target.is_some() {
                 target.unwrap()
             } else {
@@ -561,20 +490,8 @@ pub fn compile_ast_node_to_ir(
             right,
             data: _,
         } => {
-            let lv = compile_ast_node_to_ir(
-                left,
-                state,
-                functions,
-                types,
-                None,
-            );
-            let rv = compile_ast_node_to_ir(
-                right,
-                state,
-                functions,
-                types,
-                None,
-            );
+            let lv = compile_ast_node_to_ir(left, state, functions, types, None);
+            let rv = compile_ast_node_to_ir(right, state, functions, types, None);
             let target = if target.is_some() {
                 target.unwrap()
             } else {
@@ -599,20 +516,8 @@ pub fn compile_ast_node_to_ir(
             right,
             data: _,
         } => {
-            let lv = compile_ast_node_to_ir(
-                left,
-                state,
-                functions,
-                types,
-                None,
-            );
-            let rv = compile_ast_node_to_ir(
-                right,
-                state,
-                functions,
-                types,
-                None,
-            );
+            let lv = compile_ast_node_to_ir(left, state, functions, types, None);
+            let rv = compile_ast_node_to_ir(right, state, functions, types, None);
             let target = if target.is_some() {
                 target.unwrap()
             } else {
@@ -637,20 +542,8 @@ pub fn compile_ast_node_to_ir(
             right,
             data: _,
         } => {
-            let lv = compile_ast_node_to_ir(
-                left,
-                state,
-                functions,
-                types,
-                None,
-            );
-            let rv = compile_ast_node_to_ir(
-                right,
-                state,
-                functions,
-                types,
-                None,
-            );
+            let lv = compile_ast_node_to_ir(left, state, functions, types, None);
+            let rv = compile_ast_node_to_ir(right, state, functions, types, None);
             let target = if target.is_some() {
                 target.unwrap()
             } else {
@@ -675,20 +568,8 @@ pub fn compile_ast_node_to_ir(
             right,
             data: _,
         } => {
-            let lv = compile_ast_node_to_ir(
-                left,
-                state,
-                functions,
-                types,
-                None,
-            );
-            let rv = compile_ast_node_to_ir(
-                right,
-                state,
-                functions,
-                types,
-                None,
-            );
+            let lv = compile_ast_node_to_ir(left, state, functions, types, None);
+            let rv = compile_ast_node_to_ir(right, state, functions, types, None);
             let target = if target.is_some() {
                 target.unwrap()
             } else {
@@ -713,20 +594,8 @@ pub fn compile_ast_node_to_ir(
             right,
             data: _,
         } => {
-            let lv = compile_ast_node_to_ir(
-                left,
-                state,
-                functions,
-                types,
-                None,
-            );
-            let rv = compile_ast_node_to_ir(
-                right,
-                state,
-                functions,
-                types,
-                None,
-            );
+            let lv = compile_ast_node_to_ir(left, state, functions, types, None);
+            let rv = compile_ast_node_to_ir(right, state, functions, types, None);
             let target = if target.is_some() {
                 target.unwrap()
             } else {
@@ -751,20 +620,8 @@ pub fn compile_ast_node_to_ir(
             right,
             data: _,
         } => {
-            let lv = compile_ast_node_to_ir(
-                left,
-                state,
-                functions,
-                types,
-                None,
-            );
-            let rv = compile_ast_node_to_ir(
-                right,
-                state,
-                functions,
-                types,
-                None,
-            );
+            let lv = compile_ast_node_to_ir(left, state, functions, types, None);
+            let rv = compile_ast_node_to_ir(right, state, functions, types, None);
             let target = if target.is_some() {
                 target.unwrap()
             } else {
@@ -785,13 +642,7 @@ pub fn compile_ast_node_to_ir(
             return Some(target);
         }
         AstNode::Not { value, data: _ } => {
-            let v = compile_ast_node_to_ir(
-                value,
-                state,
-                functions,
-                types,
-                None,
-            )?;
+            let v = compile_ast_node_to_ir(value, state, functions, types, None)?;
             let target = if target.is_some() {
                 target.unwrap()
             } else {
@@ -814,20 +665,8 @@ pub fn compile_ast_node_to_ir(
             right,
             data: _,
         } => {
-            let lv = compile_ast_node_to_ir(
-                left,
-                state,
-                functions,
-                types,
-                None,
-            );
-            let rv = compile_ast_node_to_ir(
-                right,
-                state,
-                functions,
-                types,
-                None,
-            );
+            let lv = compile_ast_node_to_ir(left, state, functions, types, None);
+            let rv = compile_ast_node_to_ir(right, state, functions, types, None);
             let target = if target.is_some() {
                 target.unwrap()
             } else {
@@ -862,12 +701,13 @@ pub fn compile_ast_node_to_ir(
             state.val_stack.push(IrInstr::VariableDeclaration {
                 name: ("user_".to_owned() + &name).into(),
                 vtype: var_type.clone(),
-                stack_offset:state.stack_ptr.clone(),
+                stack_offset: state.stack_ptr.clone(),
             });
             state.pop_table.push(var_type.clone());
             *state.variable_counter += 1;
             *state.stack_ptr += var_type.get_size_bytes();
-            state.name_table
+            state
+                .name_table
                 .last_mut()
                 .expect("must exist")
                 .insert(name.clone(), op);
@@ -894,14 +734,7 @@ pub fn compile_ast_node_to_ir(
             let f_args: Vec<IrOperand> = args
                 .iter()
                 .map(|i| {
-                    compile_ast_node_to_ir(
-                        i,
-                        state,
-                        functions,
-                        types,
-                        None,
-                    )
-                    .expect("should return")
+                    compile_ast_node_to_ir(i, state, functions, types, None).expect("should return")
                 })
                 .collect();
             let fname = func.name;
@@ -945,36 +778,18 @@ pub fn compile_ast_node_to_ir(
             }
         }
         AstNode::FieldUsage { base, field_name } => {
-            let base_ir = compile_ast_node_to_ir(
-                base,
-                state,
-                functions,
-                types,
-                None,
-            )
-            .expect("should return");
+            let base_ir =
+                compile_ast_node_to_ir(base, state, functions, types, None).expect("should return");
             return Some(IrOperand::FieldAccess {
                 base: Box::new(base_ir),
                 name: field_name.clone().into(),
             });
         }
         AstNode::ArrayAccess { variable, index } => {
-            let var_ir = compile_ast_node_to_ir(
-                variable,
-                state,
-                functions,
-                types,
-                None,
-            )
-            .expect("should return");
-            let idx_ir = compile_ast_node_to_ir(
-                index,
-                state,
-                functions,
-                types,
-                None,
-            )
-            .expect("should return");
+            let var_ir = compile_ast_node_to_ir(variable, state, functions, types, None)
+                .expect("should return");
+            let idx_ir = compile_ast_node_to_ir(index, state, functions, types, None)
+                .expect("should return");
             return Some(IrOperand::ArrayAccess {
                 base: Box::new(var_ir),
                 value: Box::new(idx_ir),
@@ -1043,16 +858,7 @@ pub fn compile_ast_node_to_ir(
             };
             let ops: Vec<IrOperand> = nodes
                 .iter()
-                .map(|i| {
-                    compile_ast_node_to_ir(
-                        i,
-                        state,
-                        functions,
-                        types,
-                        None,
-                    )
-                    .expect("")
-                })
+                .map(|i| compile_ast_node_to_ir(i, state, functions, types, None).expect(""))
                 .collect();
             let out = stack_push(
                 vtype.clone(),
@@ -1076,16 +882,7 @@ pub fn compile_ast_node_to_ir(
         AstNode::StructLiteral { vtype, nodes } => {
             let ops: Vec<IrOperand> = nodes
                 .iter()
-                .map(|i| {
-                    compile_ast_node_to_ir(
-                        i,
-                        state,
-                        functions,
-                        types,
-                        None,
-                    )
-                    .expect("")
-                })
+                .map(|i| compile_ast_node_to_ir(i, state, functions, types, None).expect(""))
                 .collect();
             let out = stack_push(
                 vtype.clone(),
@@ -1095,7 +892,10 @@ pub fn compile_ast_node_to_ir(
                 state.pop_table,
             );
             let comps = match vtype {
-                Type::StructT { name:_, components } => components.clone(),
+                Type::StructT {
+                    name: _,
+                    components,
+                } => components.clone(),
                 _ => {
                     unreachable!();
                 }
@@ -1118,13 +918,7 @@ pub fn compile_ast_node_to_ir(
             thing_to_do,
             r#else,
         } => {
-            let cond = compile_ast_node_to_ir(
-                &condition,
-                state,
-                functions,
-                types,
-                None,
-            )?;
+            let cond = compile_ast_node_to_ir(&condition, state, functions, types, None)?;
             let base_label = *state.label_counter;
             let else_label = *state.label_counter + 1;
             let end_label = *state.label_counter + 2;
@@ -1145,13 +939,7 @@ pub fn compile_ast_node_to_ir(
             state.val_stack.push(IrInstr::BeginGcFrame);
             let mut body_pop_table = vec![];
             for i in thing_to_do {
-                compile_ast_node_to_ir(
-                    i,
-                    state,
-                    functions,
-                    types, 
-                    None,
-                );
+                compile_ast_node_to_ir(i, state, functions, types, None);
             }
             body_pop_table.reverse();
             for i in body_pop_table {
@@ -1175,13 +963,7 @@ pub fn compile_ast_node_to_ir(
                 let elblk = r#else.as_ref().expect("is some");
                 let mut pop_stack = vec![];
                 for i in elblk {
-                    compile_ast_node_to_ir(
-                        i,
-                        state,
-                        functions,
-                        types, 
-                        None,
-                    );
+                    compile_ast_node_to_ir(i, state, functions, types, None);
                 }
                 pop_stack.reverse();
                 for i in pop_stack {
@@ -1192,7 +974,6 @@ pub fn compile_ast_node_to_ir(
                     stack_ptr: *state.stack_ptr,
                 });
             }
-
             state.val_stack.push(IrInstr::Label {
                 name: format!("L{}", end_label),
             });
@@ -1210,13 +991,7 @@ pub fn compile_ast_node_to_ir(
             state.val_stack.push(IrInstr::BeginScope {
                 stack_ptr: *state.stack_ptr,
             });
-            let _ = compile_ast_node_to_ir(
-                variable,
-                state,
-                functions,
-                types, 
-                None,
-            );
+            let _ = compile_ast_node_to_ir(variable, state, functions, types, None);
             state.val_stack.push(IrInstr::Label {
                 name: format!("L{}", base),
             });
@@ -1224,13 +999,7 @@ pub fn compile_ast_node_to_ir(
                 stack_ptr: *state.stack_ptr,
             });
             let mut loop_pop_table = vec![];
-            let tmp = compile_ast_node_to_ir(
-                condition,
-                state,
-                functions,
-                types, 
-                None,
-            )?;
+            let tmp = compile_ast_node_to_ir(condition, state, functions, types, None)?;
             state.val_stack.push(IrInstr::CondGoto {
                 cond: tmp,
                 target: format!("L{}", lbody),
@@ -1246,21 +1015,9 @@ pub fn compile_ast_node_to_ir(
             });
             state.val_stack.push(IrInstr::BeginGcFrame);
             for i in body {
-                compile_ast_node_to_ir(
-                    i,
-                    state,                   
-                    functions,
-                    types, 
-                    None,
-                );
+                compile_ast_node_to_ir(i, state, functions, types, None);
             }
-            compile_ast_node_to_ir(
-                post_op,
-                state,
-                functions,
-                types, 
-                None,
-            );
+            compile_ast_node_to_ir(post_op, state, functions, types, None);
             loop_pop_table.reverse();
             for i in loop_pop_table {
                 state.val_stack.push(IrInstr::Pop { vtype: i });
@@ -1293,13 +1050,7 @@ pub fn compile_ast_node_to_ir(
             state.val_stack.push(IrInstr::BeginScope {
                 stack_ptr: *state.stack_ptr,
             });
-            let tmp = compile_ast_node_to_ir(
-                condition,
-                state,
-                functions,
-                types,
-                None,
-            )?;
+            let tmp = compile_ast_node_to_ir(condition, state, functions, types, None)?;
             state.val_stack.push(IrInstr::CondGoto {
                 cond: tmp,
                 target: format!("L{}", lbody),
@@ -1316,13 +1067,7 @@ pub fn compile_ast_node_to_ir(
             state.val_stack.push(IrInstr::BeginGcFrame);
             let mut loop_pop_table = vec![];
             for i in body {
-                compile_ast_node_to_ir(
-                    i,
-                    state,
-                    functions,
-                    types, 
-                    None,
-                );
+                compile_ast_node_to_ir(i, state, functions, types, None);
             }
             loop_pop_table.reverse();
             for i in loop_pop_table {
@@ -1343,14 +1088,8 @@ pub fn compile_ast_node_to_ir(
             });
         }
         AstNode::Return { body } => {
-            let to_return = compile_ast_node_to_ir(
-                body,
-                state,
-                functions,
-                types,
-                None,
-            )
-            .expect("should return");
+            let to_return =
+                compile_ast_node_to_ir(body, state, functions, types, None).expect("should return");
             state.val_stack.push(IrInstr::Ret {
                 to_return,
                 stack_ptr: *state.stack_ptr,
@@ -1373,13 +1112,7 @@ pub fn compile_ast_node_to_ir(
                 }),
                 data: None,
             };
-            let ln = compile_ast_node_to_ir(
-                &mult,
-                state, 
-                functions,
-                types, 
-                None,
-            );
+            let ln = compile_ast_node_to_ir(&mult, state, functions, types, None);
             state.val_stack.push(IrInstr::CallWithRet {
                 target: out.clone(),
                 func_name: "gc_alloc".to_owned(),
@@ -1416,6 +1149,7 @@ pub fn compile_ast_node_to_ir(
             return Some(out);
         }
         _ => {
+            println!("{:#?}", node);
             unreachable!();
         }
     }
@@ -1427,7 +1161,9 @@ pub fn compile_function_to_ir(
     types: &HashMap<String, Type>,
     stack_ptr: &mut usize,
 ) -> Vec<IrInstr> {
-    let mut out = vec![IrInstr::BeginScope { stack_ptr: *stack_ptr }];
+    let mut out = vec![IrInstr::BeginScope {
+        stack_ptr: *stack_ptr,
+    }];
     let mut variable_counter = 0;
     if func.return_type.get_size_bytes() > 16 {
         *stack_ptr += 8;
@@ -1437,7 +1173,7 @@ pub fn compile_function_to_ir(
     let mut label_counter = 0;
     for i in 0..func.args.len() {
         let op = IrOperand::StacKOperand {
-            var_idx:variable_counter,
+            var_idx: variable_counter,
             name: ("user_".to_owned() + &func.arg_names[i]).into(),
             stack_offset: *stack_ptr,
             vtype: func.args[i].clone(),
@@ -1448,15 +1184,16 @@ pub fn compile_function_to_ir(
         name_table[0].insert(name, op);
         pop_table.push(func.args[i].clone());
     }
-    let mut state = IrCompState{variable_counter:&mut variable_counter, val_stack:&mut out, stack_ptr,pop_table: &mut pop_table,name_table:&mut name_table,label_counter:&mut label_counter};
+    let mut state = IrCompState {
+        variable_counter: &mut variable_counter,
+        val_stack: &mut out,
+        stack_ptr,
+        pop_table: &mut pop_table,
+        name_table: &mut name_table,
+        label_counter: &mut label_counter,
+    };
     for i in &func.program {
-        let _ = compile_ast_node_to_ir(
-            i,
-            &mut state, 
-            functions,
-            types, 
-            None,
-        );
+        let _ = compile_ast_node_to_ir(i, &mut state, functions, types, None);
     }
     pop_table.reverse();
     for i in pop_table {
@@ -1467,156 +1204,247 @@ pub fn compile_function_to_ir(
     });
     return out;
 }
-fn get_types_in_operand(op:&IrOperand, types:&mut HashSet<Type>){
-    match op{
-        IrOperand::StacKOperand { var_idx:_, name:_, stack_offset:_, vtype }=>{
+fn get_types_in_operand(op: &IrOperand, types: &mut HashSet<Type>) {
+    match op {
+        IrOperand::StacKOperand {
+            var_idx: _,
+            name: _,
+            stack_offset: _,
+            vtype,
+        } => {
             types.insert(vtype.clone());
         }
-        IrOperand::Name { name:_, vtype }=>{
+        IrOperand::Name { name: _, vtype } => {
             types.insert(vtype.clone());
         }
-        IrOperand::Deref { to_deref }=>{
+        IrOperand::Deref { to_deref } => {
             get_types_in_operand(&to_deref, types);
         }
-        IrOperand::TakeRef { to_ref }=>{
+        IrOperand::TakeRef { to_ref } => {
             get_types_in_operand(&to_ref, types);
-            types.insert(Type::PointerT { ptr_type: to_ref.get_type().clone().into()});
+            types.insert(Type::PointerT {
+                ptr_type: to_ref.get_type().clone().into(),
+            });
         }
-        IrOperand::StringLiteral { value:_ }=>{
+        IrOperand::StringLiteral { value: _ } => {
             types.insert(Type::StringT);
         }
-        IrOperand::IntLiteral { value:_ }=>{
+        IrOperand::IntLiteral { value: _ } => {
             types.insert(Type::IntegerT);
         }
-        IrOperand::FloatLiteral { value:_ }=>{
+        IrOperand::FloatLiteral { value: _ } => {
             types.insert(Type::FloatT);
         }
-        IrOperand::CharLiteral { value:_ }=>{
+        IrOperand::CharLiteral { value: _ } => {
             types.insert(Type::CharT);
         }
-        IrOperand::FieldAccess { base, name:_ }=>{
+        IrOperand::FieldAccess { base, name: _ } => {
             types.insert(base.get_type());
         }
-        IrOperand::ArrayAccess { base, value}=>{
+        IrOperand::ArrayAccess { base, value } => {
             types.insert(base.get_type());
             types.insert(value.get_type());
         }
     }
 }
-pub fn get_types_used_in_ir(instructions:&[IrInstr], types:&mut HashSet<Type>){
-    for i in instructions{
-        match i{
-            IrInstr::VariableDeclaration { name:_, vtype ,stack_offset:_}=>{
+
+pub fn get_types_used_in_ir(instructions: &[IrInstr], types: &mut HashSet<Type>) {
+    for i in instructions {
+        match i {
+            IrInstr::VariableDeclaration {
+                name: _,
+                vtype,
+                stack_offset: _,
+            } => {
                 types.insert(vtype.clone());
             }
-            IrInstr::Mov { left, right, vtype }=>{
+            IrInstr::Mov { left, right, vtype } => {
                 types.insert(vtype.clone());
                 get_types_in_operand(left, types);
                 get_types_in_operand(right, types);
             }
-            IrInstr::CondGoto { cond, target:_ }=>{
+            IrInstr::CondGoto { cond, target: _ } => {
                 get_types_in_operand(cond, types);
             }
-            IrInstr::Add { target, left, right, vtype }=>{
+            IrInstr::Add {
+                target,
+                left,
+                right,
+                vtype,
+            } => {
                 types.insert(vtype.clone());
                 get_types_in_operand(target, types);
                 get_types_in_operand(left, types);
                 get_types_in_operand(right, types);
             }
-            IrInstr::Sub { target, left, right, vtype }=>{
+            IrInstr::Sub {
+                target,
+                left,
+                right,
+                vtype,
+            } => {
                 types.insert(vtype.clone());
                 get_types_in_operand(target, types);
                 get_types_in_operand(left, types);
                 get_types_in_operand(right, types);
             }
-            IrInstr::Mul { target, left, right, vtype }=>{
+            IrInstr::Mul {
+                target,
+                left,
+                right,
+                vtype,
+            } => {
                 types.insert(vtype.clone());
                 get_types_in_operand(target, types);
                 get_types_in_operand(left, types);
                 get_types_in_operand(right, types);
             }
-            IrInstr::Div { target, left, right, vtype }=>{
+            IrInstr::Div {
+                target,
+                left,
+                right,
+                vtype,
+            } => {
                 types.insert(vtype.clone());
                 get_types_in_operand(target, types);
                 get_types_in_operand(left, types);
                 get_types_in_operand(right, types);
             }
-            IrInstr::And { target, left, right, vtype } =>{
+            IrInstr::And {
+                target,
+                left,
+                right,
+                vtype,
+            } => {
                 types.insert(vtype.clone());
                 get_types_in_operand(target, types);
                 get_types_in_operand(left, types);
                 get_types_in_operand(right, types);
             }
-            IrInstr::Or { target, left, right, vtype }=>{
+            IrInstr::Or {
+                target,
+                left,
+                right,
+                vtype,
+            } => {
                 types.insert(vtype.clone());
                 get_types_in_operand(target, types);
                 get_types_in_operand(left, types);
                 get_types_in_operand(right, types);
             }
-            IrInstr::Equals { target, left, right, vtype }=>{
+            IrInstr::Equals {
+                target,
+                left,
+                right,
+                vtype,
+            } => {
                 types.insert(vtype.clone());
                 get_types_in_operand(target, types);
                 get_types_in_operand(left, types);
                 get_types_in_operand(right, types);
             }
-            IrInstr::NotEquals { target, left, right, vtype }=>{
+            IrInstr::NotEquals {
+                target,
+                left,
+                right,
+                vtype,
+            } => {
                 types.insert(vtype.clone());
                 get_types_in_operand(target, types);
                 get_types_in_operand(left, types);
                 get_types_in_operand(right, types);
             }
-            IrInstr::GreaterThan { target, left, right, vtype }=>{
+            IrInstr::GreaterThan {
+                target,
+                left,
+                right,
+                vtype,
+            } => {
                 types.insert(vtype.clone());
                 get_types_in_operand(target, types);
                 get_types_in_operand(left, types);
                 get_types_in_operand(right, types);
             }
-            IrInstr::GreaterThanOrEq { target, left, right, vtype }=>{
+            IrInstr::GreaterThanOrEq {
+                target,
+                left,
+                right,
+                vtype,
+            } => {
                 types.insert(vtype.clone());
                 get_types_in_operand(target, types);
                 get_types_in_operand(left, types);
                 get_types_in_operand(right, types);
             }
-            IrInstr::LessThan { target, left, right, vtype }=>{
+            IrInstr::LessThan {
+                target,
+                left,
+                right,
+                vtype,
+            } => {
                 types.insert(vtype.clone());
                 get_types_in_operand(target, types);
                 get_types_in_operand(left, types);
                 get_types_in_operand(right, types);
             }
-            IrInstr::LessThanOrEq { target, left, right, vtype }=>{
+            IrInstr::LessThanOrEq {
+                target,
+                left,
+                right,
+                vtype,
+            } => {
                 types.insert(vtype.clone());
                 get_types_in_operand(target, types);
                 get_types_in_operand(left, types);
                 get_types_in_operand(right, types);
             }
-            IrInstr::Not { target, value, vtype }=>{
+            IrInstr::Not {
+                target,
+                value,
+                vtype,
+            } => {
                 types.insert(vtype.clone());
                 get_types_in_operand(target, types);
                 get_types_in_operand(value, types);
             }
-            IrInstr::Call { func_name:_, args, stack_ptr_when_called:_ }=>{
-                for i in args{
+            IrInstr::Call {
+                func_name: _,
+                args,
+                stack_ptr_when_called: _,
+            } => {
+                for i in args {
                     get_types_in_operand(&i, types);
                 }
             }
-            IrInstr::CallWithRet { target, func_name:_ ,args, vtype:_, stack_ptr_when_called:_ }=>{
-                for i in args{
+            IrInstr::CallWithRet {
+                target,
+                func_name: _,
+                args,
+                vtype: _,
+                stack_ptr_when_called: _,
+            } => {
+                for i in args {
                     get_types_in_operand(&i, types);
                 }
                 get_types_in_operand(target, types);
             }
-            IrInstr::Ret { to_return, stack_ptr:_ }=>{
+            IrInstr::Ret {
+                to_return,
+                stack_ptr: _,
+            } => {
                 get_types_in_operand(to_return, types);
             }
-            IrInstr::Push { vtype, val_idx :_, stack_offset_of_value:_}=>{
-              types.insert(vtype.clone());
-            }
-            IrInstr::Pop { vtype }=>{
+            IrInstr::Push {
+                vtype,
+                val_idx: _,
+                stack_offset_of_value: _,
+            } => {
                 types.insert(vtype.clone());
             }
-            _=>{
-
+            IrInstr::Pop { vtype } => {
+                types.insert(vtype.clone());
             }
+            _ => {}
         }
     }
 }

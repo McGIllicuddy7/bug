@@ -666,7 +666,6 @@ pub fn parse_list(
         }
         return idx;
     }
-    println!("{:#?}", &text[list_start..list_end]);
     let mut out = vec![];
     let mut cursor = list_start;
     while cursor < list_end {
@@ -692,7 +691,6 @@ pub fn parse_expression(
     scope: &mut Scope,
     function_table: &HashMap<String, FunctionTable>,
 ) -> Option<AstNode> {
-    println!("{:#?}", text[*cursor]);
     let start = *cursor;
     let mut out = None;
     if is_numbers(text[*cursor].string) && text[*cursor] != "."{
@@ -1152,15 +1150,16 @@ pub fn parse_scope(
             *cursor += 1;
             continue;
         }
+        println!("{:#?}", &text[*cursor..expr_end]);
         let mut tmp = parse_expression(text, cursor, expr_end, types, scope, function_table)
         .expect("expression must be valid");
-        alide_parens(&mut tmp);
-        println!("{:#?}", tmp);
+        alide_parens(&mut tmp); 
         out.push(
             tmp
         );
     }
     *cursor = end + 1;
+    println!("{:#?}",out);
     return Some(out);
 }
 
