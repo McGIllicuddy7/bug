@@ -4,7 +4,11 @@ mod frontend;
 mod ir;
 mod c_comp;
 mod asm_comp;
+mod gc;
+use std::collections::HashSet;
 use std::process::exit;
+
+use gc::compile_gc_functions;
 
 use crate::frontend::*;
 use crate::c_comp::*;
@@ -24,6 +28,7 @@ fn main() {
         }
     }; 
     let to_c_code = true;
+    let mut global_used_types = HashSet::new();
     loop{
         let tprg = "import builtins.bug;\n".to_owned()+&std::fs::read_to_string(&comp_que[i]).expect("testing expect");
         let name = comp_que[i].to_owned();
@@ -36,10 +41,10 @@ fn main() {
             }
         };
         if to_c_code{
-            let _ = compile(prg,&comp_que[i]).expect("testing expect");
+            let _ = compile(prg,&comp_que[i],&mut global_used_types).expect("testing expect");
         }
         else{
-            let _ = asm_comp::compile_to_asm_x86(prg, &comp_que[i], &target);
+            let _ = asm_comp::compile_to_asm_x86(prg, &comp_que[i], &mut global_used_types,&target);
         }
         i += 1;
         if i>=comp_que.len(){
@@ -55,13 +60,14 @@ fn main() {
         let name = "output/".to_owned()+&i[0..i.len()-4];
         print!("{} ",name);
         if !to_c_code{
-            cmd.arg(name.clone()+"_gc_funcs.c");
             cmd.arg(name+".o");
         }else{
             cmd.arg(name+".c");
         }
 
     }
+    compile_gc_functions(&global_used_types, &target);
+    cmd.arg("output/gc_functions.c");
     cmd.arg("builtins.c").arg("-std=c2x");
     let t = cmd.output().expect("input should be ok");
     println!("\n{}",String::from_utf8(t.stderr).expect("should be ut8"));

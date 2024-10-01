@@ -201,87 +201,6 @@ pub fn compile_function(
 pub fn gc_function_name(t: &Type) -> String {
     return "gc_".to_owned() + &name_mangle_type_for_names(t);
 }
-fn compile_gc_functions(types: &HashSet<Type>, _target: &Target) -> String {
-    let mut out = String::from("#include \"../builtins.h\"\n");
-    let mut stypes = HashMap::new();
-    for i in types{
-        stypes.insert(i.get_name(), i.clone());
-    }
-    let types = crate::c_comp::handle_dependencies(&stypes);
-    for i in &types{
-        out += &crate::c_comp::compile_type(i.0.clone(), i.1.clone()).expect("184");
-    }
-    for i in &types {
-        match i.1 {
-            Type::StringT => {
-                continue;
-            }
-            _ => {
-                out += "void ";
-                out += &(gc_function_name(&i.1) + "(void * ptr);\n");
-            }
-        }
-    }
-    for i in &types {
-        match i.1 {
-            Type::StringT {} => {
-                continue;
-            }
-            Type::IntegerT {} => {
-                continue;
-            }
-            Type::BoolT => {
-                continue;
-            }
-            Type::CharT => {
-                continue;
-            }
-            Type::FloatT => {
-                continue;
-            }
-            _ => {}
-        }
-        if i.1.is_partially_defined() {
-            continue;
-        }
-        out += &("inline void ".to_string()+&(gc_function_name(&i.1) + "(void * ptr){\n"));
-        out += &("  ".to_owned() + &(name_mangle_type(&i.1) + "* var = ptr;\n"));
-        match &i.1 {
-            Type::PointerT { ptr_type } => {
-                out += "   if(!(*var)){return;}\n";
-                out += "   bool hit =gc_any_ptr(*var);\n   if(hit){return;}\n";
-                out += "    ";
-
-                out += &(gc_function_name(ptr_type.as_ref()) + "(*var);\n");
-            }
-            Type::SliceT { ptr_type } => {
-                out += "   bool hit = gc_any_ptr(var->start);\n";
-                out += "   if(hit){return;}\n";
-                out += "    for(int i =0; i<var->len; i++){";
-                out += "    ";
-                out += &(gc_function_name(ptr_type.as_ref()) + "(&var->start[i]);}\n");
-            }
-            Type::StructT {
-                name: _,
-                components,
-            } => {
-                for i in components {
-                    out += "    ";
-                    out += &gc_function_name(&i.1);
-                    out += "(";
-                    out += "&var->";
-                    out += &i.0;
-                    out += ");\n";
-                }
-            }
-            _ => {
-                out += "return;\n";
-            }
-        }
-        out += "}\n";
-    }
-    return out;
-}
 fn compile_gc_func_header(types: &HashSet<Type>, target: &Target)->String{
     let mut out = String::new();
     let mut stypes = HashMap::new();
@@ -396,6 +315,7 @@ fn recurse_used_types(types: &HashSet<Type>, type_table: &HashMap<String, Type>)
 pub fn compile_to_asm_x86(
     prog: Program,
     base_filename: &String,
+    global_used_types:&mut HashSet<Type>,
     target: &Target,
 ) -> Result<(), String> {
     println!("compiling file: {}", base_filename);
@@ -449,22 +369,20 @@ pub fn compile_to_asm_x86(
     let mut fout = fs::File::create(&out_file_name).expect("testing expect");
     used_types = recurse_used_types(&used_types, &prog.types);
     func_decs += &compile_gc_func_header(&used_types, target);
-    typedecs += &compile_gc_functions(&used_types,target);
+    for i in used_types{
+        global_used_types.insert(i);
+    }
     out += &func_decs;
     out += &functions;
     out += &statics;
     fout.write(out.as_bytes()).expect("testing expect");
-    drop(fout);
-    let gc_out_name = filename.to_string()+"_gc_funcs.c";
-    let mut gc_out = fs::File::create(&gc_out_name).expect("testing_expect");
-    gc_out.write(typedecs.as_bytes()).expect("testing expect");
+    drop(fout); 
     let mut cmd = std::process::Command::new("nasm");
     if std::env::consts::OS == "linux" {
         cmd.arg("-f elf64");
     } else {
         cmd.arg("-f macho64");
     }
-    let _ = cmd.arg(&out_file_name).output();
-    let _ = std::process::Command::new("clang").arg("-C").arg(gc_out_name).output();
+    let _ = cmd.arg(&out_file_name).output(); 
     return Ok(());
 }

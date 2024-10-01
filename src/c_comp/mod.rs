@@ -284,7 +284,22 @@ fn compile_gc_functions(types: HashSet<Type>) -> String {
     }
     return out;
 }
-
+#[allow(unused)]
+fn compile_gc_function_headers(types: HashSet<Type>) -> String {
+    let mut out = String::new();
+    for i in &types {
+        match i {
+            Type::StringT => {
+                continue;
+            }
+            _ => {
+                out += "void ";
+                out += &(gc_function_name(i) + "(void*);\n");
+            }
+        }
+    }
+    return out;
+}
 #[allow(unused)]
 fn get_all_types_contained(t: &Type, types: &HashMap<String, Type>) -> Vec<Type> {
     let mut out = vec![];
@@ -374,7 +389,7 @@ fn recurse_used_types(types: &HashSet<Type>, type_table: &HashMap<String, Type>)
 }
 
 #[allow(unused)]
-pub fn compile(prog: Program, base_filename: &str) -> Result<(), String> {
+pub fn compile(prog: Program, base_filename: &str,global_used_types: &mut HashSet<Type>) -> Result<(), String> {
     println!("compiling file: {}", base_filename);
     let fname = "output/".to_owned() + &base_filename[0..base_filename.len() - 4];
     let filename = &fname;
@@ -424,7 +439,10 @@ pub fn compile(prog: Program, base_filename: &str) -> Result<(), String> {
             typedecs += &compile_type("".to_owned(), i.clone()).expect("must work");
         }
     }
-    typedecs += &compile_gc_functions(used_types);
+    typedecs += &compile_gc_function_headers(used_types.clone());
+    for i in used_types{
+        global_used_types.insert(i);
+    }
     out += "#include \"../builtins.h\"\n";
     out += &typedecs;
     out += &func_decs;
