@@ -773,7 +773,10 @@ impl AstNode {
                 ) {
                     return left.get_type(function_table, types);
                 }
-                return None;
+                let lt = left.get_type(function_table, types)?;
+                let rt = right.get_type(function_table, types)?;
+                let fn_args = vec![lt, rt];
+                return Some(get_function_by_args("+", &fn_args,function_table)?.return_type.clone());
             }
             Self::Sub { left, right,data:_ } => {
                 if is_compatible_type(
@@ -782,7 +785,10 @@ impl AstNode {
                 ) {
                     return left.get_type(function_table, types);
                 }
-                return None;
+                let lt = left.get_type(function_table, types)?;
+                let rt = right.get_type(function_table, types)?;
+                let fn_args = vec![lt, rt];
+                return Some(get_function_by_args("+", &fn_args,function_table)?.return_type.clone());
             }
             Self::Mult { left, right,data:_ } => {
                 if is_compatible_type(
@@ -791,7 +797,10 @@ impl AstNode {
                 ) {
                     return left.get_type(function_table, types);
                 }
-                return None;
+                let lt = left.get_type(function_table, types)?;
+                let rt = right.get_type(function_table, types)?;
+                let fn_args = vec![lt, rt];
+                return Some(get_function_by_args("*", &fn_args,function_table)?.return_type.clone());
             }
             Self::Div { left, right ,data:_} => {
                 if is_compatible_type(
@@ -800,7 +809,10 @@ impl AstNode {
                 ) {
                     return left.get_type(function_table, types);
                 }
-                return None;
+                let lt = left.get_type(function_table, types)?;
+                let rt = right.get_type(function_table, types)?;
+                let fn_args = vec![lt, rt];
+                return Some(get_function_by_args("/", &fn_args,function_table)?.return_type.clone());
             }
             Self::Equals { left: _, right: _ ,data:_} => {
                 return Some(Type::BoolT);
