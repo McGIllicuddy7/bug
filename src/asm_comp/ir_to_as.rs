@@ -132,7 +132,7 @@ pub fn compile_ir_op_to_x86(
     match op {
         IrOperand::ArrayAccess { base, value } => {
             let base = compile_ir_op_to_x86(base, left, stack, statics, statics_count);
-            *stack += &format!("    lea rbx, [{}]\n", base.as_ref());
+            *stack += &format!("    mov rbx, qword [{}]\n", base.as_ref());
             let value = compile_ir_op_to_x86(value, left, stack, statics, statics_count);
             if value.is_address{
                 *stack += &format!("    mov rax, QWORD[{}]\n", value.as_ref());

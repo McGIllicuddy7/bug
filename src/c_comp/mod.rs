@@ -56,7 +56,7 @@ pub fn compile_type(_aname: String, data: Type) -> Result<String, String> {
     match &data {
         Type::SliceT { ptr_type } => {
             vars = format!(
-                "    {} * start; size_t len;\n",
+                "    size_t len; {} * start;\n",
                 name_mangle_type_for_struct(&ptr_type)
             );
         }

@@ -195,7 +195,17 @@ impl Type{
     let mut count = 0;
     match self{
         Self::SliceT { ptr_type:_ }=>{
-            return Some(8);
+            match name{
+                "start"=>{
+                    return Some(0);
+                }
+                "len"=>{
+                    return Some(8);
+                }
+                _=>{
+                    unreachable!();
+                }
+            }
         }
         Self::StringT=>{
             return Some(8);
