@@ -259,12 +259,12 @@ void user_put_str_ln_double(double a){
     size_t l = strlen(buffer);
     write(1, buffer, l);
 }
-typedef struct{
-    double x;
-    double y;
-}u_vec2;
-void user_put_str_ln_u_vec2(u_vec2 a){
-    printf("%f, %f\n",a.x, a.y);
+
+double user_float_long(long a ){
+    return a;
+}
+long user_int_double(double a ){
+    return a;
 }
 extern long user_main();
 int main(int argc,const char ** argv){

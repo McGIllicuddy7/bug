@@ -1,13 +1,6 @@
 
 pub fn main()->int{
-   let ints:[]string = make(string,200);
-   for(let i =0; i<200; i = i+1){
-      let a= to_string(i);
-      ints[i] = a;
-   }
-   for(let i =0; i<ints.len; i = i+1){
-      put_str_ln(ints[i]);
-   }
+   put_str_ln(10/2);
    return 0;
 }
 
