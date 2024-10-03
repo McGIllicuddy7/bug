@@ -172,7 +172,7 @@ pub fn compile_ir_op_to_x86(
             } else {
                 *stack += &format!("    mov rax, {}\n", value.as_ref());
             }
-            *stack += &format!("    imul rax, {}\n",b_.get_type().get_size_bytes() );
+            *stack += &format!("    imul rax, {}\n",b_.get_type().get_array_type().expect("").get_size_bytes() );
             *stack += &format!("    add rbx, rax\n");
             *stack += &format!("    mov {}, rbx\n", get_sreg(left));
             return AsmOperand::new(get_sreg(left), true);

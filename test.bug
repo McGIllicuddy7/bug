@@ -1,9 +1,9 @@
 
 pub fn main()->int{
    let ints:[]string = make(string,200);
-   for(let i =0; i<200000; i = i+1){
+   for(let i =0; i<200; i = i+1){
       let a= to_string(i);
-      ints[mod(i,200)] = a;
+      ints[i] = a;
    }
    for(let i =0; i<ints.len; i = i+1){
       put_str_ln(ints[i]);
