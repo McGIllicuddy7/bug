@@ -208,7 +208,17 @@ impl Type{
             }
         }
         Self::StringT=>{
-            return Some(8);
+            match name{
+                "start"=>{
+                    return Some(0);
+                }
+                "len"=>{
+                    return Some(8);
+                }
+                _=>{
+                    unreachable!();
+                }
+            }
         }
         Self::StructT { name: _, components }=>{
             for i in components{

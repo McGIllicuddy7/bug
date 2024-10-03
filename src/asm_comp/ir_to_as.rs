@@ -3,17 +3,20 @@ use crate::ir::{IrInstr, IrOperand};
 use crate::{Target, Type};
 use std::collections::HashSet;
 #[derive(Debug)]
-pub struct AsmOperand{
-    pub value:String,
-    pub is_address:bool
+pub struct AsmOperand {
+    pub value: String,
+    pub is_address: bool,
 }
-impl AsmOperand{
-    pub fn new(a:String,is_address:bool)->Self{
-        Self{value:a, is_address}
+impl AsmOperand {
+    pub fn new(a: String, is_address: bool) -> Self {
+        Self {
+            value: a,
+            is_address,
+        }
     }
 }
-impl AsRef<str> for AsmOperand{
-    fn as_ref(&self) ->&str  {
+impl AsRef<str> for AsmOperand {
+    fn as_ref(&self) -> &str {
         return self.value.as_ref();
     }
 }
@@ -31,58 +34,79 @@ fn get_sreg(left: bool) -> String {
         return "r10".to_owned();
     }
 }
-fn compile_binary_op(ir_instr:&str, fp_instr:&str, left:&IrOperand, right:&IrOperand,target:&IrOperand,vtype: &Type,statics:&mut String, statics_count:&mut usize)->String {
-    match vtype{
-        Type::FloatT=>{
+fn compile_binary_op(
+    ir_instr: &str,
+    fp_instr: &str,
+    left: &IrOperand,
+    right: &IrOperand,
+    target: &IrOperand,
+    vtype: &Type,
+    statics: &mut String,
+    statics_count: &mut usize,
+) -> String {
+    match vtype {
+        Type::FloatT => {
             let mut stack = "".to_owned();
             let l = compile_ir_op_to_x86(left, true, &mut stack, statics, statics_count);
             let r = compile_ir_op_to_x86(right, false, &mut stack, statics, statics_count);
             if l.is_address {
-                stack += &format!("    movsd xmm0, [{}]\n",l.as_ref());
+                stack += &format!("    movsd xmm0, [{}]\n", l.as_ref());
             } else {
                 stack += &format!("    movsd xmm0, {}\n", l.as_ref());
             }
             if r.is_address {
-                stack += &format!("    movsd xmm1,[{}]\n",r.as_ref());
+                stack += &format!("    movsd xmm1,[{}]\n", r.as_ref());
             } else {
                 stack += &format!("    movsd xmm1, {}\n", r.as_ref());
             }
             stack += &format!("    {}\n", fp_instr);
             let v = compile_ir_op_to_x86(target, true, &mut stack, statics, statics_count);
             stack += &format!("    movsd [{}], xmm0\n", v.as_ref());
-            return stack;  
+            return stack;
         }
-        _=>{
+        _ => {
             let mut stack = "".to_owned();
             let l = compile_ir_op_to_x86(left, true, &mut stack, statics, statics_count);
             let r = compile_ir_op_to_x86(right, false, &mut stack, statics, statics_count);
             if l.is_address {
                 stack += &format!("    mov rax, QWORD [{}]\n", l.as_ref());
             } else {
-                stack += &format!("    mov rax, {}\n",l.as_ref());
+                stack += &format!("    mov rax, {}\n", l.as_ref());
             }
             if r.is_address {
-                stack += &format!("    mov rbx, QWORD [{}]\n",r.as_ref());
+                stack += &format!("    mov rbx, QWORD [{}]\n", r.as_ref());
             } else {
-                stack += &format!("    mov rbx, {}\n",r.as_ref());
+                stack += &format!("    mov rbx, {}\n", r.as_ref());
             }
             stack += &format!("    {}\n", ir_instr);
             let v = compile_ir_op_to_x86(target, true, &mut stack, statics, statics_count);
-            stack += &format!("    mov {} [{}], rax\n", get_asmx86_type_name(vtype), v.as_ref());
-            return stack; 
+            stack += &format!(
+                "    mov {} [{}], rax\n",
+                get_asmx86_type_name(vtype),
+                v.as_ref()
+            );
+            return stack;
         }
     }
 }
-fn compile_binary_comp_op(ir_instr:&str, left:&IrOperand, right:&IrOperand,target:&IrOperand,vtype: &Type,statics:&mut String, statics_count:&mut usize)->String {
-    match vtype{
-        Type::FloatT=>{
+fn compile_binary_comp_op(
+    ir_instr: &str,
+    left: &IrOperand,
+    right: &IrOperand,
+    target: &IrOperand,
+    vtype: &Type,
+    statics: &mut String,
+    statics_count: &mut usize,
+) -> String {
+    match vtype {
+        Type::FloatT => {
             let mut stack = "".to_owned();
             let l = compile_ir_op_to_x86(left, true, &mut stack, statics, statics_count);
             let r = compile_ir_op_to_x86(right, false, &mut stack, statics, statics_count);
             if l.is_address {
                 stack += &format!("    movsd xmm1, [{}]\n", l.as_ref());
             } else {
-                stack += &format!("    movsd xmm1, {}\n",l.as_ref());
+                stack += &format!("    movsd xmm1, {}\n", l.as_ref());
             }
             if r.is_address {
                 stack += &format!("    movsd xmm0, QWORD [{}]\n", r.as_ref());
@@ -94,17 +118,21 @@ fn compile_binary_comp_op(ir_instr:&str, left:&IrOperand, right:&IrOperand,targe
             stack += &format!("    mov rax, 1\n");
             stack += &format!("    {}\n", ir_instr);
             let v = compile_ir_op_to_x86(target, true, &mut stack, statics, statics_count);
-            stack += &format!("    mov {} [{}], rax\n", get_asmx86_type_name(vtype), v.as_ref());
-            return stack; 
+            stack += &format!(
+                "    mov {} [{}], rax\n",
+                get_asmx86_type_name(vtype),
+                v.as_ref()
+            );
+            return stack;
         }
-        _=>{
+        _ => {
             let mut stack = "".to_owned();
             let l = compile_ir_op_to_x86(left, true, &mut stack, statics, statics_count);
             let r = compile_ir_op_to_x86(right, false, &mut stack, statics, statics_count);
             if l.is_address {
                 stack += &format!("    mov rax, QWORD [{}]\n", l.as_ref());
             } else {
-                stack += &format!("    mov rax, {}\n",l.as_ref());
+                stack += &format!("    mov rax, {}\n", l.as_ref());
             }
             if r.is_address {
                 stack += &format!("    mov rbx, QWORD [{}]\n", r.as_ref());
@@ -116,7 +144,11 @@ fn compile_binary_comp_op(ir_instr:&str, left:&IrOperand, right:&IrOperand,targe
             stack += &format!("    mov rax, 1\n");
             stack += &format!("    {}\n", ir_instr);
             let v = compile_ir_op_to_x86(target, true, &mut stack, statics, statics_count);
-            stack += &format!("    mov {} [{}], rax\n", get_asmx86_type_name(vtype), v.as_ref());
+            stack += &format!(
+                "    mov {} [{}], rax\n",
+                get_asmx86_type_name(vtype),
+                v.as_ref()
+            );
             return stack;
         }
     }
@@ -128,17 +160,19 @@ pub fn compile_ir_op_to_x86(
     stack: &mut String,
     statics: &mut String,
     statics_count: &mut usize,
-) -> AsmOperand{
+) -> AsmOperand {
     match op {
         IrOperand::ArrayAccess { base, value } => {
+            let b_ =base;
             let base = compile_ir_op_to_x86(base, left, stack, statics, statics_count);
             *stack += &format!("    mov rbx, qword [{}]\n", base.as_ref());
             let value = compile_ir_op_to_x86(value, left, stack, statics, statics_count);
-            if value.is_address{
+            if value.is_address {
                 *stack += &format!("    mov rax, QWORD[{}]\n", value.as_ref());
-            }else{
-                *stack += &format!("    mov rax, {}\n", value.as_ref()); 
+            } else {
+                *stack += &format!("    mov rax, {}\n", value.as_ref());
             }
+            *stack += &format!("    imul rax, {}\n",b_.get_type().get_size_bytes() );
             *stack += &format!("    add rbx, rax\n");
             *stack += &format!("    mov {}, rbx\n", get_sreg(left));
             return AsmOperand::new(get_sreg(left), true);
@@ -150,18 +184,16 @@ pub fn compile_ir_op_to_x86(
             return AsmOperand::new(format!("{value}"), false);
         }
         IrOperand::FloatLiteral { value } => {
-            let mut ifloat = unsafe {
-                core::mem::transmute::<f64,[u8;8]>(*value)
-            };
+            let mut ifloat = unsafe { core::mem::transmute::<f64, [u8; 8]>(*value) };
             let name_str = {
                 let mut tmp = String::new();
-                for i in 0..8{
+                for i in 0..8 {
                     tmp += &format!("{}", ifloat[i]);
-                    if i != 7{
+                    if i != 7 {
                         tmp += ",";
                     }
                 }
-                tmp 
+                tmp
             };
             *statics += &format!("   static{} : db {}\n", statics_count, name_str);
             *statics_count += 1;
@@ -170,12 +202,12 @@ pub fn compile_ir_op_to_x86(
                 get_sreg(left),
                 *statics_count - 1
             );
-            return AsmOperand::new(get_sreg(left), true); 
+            return AsmOperand::new(get_sreg(left), true);
         }
         IrOperand::Deref { to_deref } => {
             let base = compile_ir_op_to_x86(&to_deref, left, stack, statics, statics_count);
             *stack += &format!("    mov {},[{}]\n", get_sreg(left), base.as_ref());
-            return AsmOperand::new(get_sreg(left), true); 
+            return AsmOperand::new(get_sreg(left), true);
         }
         IrOperand::StacKOperand {
             var_idx: _,
@@ -184,16 +216,16 @@ pub fn compile_ir_op_to_x86(
             vtype,
         } => {
             *stack += &format!("    lea {}, [rbp-{}]\n", get_sreg(left), stack_offset + 8);
-            return AsmOperand::new(get_sreg(left), true); 
+            return AsmOperand::new(get_sreg(left), true);
         }
         IrOperand::Name { name, vtype } => {
             *stack += &format!("    lea {}, [rel {}]\n", name, get_sreg(left));
-            return AsmOperand::new(get_sreg(left), true); 
+            return AsmOperand::new(get_sreg(left), true);
         }
         IrOperand::TakeRef { to_ref } => {
             let base = compile_ir_op_to_x86(&to_ref, left, stack, statics, statics_count);
             //*stack += &format!("   mov {}, {}\n", get_sreg(left), base.as_ref());
-            return AsmOperand::new(get_sreg(left), false); 
+            return AsmOperand::new(get_sreg(left), false);
         }
         IrOperand::StringLiteral { value } => {
             *statics += &format!("   static{}: db {},0x0\n", statics_count, value);
@@ -203,7 +235,7 @@ pub fn compile_ir_op_to_x86(
                 get_sreg(left),
                 *statics_count - 1
             );
-            return AsmOperand::new(get_sreg(left), true); 
+            return AsmOperand::new(get_sreg(left), true);
         }
         IrOperand::FieldAccess { base, name } => {
             let offset = base.get_type().get_variable_offset(name).expect("contains");
@@ -220,12 +252,12 @@ pub fn compile_ir_op_to_x86(
                         get_sreg(left),
                         stack_offset + 8 + offset
                     );
-                    return AsmOperand::new(get_sreg(left), true); 
+                    return AsmOperand::new(get_sreg(left), true);
                 }
                 _ => {
                     let base = compile_ir_op_to_x86(base, left, stack, statics, statics_count);
                     *stack += &format!("    add {}, {}", base.as_ref(), offset);
-                    return AsmOperand::new(get_sreg(left), true); 
+                    return AsmOperand::new(get_sreg(left), true);
                 }
             }
         }
@@ -247,7 +279,16 @@ pub fn compile_ir_instr_to_x86(
             right,
             vtype,
         } => {
-            return compile_binary_op("add rax,rbx","addsd xmm0, xmm1", left, right, target, vtype, statics, statics_count);
+            return compile_binary_op(
+                "add rax,rbx",
+                "addsd xmm0, xmm1",
+                left,
+                right,
+                target,
+                vtype,
+                statics,
+                statics_count,
+            );
         }
         IrInstr::Sub {
             target,
@@ -255,7 +296,16 @@ pub fn compile_ir_instr_to_x86(
             right,
             vtype,
         } => {
-            return compile_binary_op("sub rax,rbx","subsd xmm0, xmm1", left, right, target, vtype, statics, statics_count);
+            return compile_binary_op(
+                "sub rax,rbx",
+                "subsd xmm0, xmm1",
+                left,
+                right,
+                target,
+                vtype,
+                statics,
+                statics_count,
+            );
         }
         IrInstr::Div {
             target,
@@ -263,7 +313,16 @@ pub fn compile_ir_instr_to_x86(
             right,
             vtype,
         } => {
-            return compile_binary_op("idiv edx","divsd xmm0, xmm1", left, right, target, vtype, statics, statics_count);
+            return compile_binary_op(
+                "idiv edx",
+                "divsd xmm0, xmm1",
+                left,
+                right,
+                target,
+                vtype,
+                statics,
+                statics_count,
+            );
         }
         IrInstr::Mul {
             target,
@@ -271,7 +330,16 @@ pub fn compile_ir_instr_to_x86(
             right,
             vtype,
         } => {
-            return compile_binary_op("imul rax,rbx","mulsd xmm0, xmm1", left, right, target, vtype, statics, statics_count);
+            return compile_binary_op(
+                "imul rax,rbx",
+                "mulsd xmm0, xmm1",
+                left,
+                right,
+                target,
+                vtype,
+                statics,
+                statics_count,
+            );
         }
         IrInstr::And {
             target,
@@ -279,7 +347,16 @@ pub fn compile_ir_instr_to_x86(
             right,
             vtype,
         } => {
-            return compile_binary_op("and rax,rbx","", left, right, target, vtype, statics, statics_count);
+            return compile_binary_op(
+                "and rax,rbx",
+                "",
+                left,
+                right,
+                target,
+                vtype,
+                statics,
+                statics_count,
+            );
         }
         IrInstr::Or {
             target,
@@ -287,7 +364,16 @@ pub fn compile_ir_instr_to_x86(
             right,
             vtype,
         } => {
-            return compile_binary_op("or rax,rbx","", left, right, target, vtype, statics, statics_count);
+            return compile_binary_op(
+                "or rax,rbx",
+                "",
+                left,
+                right,
+                target,
+                vtype,
+                statics,
+                statics_count,
+            );
         }
         IrInstr::GreaterThan {
             target,
@@ -295,7 +381,15 @@ pub fn compile_ir_instr_to_x86(
             right,
             vtype,
         } => {
-            return compile_binary_comp_op("cmovg rax,rbx", left, right, target, vtype, statics, statics_count);
+            return compile_binary_comp_op(
+                "cmovg rax,rbx",
+                left,
+                right,
+                target,
+                vtype,
+                statics,
+                statics_count,
+            );
         }
         IrInstr::GreaterThanOrEq {
             target,
@@ -303,7 +397,15 @@ pub fn compile_ir_instr_to_x86(
             right,
             vtype,
         } => {
-            return compile_binary_comp_op("cmovge rax,rbx", left, right, target, vtype, statics, statics_count);
+            return compile_binary_comp_op(
+                "cmovge rax,rbx",
+                left,
+                right,
+                target,
+                vtype,
+                statics,
+                statics_count,
+            );
         }
         IrInstr::LessThan {
             target,
@@ -311,7 +413,15 @@ pub fn compile_ir_instr_to_x86(
             right,
             vtype,
         } => {
-            return compile_binary_comp_op("cmovl rax,rbx", left, right, target, vtype, statics, statics_count);
+            return compile_binary_comp_op(
+                "cmovl rax,rbx",
+                left,
+                right,
+                target,
+                vtype,
+                statics,
+                statics_count,
+            );
         }
         IrInstr::LessThanOrEq {
             target,
@@ -319,18 +429,26 @@ pub fn compile_ir_instr_to_x86(
             right,
             vtype,
         } => {
-            return compile_binary_comp_op("cmovle rax,rbx", left, right, target, vtype, statics, statics_count);
+            return compile_binary_comp_op(
+                "cmovle rax,rbx",
+                left,
+                right,
+                target,
+                vtype,
+                statics,
+                statics_count,
+            );
         }
-        IrInstr::BeginScope { stack_ptr:_ } => {
+        IrInstr::BeginScope { stack_ptr: _ } => {
             return "".to_string();
         }
-        IrInstr::EndScope { stack_ptr:_ } => {
+        IrInstr::EndScope { stack_ptr: _ } => {
             return "".to_string();
         }
         IrInstr::Call {
             func_name,
             args,
-            stack_ptr_when_called:_,
+            stack_ptr_when_called: _,
         } => {
             let mut st = String::new();
             let mut ag = x86::ArgCPU::new();
@@ -341,7 +459,7 @@ pub fn compile_ir_instr_to_x86(
                 let s = compile_ir_op_to_x86(i, true, &mut tmp_st, statics, statics_count);
                 vs.push(tmp_st + &ag.generate_arg(s.as_ref(), &i.get_type(), &mut pop_count));
             }
-            if pop_count%2 != 0{
+            if pop_count % 2 != 0 {
                 st += "    push r10\n";
             }
             st += "  push r10\n";
@@ -360,9 +478,9 @@ pub fn compile_ir_instr_to_x86(
             }
             st += "  pop r11\n";
             st += "  pop r10\n";
-            if pop_count%2 != 0{
+            if pop_count % 2 != 0 {
                 st += "    pop r10\n";
-            }            
+            }
             for _ in 0..pop_count {
                 st += "    pop r10\n";
             }
@@ -390,7 +508,7 @@ pub fn compile_ir_instr_to_x86(
                 vs.push(tmp_st + &ag.generate_arg(s.as_ref(), &i.get_type(), &mut pop_count));
             }
             vs.reverse();
-            if pop_count%2 != 0{
+            if pop_count % 2 != 0 {
                 st += "    push r10\n";
             }
             st += "    push r10\n";
@@ -406,7 +524,7 @@ pub fn compile_ir_instr_to_x86(
                     st += &format!("    call {}\n", func_name);
                 }
             }
-            if pop_count%2 != 0{
+            if pop_count % 2 != 0 {
                 st += "    pop r10\n";
             }
             st += "    pop r11\n";
@@ -415,37 +533,34 @@ pub fn compile_ir_instr_to_x86(
                 let typs = vtype.flatten_to_basic_types();
                 let mut hit_float = false;
                 let mut hit_int = false;
-                match typs[0]{
-                    Type::FloatT=>{
+                match typs[0] {
+                    Type::FloatT => {
                         hit_float = true;
                         st += &format!("    movsd [{}], xmm0\n", tstr.as_ref());
                     }
-                    _=>{
-                        hit_int= true;
+                    _ => {
+                        hit_int = true;
                         st += &format!("    mov QWORD[{}], rax\n", tstr.as_ref());
                     }
                 }
 
                 if vtype.get_size_bytes() > 8 {
-                    match typs[0]{
-                        Type::FloatT=>{
-                            if hit_float{
+                    match typs[0] {
+                        Type::FloatT => {
+                            if hit_float {
                                 st += &format!("    movsd [{}-8], xmm1\n", tstr.as_ref());
+                            } else {
+                                st += &format!("    movsd [{}-8], xmm0\n", tstr.as_ref());
                             }
-                            else{
-                            st += &format!("    movsd [{}-8], xmm0\n", tstr.as_ref());
-                            }
-
                         }
-                        _=>{
-                            if hit_int{
+                        _ => {
+                            if hit_int {
                                 st += &format!("    mov QWORD[{}-8], rdx\n", tstr.as_ref());
-                            } else{
+                            } else {
                                 st += &format!("    mov QWORD[{}-8], rax\n", tstr.as_ref());
                             }
-
                         }
-                    }     
+                    }
                 }
             }
             for _ in 0..pop_count {
@@ -460,7 +575,7 @@ pub fn compile_ir_instr_to_x86(
             let total = vtype.get_size_bytes();
             match right {
                 IrOperand::IntLiteral { value } => {
-                    stack += &format!("   mov rax, {value}\n    mov QWORD[{}], rax\n",l.as_ref());
+                    stack += &format!("   mov rax, {value}\n    mov QWORD[{}], rax\n", l.as_ref());
                     return stack;
                 }
                 IrOperand::CharLiteral { value } => {
@@ -468,25 +583,20 @@ pub fn compile_ir_instr_to_x86(
                     return stack;
                 }
                 IrOperand::FloatLiteral { value } => {
-                    let ifloat = unsafe {
-                        core::mem::transmute::<f64,[u8;8]>(*value)
-                    };
+                    let ifloat = unsafe { core::mem::transmute::<f64, [u8; 8]>(*value) };
                     let name_str = {
                         let mut tmp = String::new();
-                        for i in 0..8{
+                        for i in 0..8 {
                             tmp += &format!("{}", ifloat[i]);
-                            if i != 7{
+                            if i != 7 {
                                 tmp += ",";
                             }
                         }
-                        tmp 
+                        tmp
                     };
                     *statics += &format!("   static{} : db {}\n", statics_count, name_str);
                     *statics_count += 1;
-                    stack += &format!(
-                        "    movsd xmm0, [rel static{}]\n",
-                        *statics_count - 1
-                    );
+                    stack += &format!("    movsd xmm0, [rel static{}]\n", *statics_count - 1);
                     stack += &format!(" movsd [r11], xmm0\n");
                     return stack;
                 }
@@ -496,10 +606,10 @@ pub fn compile_ir_instr_to_x86(
             stack += &format!("    mov rax, {}\n", l.as_ref());
             stack += &format!("    mov rbx, {}\n", r.as_ref());
             while count < total {
-                if r.is_address{
+                if r.is_address {
                     stack += &format!("    mov rcx,QWORD [rbx]\n");
-                } else{
-                    stack += &format!("    mov rcx,rbx\n"); 
+                } else {
+                    stack += &format!("    mov rcx,rbx\n");
                 }
                 stack += &format!("    mov QWORD [rax], rcx\n");
                 stack += &format!("    sub rax,8\n");
@@ -515,16 +625,18 @@ pub fn compile_ir_instr_to_x86(
         IrInstr::Label { name } => {
             return format!("{name}:");
         }
-        IrInstr::VariableDeclaration { name: _, vtype ,stack_offset} => {
-            match cmp_target{
-                Target::MacOs { arm:_ }=>{
-                    return format!("    lea rdi, [rbp-{stack_offset}]\n    lea rsi, [rel _{}]\n    call _gc_register_ptr", gc_function_name(vtype));
-                }
-                _=>{
-                    return format!("    lea rdi, [rbp-{stack_offset}]\n    lea rsi, [rel {}]\n    call gc_register_ptr", gc_function_name(vtype));
-                }
+        IrInstr::VariableDeclaration {
+            name: _,
+            vtype,
+            stack_offset,
+        } => match cmp_target {
+            Target::MacOs { arm: _ } => {
+                return format!("    lea rdi, [rbp-{stack_offset}]\n    lea rsi, [rel _{}]\n    call _gc_register_ptr", gc_function_name(vtype));
             }
-        }
+            _ => {
+                return format!("    lea rdi, [rbp-{stack_offset}]\n    lea rsi, [rel {}]\n    call gc_register_ptr", gc_function_name(vtype));
+            }
+        },
         IrInstr::CondGoto { cond, target } => {
             let mut stack = "".to_owned();
             let cond = compile_ir_op_to_x86(cond, true, &mut stack, statics, statics_count);
@@ -542,10 +654,10 @@ pub fn compile_ir_instr_to_x86(
             let mut stack = "".to_owned();
             let l = compile_ir_op_to_x86(left, true, &mut stack, statics, statics_count);
             let r = compile_ir_op_to_x86(right, false, &mut stack, statics, statics_count);
-            if l.is_address{
+            if l.is_address {
                 stack += &format!("    mov rax, QWORD [{}]\n", l.as_ref());
             } else {
-                stack += &format!("    mov rax, {}\n",l.as_ref());
+                stack += &format!("    mov rax, {}\n", l.as_ref());
             }
             if r.is_address {
                 stack += &format!("    mov rbx, QWORD [{}]\n", r.as_ref());
@@ -557,7 +669,11 @@ pub fn compile_ir_instr_to_x86(
             stack += &format!("    mov rax, 1\n");
             stack += &format!("    cmovne rax, rbx\n");
             let v = compile_ir_op_to_x86(target, true, &mut stack, statics, statics_count);
-            stack += &format!("    mov {} [{}], rax\n", get_asmx86_type_name(vtype), v.as_ref());
+            stack += &format!(
+                "    mov {} [{}], rax\n",
+                get_asmx86_type_name(vtype),
+                v.as_ref()
+            );
             return stack;
         }
         IrInstr::NotEquals {
@@ -572,7 +688,7 @@ pub fn compile_ir_instr_to_x86(
             if l.is_address {
                 stack += &format!("    mov rax, QWORD [{}]\n", l.as_ref());
             } else {
-                stack += &format!("    mov rax, {}\n",l.as_ref());
+                stack += &format!("    mov rax, {}\n", l.as_ref());
             }
             if r.is_address {
                 stack += &format!("    mov rbx, QWORD [{}]\n", r.as_ref());
@@ -584,16 +700,20 @@ pub fn compile_ir_instr_to_x86(
             stack += &format!("    mov rax, 1\n");
             stack += &format!("    cmove rax, rbx\n");
             let v = compile_ir_op_to_x86(target, true, &mut stack, statics, statics_count);
-            stack += &format!("    mov {} [{}], rax\n", get_asmx86_type_name(vtype), v.as_ref());
+            stack += &format!(
+                "    mov {} [{}], rax\n",
+                get_asmx86_type_name(vtype),
+                v.as_ref()
+            );
             return stack;
         }
         IrInstr::Ret {
             to_return,
-            stack_ptr:_,
+            stack_ptr: _,
         } => {
             let t = to_return.get_type();
             let mut out = "".to_owned();
-            for _ in 0..*depth+1{
+            for _ in 0..*depth + 1 {
                 out += match cmp_target {
                     Target::MacOs { arm: _ } => "    call _gc_pop_frame\n",
                     _ => "    call gc_pop_frame\n",
@@ -612,33 +732,32 @@ pub fn compile_ir_instr_to_x86(
                 let mut hit_int = false;
                 let mut hit_float = false;
                 if a.is_address {
-                    match types[0]{
-                        Type::FloatT=>{
+                    match types[0] {
+                        Type::FloatT => {
                             hit_float = true;
-                            out += &format!("    movsd xmm0, [{}]\n", a.as_ref()); 
+                            out += &format!("    movsd xmm0, [{}]\n", a.as_ref());
                         }
-                        _=>{
+                        _ => {
                             hit_int = true;
-                            out += &format!("    mov rax, QWORD [{}]\n", a.as_ref()); 
+                            out += &format!("    mov rax, QWORD [{}]\n", a.as_ref());
                         }
                     }
-                    match types[1]{
-                        Type::FloatT=>{
-                            if hit_float{
-                                out += &format!("    movsd xmm1, [{}-8]\n", a.as_ref()); 
-                            }
-                            else {
-                                 out += &format!("    movsd xmm0, [{}-8]\n", a.as_ref()); 
-                            }
-                        } 
-                        _=>{
-                            if hit_int{
-                                out += &format!("    mov rdx, QWORD [{}-8]\n", a.as_ref())
-                            } else{
-                                out += &format!("    mov rax, QWORD [{}-8]\n", a.as_ref()); 
+                    match types[1] {
+                        Type::FloatT => {
+                            if hit_float {
+                                out += &format!("    movsd xmm1, [{}-8]\n", a.as_ref());
+                            } else {
+                                out += &format!("    movsd xmm0, [{}-8]\n", a.as_ref());
                             }
                         }
-                    }  
+                        _ => {
+                            if hit_int {
+                                out += &format!("    mov rdx, QWORD [{}-8]\n", a.as_ref())
+                            } else {
+                                out += &format!("    mov rax, QWORD [{}-8]\n", a.as_ref());
+                            }
+                        }
+                    }
                 } else {
                     out += &format!("    mov rax, {}\n", a.as_ref());
                     out += &format!("    mov rdx, {}\n", a.as_ref());
@@ -650,7 +769,7 @@ pub fn compile_ir_instr_to_x86(
                 while count < max {
                     out += &format!(
                         "    mov rax, QWORD [r11]\n    mov [rdi-{}], rax\n    sub r11, 8\n",
-                            count
+                        count
                     );
                     count += 8;
                 }
@@ -667,9 +786,9 @@ pub fn compile_ir_instr_to_x86(
             return out;
         }
         IrInstr::Not {
-            target:_,
-            value:_,
-            vtype:_,
+            target: _,
+            value: _,
+            vtype: _,
         } => {
             todo!();
         }
@@ -677,38 +796,35 @@ pub fn compile_ir_instr_to_x86(
             vtype,
             val_idx: _,
             stack_offset_of_value,
-        } => {
-            match cmp_target{
-                Target::MacOs { arm:_ }=>{
-                    return format!("    lea rdi, [rbp-{stack_offset_of_value}]\n    lea rsi, [rel _{}]\n    call _gc_register_ptr", gc_function_name(vtype));
-                }
-                _=>{
-                    return format!("    lea rdi, [rbp-{stack_offset_of_value}]\n    lea rsi, [rel {}]\n    call gc_register_ptr", gc_function_name(vtype));
-                }
+        } => match cmp_target {
+            Target::MacOs { arm: _ } => {
+                return format!("    lea rdi, [rbp-{stack_offset_of_value}]\n    lea rsi, [rel _{}]\n    call _gc_register_ptr", gc_function_name(vtype));
             }
-
-        }
+            _ => {
+                return format!("    lea rdi, [rbp-{stack_offset_of_value}]\n    lea rsi, [rel {}]\n    call gc_register_ptr", gc_function_name(vtype));
+            }
+        },
         IrInstr::Pop { vtype: _ } => {
             return "".to_owned();
         }
-        IrInstr::BeginGcFrame=>{
+        IrInstr::BeginGcFrame => {
             *depth += 1;
-            match cmp_target{
-                Target::MacOs { arm:_ }=>{
+            match cmp_target {
+                Target::MacOs { arm: _ } => {
                     return format!("    call _gc_push_frame\n");
                 }
-                _=>{
+                _ => {
                     return format!("    call gc_push_frame\n");
                 }
             }
         }
-        IrInstr::EndGcFrame=>{
+        IrInstr::EndGcFrame => {
             *depth -= 1;
-            match cmp_target{
-                Target::MacOs { arm:_ }=>{
+            match cmp_target {
+                Target::MacOs { arm: _ } => {
                     return format!("    call _gc_pop_frame\n");
                 }
-                _=>{
+                _ => {
                     return format!("    call gc_pop_frame\n");
                 }
             }

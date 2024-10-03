@@ -1,7 +1,13 @@
 
 pub fn main()->int{
-   let ints:[]int = make(int,200);
-   ints[0] = 0;
+   let ints:[]string = make(string,200);
+   for(let i =0; i<200000; i = i+1){
+      let a= to_string(i);
+      ints[mod(i,200)] = a;
+   }
+   for(let i =0; i<ints.len; i = i+1){
+      put_str_ln(ints[i]);
+   }
    return 0;
 }
 
