@@ -172,7 +172,6 @@ pub fn compile_ir_op_to_x86(
             } else {
                 *stack += &format!("    mov rax, {}\n", value.as_ref());
             }
-            *stack += &format!("    imul rax, {}\n",b_.get_type().get_array_type().expect("").get_size_bytes() );
             *stack += &format!("    add rbx, rax\n");
             *stack += &format!("    mov {}, rbx\n", get_sreg(left));
             return AsmOperand::new(get_sreg(left), true);
@@ -314,7 +313,7 @@ pub fn compile_ir_instr_to_x86(
             vtype,
         } => {
             return compile_binary_op(
-                "idiv edx",
+                "cdq\n    idiv ebx",
                 "divsd xmm0, xmm1",
                 left,
                 right,
