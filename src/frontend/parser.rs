@@ -1010,39 +1010,40 @@ pub fn parse_expression(
         out = Ok(AstNode::ForLoop { variable, condition, post_op, body:new_scope });
         return out;
     } else if text[*cursor] == "."{
-        *cursor += 1;
-        if text[*cursor +1] == "(" {
-            if function_table.contains_key(text[*cursor].string){
-                let name = text[*cursor].string.to_owned();
-                *cursor += 1;
-                let args_end = match calc_close_paren(text, *cursor){
-                    Some(t)=>{
-                        t
-                    }
-                    None=>{
-                        return Err("parens don't end".to_string());
-                    }
-                };
-                *cursor += 1;
-                let args = match parse_list(text, *cursor, args_end, types, scope, function_table){
-                    Some(t)=>{
-                        t
-                    }
-                    None=>{
-                        return Err("failed to parse list".to_string());
-                    }
-                };
-                out = Ok(AstNode::BoundFunctionCall { variable: Box::new(AstNode::VoidLiteral), function_name: name, args:args , data:Some(AstNodeData{line:text[*cursor].line, temporary_index:None})});
-                *cursor = args_end + 1;
+        while text[*cursor] == "."{
+            *cursor += 1;
+            if text[*cursor +1] == "(" {
+                if function_table.contains_key(text[*cursor].string){
+                    let name = text[*cursor].string.to_owned();
+                    *cursor += 1;
+                    let args_end = match calc_close_paren(text, *cursor){
+                        Some(t)=>{
+                            t
+                        }
+                        None=>{
+                            return Err("parens don't end".to_string());
+                        }
+                    };
+                    *cursor += 1;
+                    let args = match parse_list(text, *cursor, args_end, types, scope, function_table){
+                        Some(t)=>{
+                            t
+                        }
+                        None=>{
+                            return Err("failed to parse list".to_string());
+                        }
+                    };
+                    out = Ok(AstNode::BoundFunctionCall { variable: Box::new(AstNode::VoidLiteral), function_name: name, args:args , data:Some(AstNodeData{line:text[*cursor].line, temporary_index:None})});
+                    *cursor = args_end + 1;
+                } else{
+                    println!("error unknown function {}", text[*cursor].string);
+                    return Err("unknown function".to_string());
+                }
             } else{
-                println!("error unknown function {}", text[*cursor].string);
-                return Err("unknown function".to_string());
+                out = Ok(AstNode::FieldUsage { base: Box::new(AstNode::VoidLiteral), field_name:text[*cursor].string.to_owned() });
+                *cursor += 1
             }
-        } else{
-            out = Ok(AstNode::FieldUsage { base: Box::new(AstNode::VoidLiteral), field_name:text[*cursor].string.to_owned() });
-            *cursor += 1
         }
-
     } else if text[*cursor] == "["{
         let expr_end = calc_close_block(text, *cursor).expect("block must close");
         *cursor += 1;
@@ -1096,83 +1097,91 @@ pub fn parse_expression(
         *cursor =expr_end+1;
         out = Ok(AstNode::OperatorMake { vtype, size: Box::new(expr) });
      }else {
-        if function_table.contains_key(text[*cursor].string) {
-            let name = text[*cursor].string.to_owned();
-            *cursor += 1;
-            let args_end = match calc_close_paren(text, *cursor){
-                Some(t)=>{
-                    t
-                }
-                None=>{
-                    return Err("args didn't end".to_string());
-                }
-            };
-            *cursor += 1;
-            let args = match parse_list(text, *cursor, args_end, types, scope, function_table){
-                Some(t)=>{
-                    t
-                }
-                None=>{
-                    return Err("failed to parse list".to_string());
-                }
-            };
-            out = Ok(AstNode::FunctionCall {
-                function_name: name,
-                args: args,
-                data:Some(AstNodeData{line:text[*cursor-1].line, temporary_index:None}),
-            });
-            *cursor = args_end+1;
-        } else if let Some(v) = scope.variable_idx(text[*cursor].string.to_owned()) {
-            out = Ok(AstNode::VariableUse {
-                name: text[*cursor].string.to_owned(),
-                index: v.1.clone(),
-                vtype: v.0.clone(),
-                is_arg: v.2.clone(),
-                data:Some(AstNodeData{line:text[*cursor-1].line, temporary_index:None}),
-            });
-            *cursor += 1;
-        } else if text[*cursor].string.chars().collect::<Vec<char>>()[0] == '"'{
-
-            out = Ok(AstNode::StringLiteral { value: text[*cursor].string.to_owned()});
-            *cursor+=1;
-        } else if types.contains_key(text[*cursor].string){
-            let vtype = match types.get(text[*cursor].string){
-                Some(t)=>{
-                    t.clone()
-                }
-                None=>{
-                    return Err("failed to get type ".to_string());
-                }
-            };
-            if text[*cursor+1] != "{"{
-                println!("error line:{} expected struct literal",text[*cursor].line );
-            }
-            *cursor+=1;
-            let mut vout = vec![];
-            *cursor += 1;
-            while text[*cursor] != "}" && *cursor < last -1 {
-                if text[*cursor] == "," {
-                    *cursor += 1;
-                    if *cursor >= last {
-                        break;
+        let mut hit = true;
+        while hit{
+            hit = false;
+            if function_table.contains_key(text[*cursor].string) {
+                let name = text[*cursor].string.to_owned();
+                *cursor += 1;
+                let args_end = match calc_close_paren(text, *cursor){
+                    Some(t)=>{
+                        t
                     }
-                    continue;
-                }
-                let mut next_indx = *cursor;
-                while text[next_indx] != "," && text[next_indx] != "}" &&text[next_indx] != ";" && next_indx < last {
-                    next_indx += 1;
-                    if next_indx >= last {
-                        break;
+                    None=>{
+                        return Err("args didn't end".to_string());
                     }
+                };
+                *cursor += 1;
+                let args = match parse_list(text, *cursor, args_end, types, scope, function_table){
+                    Some(t)=>{
+                        t
+                    }
+                    None=>{
+                        return Err("failed to parse list".to_string());
+                    }
+                };
+                out = Ok(AstNode::FunctionCall {
+                    function_name: name,
+                    args: args,
+                    data:Some(AstNodeData{line:text[*cursor-1].line, temporary_index:None}),
+                });
+                *cursor = args_end+1;
+                hit = true;
+            } else if let Some(v) = scope.variable_idx(text[*cursor].string.to_owned()) {
+                out = Ok(AstNode::VariableUse {
+                    name: text[*cursor].string.to_owned(),
+                    index: v.1.clone(),
+                    vtype: v.0.clone(),
+                    is_arg: v.2.clone(),
+                    data:Some(AstNodeData{line:text[*cursor-1].line, temporary_index:None}),
+                });
+                *cursor += 1;
+                hit = true;
+            } else if text[*cursor].string.chars().collect::<Vec<char>>()[0] == '"'{
+    
+                out = Ok(AstNode::StringLiteral { value: text[*cursor].string.to_owned()});
+                *cursor+=1;
+                hit = true;
+            } else if types.contains_key(text[*cursor].string){
+                let vtype = match types.get(text[*cursor].string){
+                    Some(t)=>{
+                        t.clone()
+                    }
+                    None=>{
+                        return Err("failed to get type ".to_string());
+                    }
+                };
+                if text[*cursor+1] != "{"{
+                    println!("error line:{} expected struct literal",text[*cursor].line );
                 }
-                next_indx -= 1;
-                //println!("last:{}, next_indx:{} cursor:{}", last, next_indx, cursor);
-                let next = parse_expression(text, cursor, next_indx, types, scope, function_table).expect("should compiler");
-                vout.push(next);
+                *cursor+=1;
+                let mut vout = vec![];
+                *cursor += 1;
+                while text[*cursor] != "}" && *cursor < last -1 {
+                    if text[*cursor] == "," {
+                        *cursor += 1;
+                        if *cursor >= last {
+                            break;
+                        }
+                        continue;
+                    }
+                    let mut next_indx = *cursor;
+                    while text[next_indx] != "," && text[next_indx] != "}" &&text[next_indx] != ";" && next_indx < last {
+                        next_indx += 1;
+                        if next_indx >= last {
+                            break;
+                        }
+                    }
+                    next_indx -= 1;
+                    //println!("last:{}, next_indx:{} cursor:{}", last, next_indx, cursor);
+                    let next = parse_expression(text, cursor, next_indx, types, scope, function_table).expect("should compiler");
+                    vout.push(next);
+                }
+                *cursor += 1;
+                out = Ok(AstNode::StructLiteral { vtype, nodes: vout });
             }
-            *cursor += 1;
-            out = Ok(AstNode::StructLiteral { vtype, nodes: vout });
         }
+
     }
     if out.is_err() {
         println!(

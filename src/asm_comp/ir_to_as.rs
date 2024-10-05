@@ -255,7 +255,7 @@ pub fn compile_ir_op_to_x86(
                 }
                 _ => {
                     let base = compile_ir_op_to_x86(base, left, stack, statics, statics_count);
-                    *stack += &format!("    add {}, {}", base.as_ref(), offset);
+                    *stack += &format!("    add {}, {}\n", base.as_ref(), offset);
                     return AsmOperand::new(get_sreg(left), true);
                 }
             }

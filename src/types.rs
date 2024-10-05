@@ -1,6 +1,6 @@
 pub use core::str;
 pub use std::collections::HashMap;
-use std::rc::Rc;
+use std::{ops::Deref, rc::Rc};
 pub use std::slice;
 #[derive(Debug, Clone)]
 pub struct Token<'a> {
@@ -962,6 +962,10 @@ impl AstNode {
                     }
                     Type::ArrayT { size:_, array_type:_ }=>{
                         return Some(Type::IntegerT);
+                    }
+                    Type::PointerT { ptr_type:_ }=>{
+                        let out = AstNode::FieldUsage { base:Box::new(AstNode::Deref { thing_to_deref: base.clone() }) ,field_name:field_name.to_string() }.get_type(function_table, types);
+                        return out;
                     }
                     _=>{
                         return None;

@@ -1,6 +1,13 @@
-
+struct IrData{value:int};
+struct IntArrayList{
+   data:[]int
+   len:int
+   meta:IrData
+};
 pub fn main()->int{
    put_str_ln(10/2);
+   let i = IntArrayList;
+   i.meta.value = 0;
    return 0;
 }
 
