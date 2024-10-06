@@ -6,8 +6,7 @@ struct IntArrayList{
 };
 pub fn main()->int{
    let i:IntArrayList;
-   let a = i.meta;
-   a.value = 0;
+   i.data = make(int,100);
    return 0;
 }
 

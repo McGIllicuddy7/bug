@@ -230,6 +230,7 @@ fn compile_gc_func_header(types: &HashSet<Type>, target: &Target)->String{
 }
 fn get_all_types_contained(t: &Type, types: &HashMap<String, Type>) -> Vec<Type> {
     let mut out = vec![];
+    out.push(vec![t.clone()]);
     match t {
         Type::ArrayT { size, array_type } => {
             out.push(get_all_types_contained(array_type, types));
@@ -293,7 +294,6 @@ fn get_all_types_contained(t: &Type, types: &HashMap<String, Type>) -> Vec<Type>
         }
         _ => {}
     }
-    out.push(vec![t.clone()]);
     return out.into_iter().flatten().collect();
 }
 fn recurse_used_types(types: &HashSet<Type>, type_table: &HashMap<String, Type>) -> HashSet<Type> {
@@ -370,8 +370,15 @@ pub fn compile_to_asm_x86(
     let mut fout = fs::File::create(&out_file_name).expect("testing expect");
     used_types = recurse_used_types(&used_types, &prog.types);
     func_decs += &compile_gc_func_header(&used_types, target);
+    for i in prog.types{
+        if !used_types.contains(&i.1){
+            used_types.insert(i.1);
+        }
+    }
     for i in used_types{
-        global_used_types.insert(i);
+        if !global_used_types.contains(&i){
+            global_used_types.insert(i);
+        }
     }
     out += &func_decs;
     out += &functions;

@@ -1265,7 +1265,9 @@ pub fn get_types_used_in_ir(instructions: &[IrInstr], types: &mut HashSet<Type>)
                 vtype,
                 stack_offset: _,
             } => {
-                types.insert(vtype.clone());
+                if !types.contains(vtype){
+                    types.insert(vtype.clone());
+                }
             }
             IrInstr::Mov { left, right, vtype } => {
                 types.insert(vtype.clone());
@@ -1281,7 +1283,9 @@ pub fn get_types_used_in_ir(instructions: &[IrInstr], types: &mut HashSet<Type>)
                 right,
                 vtype,
             } => {
-                types.insert(vtype.clone());
+                if !types.contains(vtype){
+                    types.insert(vtype.clone());
+                }
                 get_types_in_operand(target, types);
                 get_types_in_operand(left, types);
                 get_types_in_operand(right, types);
@@ -1292,7 +1296,9 @@ pub fn get_types_used_in_ir(instructions: &[IrInstr], types: &mut HashSet<Type>)
                 right,
                 vtype,
             } => {
-                types.insert(vtype.clone());
+                if !types.contains(vtype){
+                    types.insert(vtype.clone());
+                }
                 get_types_in_operand(target, types);
                 get_types_in_operand(left, types);
                 get_types_in_operand(right, types);
@@ -1303,7 +1309,9 @@ pub fn get_types_used_in_ir(instructions: &[IrInstr], types: &mut HashSet<Type>)
                 right,
                 vtype,
             } => {
-                types.insert(vtype.clone());
+                if !types.contains(vtype){
+                    types.insert(vtype.clone());
+                }
                 get_types_in_operand(target, types);
                 get_types_in_operand(left, types);
                 get_types_in_operand(right, types);
@@ -1314,7 +1322,9 @@ pub fn get_types_used_in_ir(instructions: &[IrInstr], types: &mut HashSet<Type>)
                 right,
                 vtype,
             } => {
-                types.insert(vtype.clone());
+                if !types.contains(vtype){
+                    types.insert(vtype.clone());
+                }
                 get_types_in_operand(target, types);
                 get_types_in_operand(left, types);
                 get_types_in_operand(right, types);
@@ -1325,7 +1335,9 @@ pub fn get_types_used_in_ir(instructions: &[IrInstr], types: &mut HashSet<Type>)
                 right,
                 vtype,
             } => {
-                types.insert(vtype.clone());
+                if !types.contains(vtype){
+                    types.insert(vtype.clone());
+                }
                 get_types_in_operand(target, types);
                 get_types_in_operand(left, types);
                 get_types_in_operand(right, types);
@@ -1336,7 +1348,9 @@ pub fn get_types_used_in_ir(instructions: &[IrInstr], types: &mut HashSet<Type>)
                 right,
                 vtype,
             } => {
-                types.insert(vtype.clone());
+                if !types.contains(vtype){
+                    types.insert(vtype.clone());
+                }
                 get_types_in_operand(target, types);
                 get_types_in_operand(left, types);
                 get_types_in_operand(right, types);
@@ -1347,7 +1361,9 @@ pub fn get_types_used_in_ir(instructions: &[IrInstr], types: &mut HashSet<Type>)
                 right,
                 vtype,
             } => {
-                types.insert(vtype.clone());
+                if !types.contains(vtype){
+                    types.insert(vtype.clone());
+                }
                 get_types_in_operand(target, types);
                 get_types_in_operand(left, types);
                 get_types_in_operand(right, types);
@@ -1358,7 +1374,9 @@ pub fn get_types_used_in_ir(instructions: &[IrInstr], types: &mut HashSet<Type>)
                 right,
                 vtype,
             } => {
-                types.insert(vtype.clone());
+                if !types.contains(vtype){
+                    types.insert(vtype.clone());
+                }
                 get_types_in_operand(target, types);
                 get_types_in_operand(left, types);
                 get_types_in_operand(right, types);
@@ -1369,7 +1387,9 @@ pub fn get_types_used_in_ir(instructions: &[IrInstr], types: &mut HashSet<Type>)
                 right,
                 vtype,
             } => {
-                types.insert(vtype.clone());
+                if !types.contains(vtype){
+                    types.insert(vtype.clone());
+                }
                 get_types_in_operand(target, types);
                 get_types_in_operand(left, types);
                 get_types_in_operand(right, types);
@@ -1380,7 +1400,9 @@ pub fn get_types_used_in_ir(instructions: &[IrInstr], types: &mut HashSet<Type>)
                 right,
                 vtype,
             } => {
-                types.insert(vtype.clone());
+                if !types.contains(vtype){
+                    types.insert(vtype.clone());
+                }
                 get_types_in_operand(target, types);
                 get_types_in_operand(left, types);
                 get_types_in_operand(right, types);
@@ -1391,7 +1413,9 @@ pub fn get_types_used_in_ir(instructions: &[IrInstr], types: &mut HashSet<Type>)
                 right,
                 vtype,
             } => {
-                types.insert(vtype.clone());
+                if !types.contains(vtype){
+                    types.insert(vtype.clone());
+                }
                 get_types_in_operand(target, types);
                 get_types_in_operand(left, types);
                 get_types_in_operand(right, types);
@@ -1402,7 +1426,9 @@ pub fn get_types_used_in_ir(instructions: &[IrInstr], types: &mut HashSet<Type>)
                 right,
                 vtype,
             } => {
-                types.insert(vtype.clone());
+                if !types.contains(vtype){
+                    types.insert(vtype.clone());
+                }
                 get_types_in_operand(target, types);
                 get_types_in_operand(left, types);
                 get_types_in_operand(right, types);
@@ -1412,7 +1438,9 @@ pub fn get_types_used_in_ir(instructions: &[IrInstr], types: &mut HashSet<Type>)
                 value,
                 vtype,
             } => {
-                types.insert(vtype.clone());
+                if !types.contains(vtype){
+                    types.insert(vtype.clone());
+                }
                 get_types_in_operand(target, types);
                 get_types_in_operand(value, types);
             }
@@ -1448,10 +1476,14 @@ pub fn get_types_used_in_ir(instructions: &[IrInstr], types: &mut HashSet<Type>)
                 val_idx: _,
                 stack_offset_of_value: _,
             } => {
-                types.insert(vtype.clone());
+                if !types.contains(vtype){
+                    types.insert(vtype.clone());
+                }
             }
             IrInstr::Pop { vtype } => {
-                types.insert(vtype.clone());
+                if !types.contains(vtype){
+                    types.insert(vtype.clone());
+                }
             }
             _ => {}
         }
