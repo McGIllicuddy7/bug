@@ -1,6 +1,6 @@
 pub use core::str;
 pub use std::collections::HashMap;
-use std::{ops::Deref, rc::Rc};
+use std::rc::Rc;
 pub use std::slice;
 #[derive(Debug, Clone)]
 pub struct Token<'a> {
@@ -1114,10 +1114,10 @@ impl AstNode {
                 return 8;
             }
             Self::Deref { thing_to_deref: _ } => {
-                return 2;
+                return 3;
             }
             Self::TakeRef { thing_to_ref: _ } => {
-                return 2;
+                return 3;
             }
             Self::FieldUsage {
                 base: _,

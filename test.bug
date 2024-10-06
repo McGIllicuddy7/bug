@@ -5,9 +5,9 @@ struct IntArrayList{
    meta:IrData
 };
 pub fn main()->int{
-   put_str_ln(10/2);
-   let i = IntArrayList;
-   i.meta.value = 0;
+   let i:IntArrayList;
+   let a = i.meta;
+   a.value = 0;
    return 0;
 }
 

@@ -299,6 +299,7 @@ fn get_all_types_contained(t: &Type, types: &HashMap<String, Type>) -> Vec<Type>
 fn recurse_used_types(types: &HashSet<Type>, type_table: &HashMap<String, Type>) -> HashSet<Type> {
     let mut out = HashSet::new();
     for i in types {
+        out.insert(i.clone());
         let j = get_all_types_contained(i, type_table);
         for k in j {
             match k {
@@ -319,6 +320,7 @@ pub fn compile_to_asm_x86(
     target: &Target,
 ) -> Result<(), String> {
     println!("compiling file: {}", base_filename);
+    println!("{:#?}", prog);
     let fname = "output/".to_owned() + &base_filename[0..base_filename.len() - 4];
     let filename = &fname;
     let mut out = String::new();

@@ -627,6 +627,7 @@ fn get_arms(expr: &mut AstNode) -> (Option<&mut AstNode>, Option<&mut AstNode>) 
 fn place_expr(_text: &[Token], _start: usize, left: AstNode, right: AstNode) -> Option<AstNode> {
     let mut left = left;
     let mut right = right;
+    println!("left:{:#?},right:{:#?}", left,right);
     if left.get_priority() >= right.get_priority() {
         let mut current = &mut left;
         while get_arms(current).1.expect("616").get_priority() > right.get_priority() {
@@ -1097,9 +1098,6 @@ pub fn parse_expression(
         *cursor =expr_end+1;
         out = Ok(AstNode::OperatorMake { vtype, size: Box::new(expr) });
      }else {
-        let mut hit = true;
-        while hit{
-            hit = false;
             if function_table.contains_key(text[*cursor].string) {
                 let name = text[*cursor].string.to_owned();
                 *cursor += 1;
@@ -1126,7 +1124,6 @@ pub fn parse_expression(
                     data:Some(AstNodeData{line:text[*cursor-1].line, temporary_index:None}),
                 });
                 *cursor = args_end+1;
-                hit = true;
             } else if let Some(v) = scope.variable_idx(text[*cursor].string.to_owned()) {
                 out = Ok(AstNode::VariableUse {
                     name: text[*cursor].string.to_owned(),
@@ -1136,12 +1133,9 @@ pub fn parse_expression(
                     data:Some(AstNodeData{line:text[*cursor-1].line, temporary_index:None}),
                 });
                 *cursor += 1;
-                hit = true;
             } else if text[*cursor].string.chars().collect::<Vec<char>>()[0] == '"'{
-    
                 out = Ok(AstNode::StringLiteral { value: text[*cursor].string.to_owned()});
                 *cursor+=1;
-                hit = true;
             } else if types.contains_key(text[*cursor].string){
                 let vtype = match types.get(text[*cursor].string){
                     Some(t)=>{
@@ -1152,7 +1146,7 @@ pub fn parse_expression(
                     }
                 };
                 if text[*cursor+1] != "{"{
-                    println!("error line:{} expected struct literal",text[*cursor].line );
+                    return Err(format!("error line:{} expected struct literal\n",text[*cursor].line ));
                 }
                 *cursor+=1;
                 let mut vout = vec![];
@@ -1180,8 +1174,6 @@ pub fn parse_expression(
                 *cursor += 1;
                 out = Ok(AstNode::StructLiteral { vtype, nodes: vout });
             }
-        }
-
     }
     if out.is_err() {
         println!(
@@ -1265,7 +1257,6 @@ pub fn parse_scope(
             *cursor += 1;
             continue;
         }
-        println!("{:#?}", &text[*cursor..expr_end]);
         let mut tmp = parse_expression(text, cursor, expr_end, types, scope, function_table)
         .expect("expression must be valid");
         alide_parens(&mut tmp); 
@@ -1274,7 +1265,7 @@ pub fn parse_scope(
         );
     }
     *cursor = end + 1;
-    println!("{:#?}",out);
+    //println!("{:#?}",out);
     return Some(out);
 }
 

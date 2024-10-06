@@ -16,6 +16,7 @@ pub fn compile_gc_functions(types: &HashSet<Type>, _target: &Target){
     }
     let types = crate::c_comp::handle_dependencies(&stypes);
     for i in &types{
+        println!("{}",i.0);
         out += &crate::c_comp::compile_type(i.0.clone(), i.1.clone()).expect("184");
     }
     for i in &types {
