@@ -1,0 +1,4 @@
+pub fn i_love_toast(a:int)->int{
+   return 8+23*a;
+}
+
