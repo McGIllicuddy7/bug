@@ -134,75 +134,38 @@ pub fn compile_function(
 }
 #[allow(unused)]
 pub fn handle_dependencies(map: &HashMap<String, Type>) -> Vec<(String, Type)> {
-    fn contains_undeclared_type(t: &Type, map: &HashSet<String>, recursed: bool) -> bool {
-        match t {
-            Type::ArrayT {
-                size: _,
-                array_type,
-            } => {
-                if contains_undeclared_type(&array_type, map, true) {
-                    return true;
-                }
-                false
+    fn append_type(tmap:&mut Vec<Type>, vtype: &Type){
+        if tmap.contains(vtype){return;}
+        match vtype{
+            Type::ArrayT { size, array_type }=>{
+                append_type(tmap, array_type.as_ref());
             }
-            Type::PointerT { ptr_type } => {
-                if contains_undeclared_type(&ptr_type, map, true) {
-                    return true;
-                }
-                false
+            Type::PointerT { ptr_type }=>{
+                append_type(tmap, ptr_type.as_ref());
             }
-            Type::SliceT { ptr_type } => {
-                if contains_undeclared_type(&ptr_type, map, true) {
-                    return true;
-                }
-                false
+            Type::SliceT { ptr_type }=>{
+                append_type(tmap, ptr_type.as_ref());
             }
-            Type::StructT { name, components } => {
-                if recursed {
-                    if !map.contains(name.as_ref()) {
-                        return true;
-                    }
+            Type::StructT { name, components }=>{
+                for i in components{
+                    append_type(tmap, &i.1);
                 }
-                for i in components {
-                    if contains_undeclared_type(&i.1, map, true) {
-                        return true;
-                    }
-                }
-                false
             }
-            _ => false,
+            _=>{
+            }
         }
+        tmap.push(vtype.clone());
     }
-    let mut declared_types: HashSet<String> = HashSet::new();
-    let mut que: Vec<(&String, &Type)> = vec![];
-    let mut out = vec![];
-    for i in map {
-        let t = i.1;
-        if contains_undeclared_type(t, &declared_types, false) {
-            que.push(i);
-        } else {
-            declared_types.insert(i.0.clone());
-            out.push((i.0.clone(), i.1.clone()));
-        }
-        let mut pushed = false;
-        loop {
-            for k in 0..que.len() {
-                let j = &que[k];
-                if !contains_undeclared_type((*j).1, &declared_types, false) {
-                    declared_types.insert(j.0.clone());
-                    out.push((j.0.clone(), j.1.clone()));
-                    pushed = true;
-                }
-                que.remove(k);
-                break;
-            }
-            if !pushed {
-                break;
-            }
-            pushed = false;
-        }
+    let mut tmap:Vec<Type> = Vec::new();
+    let mut out = Vec::new();
+    for i in map{
+        append_type(&mut tmap, i.1);
+    }
+    for i in tmap{
+        out.push((i.get_name(), i));
     }
     return out;
+
 }
 
 #[allow(unused)]
