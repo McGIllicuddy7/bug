@@ -27,7 +27,7 @@ fn main() {
             unreachable!();
         }
     }; 
-    let to_c_code = false;
+    let to_c_code = true;
     let mut global_used_types = HashSet::new();
     loop{
         let tprg = "import builtins.bug;\n".to_owned()+&std::fs::read_to_string(&comp_que[i]).expect("testing expect");
