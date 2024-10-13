@@ -85,3 +85,12 @@ class Arena{
     };
 };
 #define DEFER(arena, function, ...){(arena).defer([__VA_ARGS__](){function;});}
+
+template<typename T> class Vec{
+    T * m_begin;
+    T* m_end;
+    T* m_alloc_end;
+    Arena * arena;
+    void init(Arena* arena){
+    }
+};
