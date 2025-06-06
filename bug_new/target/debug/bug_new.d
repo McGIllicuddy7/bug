@@ -1,0 +1,1 @@
+/Users/bridget/bug/bug_new/target/debug/bug_new: /Users/bridget/bug/bug_new/src/compiler.rs /Users/bridget/bug/bug_new/src/main.rs /Users/bridget/bug/bug_new/src/parser.rs /Users/bridget/bug/bug_new/src/tokenizer.rs
