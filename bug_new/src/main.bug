@@ -1,9 +1,0 @@
-(fn main void ()( 
-	(let int a)
-	(= a 10)
-))
-
-(fn test int ()(
-	(return 1)
-))
-
