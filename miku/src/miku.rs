@@ -596,33 +596,33 @@ impl<'a> ParserState<'a> {
                     if var.get_type() != MikuType::Bool {
                         todo!()
                     }
-                }
-                /*
+                } /*
                 MikuInstr::Call {
-                    to,
-                    to_index,
-                    args: _,
-                    return_var: _,
+                to,
+                to_index,
+                args: _,
+                return_var: _,
                 } => {
-                    let mut indx = None;
-                    for i in &self.functions {
-                        if i.name.as_ref() == to.as_ref() {
-                            indx = i.index;
-                            break;
-                        }
-                    }
-                    if let Some(idx) = indx {
-                        *to_index = Some(idx);
-                    } else {
-                        return Err(format!("could not find function {:#?}", to));
-                    }
+                let mut indx = None;
+                for i in &self.functions {
+                if i.name.as_ref() == to.as_ref() {
+                indx = i.index;
+                break;
                 }
+                }
+                if let Some(idx) = indx {
+                 *to_index = Some(idx);
+                } else {
+                return Err(format!("could not find function {:#?}", to));
+                }
+                }*/
                 _ => {}
             }
         }
 
         Ok(())
     }
+
     pub fn parse_to_program(str: &'a str) -> Result<Program, String> {
         let lines: Vec<&str> = str.lines().collect();
         let mut out = Self::new();
