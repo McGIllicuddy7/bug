@@ -1,15 +1,14 @@
 extern int test a int
-defunc in main 
-	loop:
+defun int main 
 	decl a int
 	decl b int 
 	= a 10
 	= b 5
 	+ a b a
-	test _ 10
-	jmp loop
-
+	test a 10
+	ret a 
 end
 defun int test a int
-+ a 10 a
+	+ a 10 a
+	ret a
 end 
