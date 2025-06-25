@@ -1,3 +1,4 @@
+pub mod bug;
 pub mod interpreter;
 pub mod miku;
 pub mod tuci;
@@ -16,5 +17,6 @@ pub fn compile() {
     }
 }
 fn main() {
-    println!("{:#?}", utils::extract_string_literals("\"hello \"there"));
+    compile();
+    //println!("{:#?}", utils::extract_string_literals("\"hello \"there"));
 }

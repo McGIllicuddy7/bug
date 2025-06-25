@@ -721,7 +721,16 @@ impl ParserState {
 }
 
 pub fn split_line(v: &str) -> Vec<&str> {
-    v.split_whitespace().collect()
+    let mut out = Vec::new();
+    let tmp = crate::utils::extract_string_literals(v);
+    for i in tmp {
+        if !i.starts_with('"') {
+            i.split_whitespace().for_each(|a| out.push(a));
+        } else {
+            out.push(i);
+        }
+    }
+    out
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct MikuObject {
