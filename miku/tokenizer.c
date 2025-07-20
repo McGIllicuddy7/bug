@@ -33,7 +33,7 @@ static Token parse_string_literal(Tokenizer* tokenizer){
 			default:
 				last_was_backslash = false;
 		}
-		
+		tokenizer->current++;	
 		if(hit){out.len = count+1; tokenizer->current+=1; return out;}	
 		if (!hit){
 			tokenizer->current++;
@@ -76,6 +76,7 @@ Token next_token(Tokenizer* tokenizer){
 		case '(':
 		case ')':
 		case ';':
+		case ',':
 		case ':':
 		case '{':
 		case '}':

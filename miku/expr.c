@@ -138,6 +138,8 @@ Expr* parse_expression(Arena * arena,Token * tokens, size_t count){
 			break;
 		}
 		if(tt == TokenOpenParen){
+			if(prev_type == ExprVar){
+			}
 			Token* t = &tokens[idx];
 			size_t end =1;
 			size_t base = idx;
