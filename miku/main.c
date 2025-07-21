@@ -26,7 +26,7 @@ void print_statement_call(Arena * arena,const char * buff){
 	Statement sp= parse_statement(arena, tb.items, tb.count);
 	print_statement(sp);
 }
-int main(int argc, const char ** argv){
+void repl_loop(){
 	Arena * arena = arena_create();
 	char buff[4096];
 	while(true){
@@ -40,5 +40,17 @@ int main(int argc, const char ** argv){
 		arena_reset(arena);
 	}
 	arena_destroy(arena);
-	
+
+}
+void compile(const char * name){
+	Arena * arena = arena_create();
+	String s = read_file_to_string(arena, name);
+	Tokenizer tok = tokenizer_init(s.items, name);
+	TokenBuff tb = tokenizer_collect(&tok, arena);
+	TreeProgram *prog = parse_tree_program(arena,tb.items, tb.count);
+	print_program(prog);
+	arena_destroy(arena);
+}
+int main(int argc, const char ** argv){
+	compile("main.bug");
 }

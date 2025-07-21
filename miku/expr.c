@@ -6,6 +6,9 @@ size_t get_paren_end(Token * start, size_t count){
 	while(true){
 		
 		if(out >= count){
+		for(int i =0; i<count; ++i)
+				printf("   %.*s\n", (int)start[i].len, start[i].start);
+
 			todo();
 		}
 		if(get_token_type(start[out])== TokenOpenParen){
@@ -24,7 +27,10 @@ size_t get_curly_end(Token* start, size_t count){
 	size_t out =0;
 	while(true){	
 		if(out >= count){
-			todo();
+	
+		for(int i =0; i<count; ++i)
+				printf("   %.*s\n", (int)start[i].len, start[i].start);
+		todo("failed to get curly count");
 		}
 		if(get_token_type(start[out])== TokenOpenCurly){
 			paren_count+=1;
@@ -87,8 +93,7 @@ static int get_priority(Expr *exp){
 Expr * bubble_up(Expr * prev, Expr *to_add){
 	assert(to_add);
 	assert(prev != to_add);
-	if(!prev){
-		printf("returned to_add 1\n");
+	if(!prev){	
 		return to_add;
 	}
 	int prior = get_priority(to_add);
@@ -126,8 +131,10 @@ Expr* parse_expression(Arena * arena,Token * tokens, size_t count){
 	Expr * out = 0;		
 	ExprType prev_type = ExprBin;
 	Expr * prev = 0;
-	size_t idx =0;
+	size_t idx =0;	
 	while(true){
+		print_token(tokens[idx]);
+
 		if(idx>= count){
 			break;
 		}
@@ -138,40 +145,15 @@ Expr* parse_expression(Arena * arena,Token * tokens, size_t count){
 			break;
 		}
 		if(tt == TokenOpenParen){
-			if(prev_type == ExprVar){
-			}
-			Token* t = &tokens[idx];
-			size_t end =1;
-			size_t base = idx;
-			size_t paren_count =1;
-			Expr * exp = arena_alloc(arena, sizeof(Expr));
-			exp->value = tokens[idx];
-			while(true){
-				if(end+base>=count){
-					todo("handle paren errors");	
-				}
-				TokenType tt = get_token_type(t[end]);
-
-				if(tt == TokenEnd){
-					todo("handle paren errors");
-				} else if(tt == TokenCloseParen){
-					paren_count -=1;
-					if(paren_count == 0){
-						Expr * ep = parse_expression(arena, t, end);	
-						exp->type = ExprParen;		
-						exp->right = ep;
-						exp->left =0;
-						idx+= end;
-						break;	
-					}
-				} else if(tt == TokenOpenParen){
-					paren_count +=1;
-				} else{
-					end+= 1;
-				}
-			}
-			prev = bubble_up(prev, exp);
-			idx+=1;
+			size_t end = get_paren_end(&tokens[idx-1],count);	
+			Expr *exp = parse_expression(arena, &tokens[idx], end-1);
+			Expr * ep = (Expr*)arena_alloc(arena, sizeof(Expr));	
+			ep->type = ExprParen;
+			ep->parent =0;	
+			ep->left =0;
+			ep->right = exp;
+			prev = bubble_up(prev, ep);
+			idx += end;
 			continue;
 		} else if (tt == TokenCloseParen){
 			todo("handle parens");
@@ -189,6 +171,9 @@ Expr* parse_expression(Arena * arena,Token * tokens, size_t count){
 			exp->type = ExprBin;
 			break;
 			case '/':
+			exp->type = ExprBin;
+			break;
+			case ':':
 			exp->type = ExprBin;
 			break;
 			case '=':
@@ -279,7 +264,7 @@ size_t get_statement_size(Token* tokens, size_t count){
 //	size_t idx = 0;
 	if(token_equals(initial, "{")){
 		size_t end =get_curly_end(tokens,count);
-		return end;	
+		return end+1;	
 	}else if(token_equals(initial,"if")){
 		size_t end = get_paren_end(tokens+1,count-1);	
 		size_t scope_sz = get_statement_size(tokens+end+1, count-end-1);
@@ -359,8 +344,9 @@ TreeScope parse_scope(Arena * arena,Token * tokens, size_t count){
 	size_t idx =1;
 	StatementVec statements = make(arena, Statement);
 	while(idx<count){
+		printf("%.*s\n", (int)(*(tokens+idx)).len, tokens[idx].start);
 		size_t sc = get_statement_size(tokens+idx, count);
-		Statement s =parse_statement(arena, tokens+idx, sc);
+		Statement s =parse_statement(arena, tokens+idx, sc+1);
 		v_append(statements,s);
 		idx += sc;
 	}	
@@ -409,4 +395,104 @@ static void print_statement_internal(Statement s, size_t depth){
 void print_statement(Statement s){
 	print_statement_internal(s,0);
 
+}
+size_t get_function_size(Token* tokens, size_t count){
+	size_t base = get_paren_end(tokens, count);
+	size_t statement = get_statement_size(tokens+base, count-base);
+	return statement+base;
+}
+size_t get_global_size(Token*tokens,size_t count){
+	if(token_equals(*tokens, "(")){
+		size_t end = get_paren_end(tokens,count);
+		size_t st_end = get_statement_size(tokens+end+1, count-end-1);
+		return end+st_end;
+	}
+	else if(token_equals(*tokens, "plex")){
+		Token name = tokens[1];
+		size_t scope = get_curly_end(tokens+2, count-2);
+		return scope+2;
+		}
+	else {
+		size_t end =get_statement_size(tokens,count);
+		return end+1;
+	}
+}
+void parse_global(Arena * arena, TreeProgram * prog,Token* tokens, size_t count){
+	if(token_equals(*tokens, "(")){
+		size_t end = get_paren_end(tokens,count);
+		Expr * exp = parse_expression(arena, tokens,end+1);
+		size_t sz = get_statement_size(tokens+end+1, count);
+		Statement st = parse_statement(arena, tokens+end+1, sz+1);
+		TreeFn func;
+		func.statement = st;
+		func.header = exp;
+		v_append(prog->functions,func);
+	}
+	else if(token_equals(*tokens, "plex")){
+		Token name = tokens[1];
+		size_t scope = get_curly_end(tokens+2, count-2);
+		size_t idx =3;
+		StatementVec v = make(arena, Statement);
+		while(idx<scope-1){
+			size_t end = get_statement_size(tokens+idx,scope-1-idx);
+			Statement st = parse_statement(arena, tokens+idx, scope-1-idx);
+			v_append(v, st);
+		}
+		TreePlex plx;
+		plx.name = name;
+		plx.fields = v;
+	}
+	else {
+		size_t end =get_statement_size(tokens,count)+1;
+		Statement s= parse_statement(arena, tokens,end);
+		v_append(prog->global_statements,s);
+	}
+}
+void print_tree_fn_internal(TreeFn func, size_t count){
+	left_pad(count);
+	printf("{");
+	print_expr_internal(func.header, count+1);
+	print_statement_internal(func.statement, count+1);
+	left_pad(count);
+	printf("{\n");
+}
+void print_tree_fn(TreeFn func){
+	print_tree_fn_internal(func, 0);
+}
+void print_tree_plex_internal(TreePlex plx, size_t count){
+	left_pad(count);
+	printf("%.*s{", (int)plx.name.len, plx.name.start);
+	for(size_t i =0; i<plx.fields.length; i++){
+		print_statement_internal(plx.fields.items[i],count+1);
+	}
+	left_pad(count);
+	printf("}\n");
+}
+void print_tree_plex(TreePlex plx){
+	print_tree_plex_internal(plx,0);
+}
+void print_program(TreeProgram * prog){
+	printf("{");
+	for(size_t i =0; i<prog->plexes.length; ++i){
+		print_tree_plex_internal(prog->plexes.items[i],1);	
+	}
+	for(size_t i =0; i<prog->global_statements.length; i++){
+		print_statement_internal(prog->global_statements.items[i],1);
+	}
+	for(size_t i =0; i<len(prog->functions); i++){
+		print_tree_fn_internal(prog->functions.items[i], 1);
+	}
+}
+TreeProgram * parse_tree_program(Arena * arena,Token * tokens, size_t count){
+	size_t idx =0; 
+	TreeProgram * prog = (TreeProgram*)arena_alloc(arena, sizeof(TreeProgram));
+	prog->functions = make(arena, TreeFn);
+	prog->plexes = make(arena, TreePlex);
+	prog->global_statements = make(arena, Statement);
+	while(idx<count-1){
+		size_t len = get_global_size(tokens+idx, count-idx);
+		parse_global(arena, prog, tokens+idx, len);
+		idx += len+1;
+	}
+	return prog;
 }

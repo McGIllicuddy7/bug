@@ -39,8 +39,29 @@ typedef struct TreeScope{
 	Statement * statements;
 	size_t count;
 } TreeScope;
+typedef struct {
+	Expr * header;
+	Statement statement;
+}TreeFn;
+typedef struct {
+	Token name;
+	StatementVec fields;
+}TreePlex;
+enable_vec_type(TreeFn);
+enable_vec_type(TreePlex);
+typedef struct {
+	StatementVec global_statements;
+	TreeFnVec functions;
+	TreePlexVec plexes;
+}TreeProgram;
 Expr *parse_expression(Arena * arena,Token * tokens, size_t count);
 Statement parse_statement(Arena * arena, Token* tokens, size_t count);
 void print_expr(Expr * expr);
 void print_statement(Statement s);
+void print_program(TreeProgram * prog);
+void print_tree_fn(TreeFn func);
+void print_tree_plex(TreePlex plx);
 TreeScope parse_scope(Arena * arena,Token * tokens,size_t count);
+void parse_global(Arena * arena, TreeProgram * prog, Token* tokens, size_t count);
+size_t get_global_size(Token*tokens,size_t count);
+TreeProgram * parse_tree_program(Arena * arena,Token * tokens, size_t count);
