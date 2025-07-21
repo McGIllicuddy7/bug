@@ -100,6 +100,7 @@ typedef struct Arena{
 CTILS_STATIC
 Arena * arena_create(void);
 
+CTILS_STATIC
 void arena_destroy_thunk(Arena **);
 #define new_arena(name) __attribute__((cleanup(arena_destroy_thunk))) Arena * name; name = arena_create()
 
