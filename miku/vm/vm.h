@@ -60,7 +60,10 @@ typedef enum:uint8_t{
 	pop,
 	halt,
 	vm_syscall,
+	instruction_count,
 }instrtype_t;
+extern const char * instruction_type_names[];
+extern const char * register_names[];
 typedef union{
 	uint32_t word;
 	uint16_t shorts[2];
@@ -92,3 +95,4 @@ typedef struct {
 	flags_t flags;
 }vm_t;
 bool run_instruction(vm_t * vm);
+void debug_vm(vm_t*vm);

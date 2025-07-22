@@ -1,20 +1,23 @@
 #include "vm.h"
 #include <stdio.h>
+#include "../utils.h"
 #define STACK_VALUE(vm, ins)vm->memory[vm->registers[SP].word+ins.offset]
 #define REGISTER1(vm, ins) vm->registers[ins.register1]
 #define REGISTER2(vm, ins) vm->registers[ins.register2]
 #define WORD(x) *(memory_t *)&(x)
 void store_registers(vm_t * vm){
 	for(int i =0; i<16; i++){
-		WORD(vm->memory[vm->registers[SP].word]) = vm->registers[i];
-		vm->registers[SP].word++;
+		printf("saving %s to %u\n", register_names[i], vm->registers[SP].word);	
+		vm->registers[SP].word+= sizeof(memory_t);
 	}
 }
 void load_registers(vm_t * vm){
 	size_t sp = vm->registers[SP].word;
-	for(int i =0; i<16; i++){
-		vm->registers[i] = WORD(vm->memory[sp-1]);
-		sp--;
+	sp-= sizeof(memory_t);
+	for(int i =15; i>= 0; i--){
+		printf("loading %s from %zu\n", register_names[i], sp);
+		vm->registers[i] = WORD(vm->memory[sp]);
+		sp-=sizeof(memory_t);
 	}
 }
 void in_load(instruction_t ins, vm_t * vm){
@@ -46,10 +49,12 @@ void in_store_pointer(instruction_t ins, vm_t * vm){
 void in_call(instruction_t ins, vm_t * vm){	
 	store_registers(vm);
 	vm->registers[IP].word = vm->instructions[vm->registers[IP].word+1].data;
+	vm->registers[BP] = vm->registers[SP];
 }
 void in_ret(instruction_t ins, vm_t * vm){
 	vm->registers[SP] = vm->registers[BP];
 	load_registers(vm);
+	printf("new address %u:\n", vm->registers[IP].word);
 }
 void in_jmp(instruction_t ins, vm_t *vm){
 	vm->registers[IP].word = vm->instructions[vm->registers[IP].word+1].data;	
@@ -70,6 +75,10 @@ void in_conditional_jmp_register(instruction_t ins, vm_t *vm){
 
 void in_mov(instruction_t ins, vm_t * vm){
 	REGISTER1(vm, ins) = REGISTER2(vm, ins);
+}
+void in_mov_imm(instruction_t ins, vm_t * vm){
+	vm->registers[IP].word++;
+	REGISTER1(vm, ins).word = vm->instructions[vm->registers[IP].word].data;
 }
 void in_binop_add(instruction_t ins, vm_t * vm){
 	REGISTER1(vm, ins).word+= REGISTER2(vm, ins).word;
@@ -155,9 +164,14 @@ void in_syscall(instruction_t ins, vm_t * vm){
 	} else if(r == 4){
 	}
 }
-
+void debug_vm(vm_t * vm){	
+	for(int i =0; i<16; i++){
+		printf("%s: %u, %d, %f\n", register_names[i],vm->registers[i].word, vm->registers[i].integer, vm->registers[i].floating_point);
+	}
+}
 bool run_instruction(vm_t* vm){
 	instruction_t ins = vm->instructions[vm->registers[IP].word];
+	printf("%s: %s, %s\n", instruction_type_names[ins.type], register_names[ins.register1], register_names[ins.register2]);
 	switch(ins.type){
 		case nothing: 
 			break;
@@ -173,8 +187,17 @@ bool run_instruction(vm_t* vm){
 		case store_absolute:
 			in_store_abs(ins, vm);
 			break;
+		case store_pointer:
+			in_store_pointer(ins, vm);
+			break;
 		case load_pointer:
 			in_load_pointer(ins, vm);
+			break;
+		case mov:
+			in_mov(ins,vm);
+			break;
+		case mov_immediate:
+			in_mov_imm(ins,vm);
 			break;
 		case call:
 			in_call(ins, vm);
@@ -264,7 +287,20 @@ bool run_instruction(vm_t* vm){
 			in_syscall(ins, vm);
 			break;
 		default:
-			abort();
+			printf("%u\n", ins.type);
+			todo("pain");
 	}
-	return vm->flags.is_halted;
+	vm->registers[IP].word++;
+	return !vm->flags.is_halted;
 }
+const char * instruction_type_names[] = {
+	"nothing", "load", "store", "load_absolute", 
+	"store_absolute", "mov", "move_immediate","store_pointer","load_pointer", 
+	"call", "ret","jmp","conditional_jmp",
+	"jmp_register", "conditional_jmp_register", "add", "subtract", "divide", "multiply",
+	"compare_g", "compare_e", "compare_l", "unsigned_compare_g", 
+	"unsigned_compare_e", "unsigned_compare_l","fp_add", "fp_subtract", "fp_divide", "fp_multiply",
+	"fp_compare_g", "fp_compare_e", "fp_compare_l","int_to_float","float_to_int", "push", "pop", "halt", "syscall"};
+const char * register_names []=  {
+	"IP", "BP", "SP", "R0", "R1", "A0", "A1", "A2", "A3", "A4", "A5", "A6", "A7","X", "Y", "Z"
+};

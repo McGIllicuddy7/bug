@@ -6,8 +6,11 @@
 #include "../utils.h"
 int main(int argc, const char ** argv){
 	Arena * arena = arena_create();
-	if(argc <2) return 1;
-	vm_t* vm = compile_string(read_file_to_string(arena,argv[1]).items);
+	const char * to_run = "main.s";
+	if(argc >1) to_run = argv[1];
+	vm_t* vm = compile_string(read_file_to_string(arena,to_run).items);
 	while(run_instruction(vm)){
+//		debug_vm(vm);
+//		sleep(1);
 	}
 }

@@ -59,6 +59,8 @@ uint8_t expect_register(Str s){
 	}
 	else if(str_equals(s, STR("z"))){
 		return Z;
+	} else{
+		assert(false);
 	}
 }
 int16_t expect_offset(Arena * arena,Str s){
@@ -68,21 +70,32 @@ uint32_t expect_address(Arena * arena,Str s,program_t * prog){
 	if(StrintHashTable_contains(prog->memory_table, s)){
 		return *StrintHashTable_find(prog->memory_table,s);
 	} else{
-		atoi(str_to_c_string(arena, s));
+		return atoi(str_to_c_string(arena, s));
 	}
 }
 uint32_t expect_ip(Arena * arena,Str s,program_t * prog){
 	if(StrintHashTable_contains(prog->lable_table, s)){
 		return *StrintHashTable_find(prog->lable_table,s);
 	} else{
-		atoi(str_to_c_string(arena, s));
+		return atoi(str_to_c_string(arena, s));
 	}
 }
-#define EXPECT(v, count) if(v.length+1<count) printf("ERROR expected arguments");return;
+#define EXPECT(v, count) if(v.length+1<count) {printf("ERROR expected arguments");return;}
 void compile_line(Arena*arena,Str line, program_t * prog){
-	StrVec strs = str_split_by_delim(arena,line, STR(" "));
+	StrVec strs0 = str_split_by_delim_no_delims(arena,line, STR(" "));
+	StrVec strs = make(arena, Str); 
+	for(size_t i =0; i<strs0.length; i++){
+		while(strs0.items[i].items[0] == ' '|| strs0.items[i].items[0] == '\t'){
+			strs0.items[i].items++;
+			strs0.items[i].length--;
+			if(strs0.items[i].length ==0) break;
+		}
+		if(strs0.items[i].length){ 
+//			put_str_ln(strs0.items[i]);
+			v_append(strs, strs0.items[i]);}
+	}
 	if(strs.length<1 ) return;
-	Str s = strs.items[0];
+	Str s = strs.items[0];	
 	instruction_t is;
 	is.data =0;
 	if(str_equals(s, STR("noop"))){
@@ -130,7 +143,7 @@ void compile_line(Arena*arena,Str line, program_t * prog){
 		EXPECT(strs,2);
 		is.type=  mov_immediate;
 		is.register1 = expect_register(strs.items[1]);
-		v_append(prog->instructions,is);
+		v_append(prog->instructions,is);	
 		instruction_t s;
 		s.data = expect_address(arena, strs.items[2], prog);
 		v_append(prog->instructions,s);
@@ -365,12 +378,11 @@ void compile_line(Arena*arena,Str line, program_t * prog){
 		}
 		size_t base = prog->end-size;
 		prog->end-= size;
-
 		StrintHashTable_insert(prog->memory_table, strs.items[1], base);
 	}
 	else if(str_equals(s, STR(";"))){
 		return;	
-	}
+	}else{todo("error");}
 }
 vm_t* compile_string(const char * string){
 	Arena * arena = arena_create();
@@ -385,10 +397,12 @@ vm_t* compile_string(const char * string){
 	}
 	pg.instructions.length =0;
 	for(size_t i =0; i<lines.length; i++){
-		compile_line(arena, lines.items[i], &pg);
+		compile_line(arena, lines.items[i], &pg);	
 	}
+	
 	vm_t *out =(vm_t*)calloc(1, sizeof(vm_t));
-	memcpy(out->instructions, pg.instructions.items, pg.instructions.length*sizeof(instruction_t));
+	out->registers[IP].word= *(StrintHashTable_find(pg.lable_table, STR("main")))+1;
+	memcpy(out->instructions+1, pg.instructions.items, pg.instructions.length*sizeof(instruction_t));
 	StrintHashTable_unmake(pg.memory_table);
 	StrintHashTable_unmake(pg.lable_table);
 	arena_destroy(arena);
