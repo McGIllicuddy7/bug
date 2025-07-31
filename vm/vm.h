@@ -61,6 +61,18 @@ typedef enum:uint8_t{
 	halt,
 	vm_syscall,
 	instruction_count,
+	load_b, 
+	store_b, 
+	load_absolute_b,
+	store_absolute_b,
+	store_pointer_b, 
+	load_pointer_b,
+	load_s, 
+	store_s, 
+	load_absolute_s,
+	store_absolute_s,
+	store_pointer_s, 
+	load_pointer_s,
 }instrtype_t;
 extern const char * instruction_type_names[];
 extern const char * register_names[];

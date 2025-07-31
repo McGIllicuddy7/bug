@@ -380,7 +380,7 @@ void compile_line(Arena*arena,Str line, program_t * prog){
 		prog->end-= size;
 		StrintHashTable_insert(prog->memory_table, strs.items[1], base);
 	}
-	else if(str_equals(s, STR(";"))){
+	else if(s.items[0] == ';'){
 		return;	
 	}else{todo("error");}
 }
@@ -392,10 +392,13 @@ vm_t* compile_string(const char * string){
 	pg.lable_table = StrintHashTable_create(4096, hashstr, str_equals, (void(*)(Str*))no_op_void, (void(*)(int*))no_op_void);
 	pg.memory_table = StrintHashTable_create(4096, hashstr, str_equals, (void(*)(Str*))no_op_void, (void (*)(int *))no_op_void);
 	pg.end = MEMORY_SIZE-1;
+	v_append(pg.instructions, (instruction_t){.data =0});
 	for(size_t i =0; i<lines.length; i++){
 		compile_line(arena, lines.items[i], &pg);
 	}
 	pg.instructions.length =0;
+	v_append(pg.instructions,( instruction_t){.data =0});
+
 	for(size_t i =0; i<lines.length; i++){
 		compile_line(arena, lines.items[i], &pg);	
 	}

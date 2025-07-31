@@ -7,15 +7,16 @@
 #define WORD(x) *(memory_t *)&(x)
 void store_registers(vm_t * vm){
 	for(int i =0; i<16; i++){
-		printf("saving %s to %u\n", register_names[i], vm->registers[SP].word);	
+//		printf("saving %s to %u\n", register_names[i], vm->registers[SP].word);	
+		WORD(vm->memory[vm->registers[SP].word]) = vm->registers[i];
 		vm->registers[SP].word+= sizeof(memory_t);
 	}
 }
 void load_registers(vm_t * vm){
 	size_t sp = vm->registers[SP].word;
-	sp-= sizeof(memory_t);
+	sp-= sizeof(memory_t);	
 	for(int i =15; i>= 0; i--){
-		printf("loading %s from %zu\n", register_names[i], sp);
+//		printf("loading %s from %zu\n", register_names[i], sp);
 		vm->registers[i] = WORD(vm->memory[sp]);
 		sp-=sizeof(memory_t);
 	}
@@ -47,14 +48,18 @@ void in_store_pointer(instruction_t ins, vm_t * vm){
 	WORD(vm->memory[REGISTER1(vm, ins).word+ins.offset])= REGISTER2(vm, ins);
 }
 void in_call(instruction_t ins, vm_t * vm){	
-	store_registers(vm);
+	store_registers(vm);	
 	vm->registers[IP].word = vm->instructions[vm->registers[IP].word+1].data;
 	vm->registers[BP] = vm->registers[SP];
 }
 void in_ret(instruction_t ins, vm_t * vm){
+	memory_t r0 = vm->registers[R0];
+	memory_t r1 = vm->registers[R1];
 	vm->registers[SP] = vm->registers[BP];
 	load_registers(vm);
-	printf("new address %u:\n", vm->registers[IP].word);
+	vm->registers[R0] = r0;
+	vm->registers[R1] = r1;
+
 }
 void in_jmp(instruction_t ins, vm_t *vm){
 	vm->registers[IP].word = vm->instructions[vm->registers[IP].word+1].data;	
@@ -63,11 +68,13 @@ void in_jmp_register(instruction_t ins, vm_t *vm){
 	vm->registers[IP].word = REGISTER1(vm, ins).word;
 }
 void in_conditional_jmp(instruction_t ins, vm_t *vm){
+//	printf("conditional jump on:%u\n", REGISTER1(vm, ins).word);
 	if(REGISTER1(vm, ins).word){
 		vm->registers[IP].word = vm->instructions[vm->registers[IP].word+1].data;
 	}
 }
 void in_conditional_jmp_register(instruction_t ins, vm_t *vm){
+
 	if(REGISTER1(vm, ins).word){
 		vm->registers[IP].word = REGISTER2(vm,ins).word;
 	}
@@ -171,7 +178,7 @@ void debug_vm(vm_t * vm){
 }
 bool run_instruction(vm_t* vm){
 	instruction_t ins = vm->instructions[vm->registers[IP].word];
-	printf("%s: %s, %s\n", instruction_type_names[ins.type], register_names[ins.register1], register_names[ins.register2]);
+//	printf("%s: %s, %s\n", instruction_type_names[ins.type], register_names[ins.register1], register_names[ins.register2]);
 	switch(ins.type){
 		case nothing: 
 			break;
@@ -286,6 +293,30 @@ bool run_instruction(vm_t* vm){
 		case vm_syscall:
 			in_syscall(ins, vm);
 			break;
+		case load_b:
+			todo();
+		case store_b:
+			todo();
+		case load_absolute_b:
+			todo();
+		case store_absolute_b:
+			todo();
+		case store_pointer_b:
+			todo();
+		case load_pointer_b:
+			todo();
+		case load_s:
+			todo();
+		case store_s:
+			todo();
+		case load_absolute_s:
+			todo();
+		case store_absolute_s:
+			todo();
+		case load_pointer_s:
+			todo();
+		case store_pointer_s:
+			todo();
 		default:
 			printf("%u\n", ins.type);
 			todo("pain");

@@ -12,5 +12,6 @@ int main(int argc, const char ** argv){
 	while(run_instruction(vm)){
 //		debug_vm(vm);
 //		sleep(1);
+		usleep(1);
 	}
 }
