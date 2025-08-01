@@ -1,7 +1,13 @@
 pub use crate::lisp;
 pub use std::collections::HashMap;
+
 #[derive(Clone, Debug)]
+pub enum CompilerResult {
+    NoReturnedVariable,
+}
+#[derive(Clone, Debug, PartialEq)]
 pub enum Type {
+    Void,
     Integer,
     Double,
     Char,
@@ -18,7 +24,7 @@ pub enum Type {
         to_call: Box<Callable>,
     },
 }
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Var {
     Basic {
         idx: usize,
@@ -62,13 +68,16 @@ impl Var {
                 vtype,
                 byte_offset: _,
             } => vtype.clone(),
+            Self::StringLiteral { v: _ } => Type::String,
+            Self::IntegerLiteral { v: _ } => Type::Integer,
+            Self::DoubleLiteral { v: _ } => Type::Double,
             _ => {
                 todo!();
             }
         }
     }
 }
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Callable {
     Variable { v: Var },
     Function { v: String },
@@ -102,15 +111,16 @@ pub enum Instruction {
 }
 #[derive(Clone, Debug)]
 pub struct Function {
-    return_type: Type,
-    arguments: Vec<Type>,
-    ins: Vec<Instruction>,
+    pub return_type: Type,
+    pub arguments: Vec<Type>,
+    pub ins: Vec<Instruction>,
+    pub external: bool,
 }
-#[derive(Clonde<
+#[derive(Clone, Debug)]
 pub struct Scope {
-    variables: HashMap<String, Var>,
-    next: Option<Box<Scope>>,
-    instructions: Vec<Instruction>,
+    pub variables: HashMap<String, Var>,
+    pub next: Option<Box<Scope>>,
+    pub instructions: Vec<Instruction>,
 }
 impl Scope {
     pub fn new() -> Self {
@@ -164,19 +174,158 @@ impl Scope {
         return v;
     }
 }
+#[derive(Clone, Debug)]
 pub struct Compiler {
-    types: HashMap<String, Type>,
-    current_scope: Box<Scope>,
-    global_functions: HashMap<String, Function>,
+    pub types: HashMap<String, Type>,
+    pub current_scope: Box<Scope>,
+    pub global_functions: HashMap<String, Vec<Function>>,
 }
 
 impl Compiler {
+    pub fn declare_function(&mut self, name: String, func: Function) {
+        if !self.global_functions.contains_key(&name) {
+            self.global_functions.insert(name.clone(), vec![]);
+        }
+        let mut ps = self.global_functions.get_mut(&name).unwrap();
+        let mut inserted = false;
+        for i in ps {
+            let mut hit = false;
+            if func.arguments.len() != i.arguments.len() {
+                continue;
+            }
+            if i.arguments.is_empty() {
+                hit = true;
+            }
+            for j in 0..i.arguments.len() {
+                if func.arguments[j] != i.arguments[j] {
+                    hit = true;
+                    break;
+                }
+            }
+            if !hit {
+                if i.external {
+                    *i = func.clone();
+                    inserted = true;
+                    break;
+                } else {
+                    println!(
+                        "error:functions {} and {} have the same signature {:#?}, {:#?}",
+                        name, name, i, func
+                    );
+                    todo!()
+                }
+            }
+        }
+        if !inserted {
+            self.global_functions.get_mut(&name).unwrap().push(func);
+        }
+    }
     pub fn new() -> Self {
-        Self {
+        let mut out = Self {
             types: HashMap::new(),
             current_scope: Box::new(Scope::new()),
             global_functions: HashMap::new(),
-        }
+        };
+        out.declare_function(
+            "print".to_owned(),
+            Function {
+                return_type: Type::Integer,
+                arguments: vec![Type::String],
+                ins: vec![],
+                external: true,
+            },
+        );
+        out.declare_function(
+            "println".to_owned(),
+            Function {
+                return_type: Type::Integer,
+                arguments: vec![Type::String],
+                ins: vec![],
+                external: true,
+            },
+        );
+        out.declare_function(
+            "+".to_owned(),
+            Function {
+                return_type: Type::Integer,
+                arguments: vec![Type::Integer, Type::Integer],
+                ins: vec![],
+                external: true,
+            },
+        );
+        out.declare_function(
+            "-".to_owned(),
+            Function {
+                return_type: Type::Integer,
+                arguments: vec![Type::Integer, Type::Integer],
+                ins: vec![],
+                external: true,
+            },
+        );
+        out.declare_function(
+            "*".to_owned(),
+            Function {
+                return_type: Type::Integer,
+                arguments: vec![Type::Integer, Type::Integer],
+                ins: vec![],
+                external: true,
+            },
+        );
+        out.declare_function(
+            "/".to_owned(),
+            Function {
+                return_type: Type::Integer,
+                arguments: vec![Type::Integer, Type::Integer],
+                ins: vec![],
+                external: true,
+            },
+        );
+        out.declare_function(
+            "==".to_owned(),
+            Function {
+                return_type: Type::Bool,
+                arguments: vec![Type::Integer, Type::Integer],
+                ins: vec![],
+                external: true,
+            },
+        );
+        out.declare_function(
+            ">=".to_owned(),
+            Function {
+                return_type: Type::Bool,
+                arguments: vec![Type::Integer, Type::Integer],
+                ins: vec![],
+                external: true,
+            },
+        );
+        out.declare_function(
+            "<=".to_owned(),
+            Function {
+                return_type: Type::Bool,
+                arguments: vec![Type::Integer, Type::Integer],
+                ins: vec![],
+                external: true,
+            },
+        );
+        out.declare_function(
+            "to_string".to_owned(),
+            Function {
+                return_type: Type::String,
+                arguments: vec![Type::Integer],
+                ins: vec![],
+                external: true,
+            },
+        );
+        out.declare_function(
+            "to_string".to_owned(),
+            Function {
+                return_type: Type::String,
+                arguments: vec![Type::Double],
+                ins: vec![],
+                external: true,
+            },
+        );
+        out
     }
     pub fn pop_scope(&mut self) {
         if self.current_scope.next.is_none() {
@@ -202,6 +351,16 @@ impl Compiler {
             Some(Type::List {
                 vtype: Box::new(self.parse_type(&s[2..])?),
             })
+        } else if s == "int" {
+            Some(Type::Integer)
+        } else if s == "real" {
+            Some(Type::Double)
+        } else if s == "String" {
+            Some(Type::String)
+        } else if s == "byte" {
+            Some(Type::Char)
+        } else if s == "void" {
+            Some(Type::Void)
         } else {
             self.types.get(s).cloned()
         }
@@ -232,12 +391,35 @@ impl Compiler {
                         });
                     return Some(l);
                 } else if self.global_functions.contains_key(s.as_str()) {
-                    let f = &self.global_functions[s.as_str()];
-                    let outv = self.current_scope.decl_tmp(&f.return_type);
+                    let funcs = self.global_functions[s.as_str()].clone();
                     let mut args = Vec::new();
                     for i in 1..ls.len() {
                         args.push(self.compile(ls[i].clone())?);
                     }
+                    let mut func_opt = None;
+                    for i in funcs {
+                        if i.arguments.len() == args.len() {
+                            if args.is_empty() {
+                                func_opt = Some(i);
+                                break;
+                            }
+                            let mut hit = false;
+                            for j in 0..i.arguments.len() {
+                                if i.arguments[j] != args[j].get_type() {
+                                    hit = true;
+                                    break;
+                                }
+                            }
+                            if !hit {
+                                func_opt = Some(i);
+                            }
+                        }
+                    }
+                    let f = func_opt.unwrap();
+                    let outv = self.current_scope.decl_tmp(&f.return_type);
+                    self.current_scope.instructions.push(Instruction::Declare {
+                        to_declare: outv.clone(),
+                    });
                     let ir = Instruction::FunctionCall {
                         to_call: Callable::Function { v: s.clone() },
                         arguments: args,
@@ -262,15 +444,27 @@ impl Compiler {
                     } else {
                         Vec::new()
                     };
-                    self.pop_scope();
                     let p = Instruction::Branch {
                         condition: cond,
                         if_true: ins,
                         if_false: else_ins,
                     };
                     self.current_scope.instructions.push(p);
+                } else if s == "loop" {
+                    let cond = self.compile(ls[1].clone()).unwrap();
+                    self.push_scope();
+                    let _ = self.compile(ls[2].clone());
+                    let ins = self.current_scope.instructions.clone();
+                    self.pop_scope();
+                    self.current_scope.instructions = Vec::new();
+                    let p = Instruction::Loop {
+                        condition: cond,
+                        to_do: ins,
+                    };
+                    println!("{:#?}", p);
+                    self.current_scope.instructions.push(p);
                 } else if s == "defun" {
-                    let name = ls[1].assume_value()?;
+                    let name = ls[1].assume_value().unwrap();
                     let ret = if let Some(r) = ls[2].assume_value() {
                         self.parse_type(r.as_ref())?
                     } else {
@@ -281,8 +475,8 @@ impl Compiler {
                     let mut args = Vec::new();
                     let mut i = 0;
                     while i < arg_list.len() {
-                        let s = arg_list[i].assume_value()?;
-                        let t = arg_list[i + 1].assume_value()?;
+                        let s = arg_list[i].assume_value().unwrap();
+                        let t = arg_list[i + 1].assume_value().unwrap();
                         let typ = self.parse_type(t.as_ref())?;
                         let v = self.current_scope.decl(s, &typ);
                         args.push(v);
@@ -296,10 +490,48 @@ impl Compiler {
                         return_type: ret,
                         arguments: args.iter().map(|i| i.get_type()).collect(),
                         ins,
+                        external: false,
                     };
-                    self.global_functions.insert(name, func);
+                    self.declare_function(name, func);
                     self.pop_scope();
                 } else if s == "let" {
+                    let name = ls[1].assume_value().unwrap();
+                    let type_name = ls[2].assume_value().unwrap();
+                    let t = self.parse_type(&type_name).unwrap();
+                    let v = self.current_scope.decl(name.clone(), &t);
+                    self.current_scope
+                        .instructions
+                        .push(Instruction::Declare { to_declare: v })
+                } else if s == "extern" {
+                    let name = ls[1].assume_value().unwrap();
+                    let return_type_name = ls[2].assume_value().unwrap();
+                    let return_type = self.parse_type(&return_type_name).unwrap();
+                    let arg_list = ls[3].assume_list().unwrap();
+                    let mut args = Vec::new();
+                    let mut i = 0;
+                    while i < arg_list.len() {
+                        let s = arg_list[i].assume_value().unwrap();
+                        let t = arg_list[i + 1].assume_value().unwrap();
+                        let typ = self.parse_type(t.as_ref()).unwrap();
+                        args.push(typ);
+                        i += 2;
+                    }
+                    let func = Function {
+                        return_type,
+                        arguments: args,
+                        ins: vec![],
+                        external: true,
+                    };
+                    self.declare_function(name, func);
+                } else if s == "return" {
+                    let var = self.compile(ls[1].clone());
+                    let ins = Instruction::Return { to_return: var };
+                    self.current_scope.instructions.push(ins)
+                } else if s == "import" {
+                    let p = ls[1].assume_value().unwrap();
+                } else {
+                    println!("{s}");
+                    todo!()
                 }
             }
             lisp::Node::List { s: _ } => {
@@ -307,6 +539,8 @@ impl Compiler {
                 for i in ls {
                     if let Some(j) = self.compile(i.clone()) {
                         list.push(j);
+                    } else {
+                        //todo!();
                     }
                 }
                 return Some(Var::ListLiteral { list });
@@ -330,4 +564,11 @@ impl Compiler {
             }
         }
     }
+}
+pub fn compile(nodes: Vec<lisp::Node>) -> Option<Compiler> {
+    let mut c = Compiler::new();
+    for i in nodes {
+        let _ = c.compile(i);
+    }
+    Some(c)
 }
