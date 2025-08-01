@@ -9,9 +9,9 @@ pub enum Node {
 }
 impl Node {
     pub fn assume_value(&self) -> Option<String> {
-        match self{
-            Self::Value{s}=>Some(s.clone())
-            Self::List{s:_}=>None
+        match self {
+            Self::Value { s } => Some(s.clone()),
+            Self::List { s: _ } => None,
         }
     }
     pub fn assume_list(&self) -> Option<Vec<Node>> {

@@ -1,6 +1,6 @@
 pub use crate::lisp;
 pub use std::collections::HashMap;
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum Type {
     Integer,
     Double,
@@ -18,7 +18,7 @@ pub enum Type {
         to_call: Box<Callable>,
     },
 }
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum Var {
     Basic {
         idx: usize,
@@ -52,18 +52,28 @@ pub enum Var {
     },
     BoolLiteral {
         v: bool,
+    },
+}
+impl Var {
+    pub fn get_type(&self) -> Type {
+        match self {
+            Self::Basic {
+                idx: _,
+                vtype,
+                byte_offset: _,
+            } => vtype.clone(),
+            _ => {
+                todo!();
+            }
+        }
     }
 }
-impl Var{
-    pub fn get_type(&self)->Type{
-    }
-}
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum Callable {
     Variable { v: Var },
     Function { v: String },
 }
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum Instruction {
     FunctionCall {
         to_call: Callable,
@@ -90,13 +100,13 @@ pub enum Instruction {
         right: Var,
     },
 }
-
+#[derive(Clone, Debug)]
 pub struct Function {
     return_type: Type,
     arguments: Vec<Type>,
     ins: Vec<Instruction>,
 }
-
+#[derive(Clonde<
 pub struct Scope {
     variables: HashMap<String, Var>,
     next: Option<Box<Scope>>,
@@ -118,6 +128,15 @@ impl Scope {
             return k.is_defined(s);
         }
         false
+    }
+    pub fn get_var(&self, s: &str) -> Option<Var> {
+        if self.variables.contains_key(s) {
+            return Some(self.variables[s].clone());
+        }
+        if let Some(k) = self.next.as_ref() {
+            return k.get_var(s);
+        }
+        None
     }
     pub fn nv(&self) -> usize {
         let base = self.variables.len();
@@ -271,9 +290,14 @@ impl Compiler {
                     }
                     let scope_node = ls[4].clone();
                     let t = self.compile(scope_node)?;
-                    let ins = self.current_scope.instructions;
+                    let ins = self.current_scope.instructions.clone();
                     self.current_scope.instructions = Vec::new();
-                    let func = Function{return_type:ret, arguments:args.iter().map(|i| i.get_type(), ins};
+                    let func = Function {
+                        return_type: ret,
+                        arguments: args.iter().map(|i| i.get_type()).collect(),
+                        ins,
+                    };
+                    self.global_functions.insert(name, func);
                     self.pop_scope();
                 } else if s == "let" {
                 }
@@ -293,7 +317,17 @@ impl Compiler {
     pub fn compile(&mut self, node: lisp::Node) -> Option<Var> {
         match node {
             lisp::Node::List { s } => self.compile_list(s),
-            lisp::Node::Value { s } => None,
+            lisp::Node::Value { s } => {
+                if s.starts_with("\"") {
+                    Some(Var::StringLiteral { v: s })
+                } else if let Ok(i) = s.parse::<i64>() {
+                    Some(Var::IntegerLiteral { v: i })
+                } else if let Ok(d) = s.parse::<f64>() {
+                    Some(Var::DoubleLiteral { v: d })
+                } else {
+                    self.current_scope.get_var(s.as_ref())
+                }
+            }
         }
     }
 }
