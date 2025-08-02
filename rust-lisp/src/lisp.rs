@@ -46,27 +46,25 @@ impl TokenList {
                 } else {
                     base.push(i);
                 }
-            } else {
-                if i.is_whitespace() {
-                    if !base.is_empty() {
-                        list.push(base);
-                    }
-                    base = String::new();
-                } else if i == '(' || i == ')' {
-                    if !base.is_empty() {
-                        list.push(base);
-                    }
-                    list.push(i.to_string());
-                    base = String::new();
-                } else if i == '"' {
-                    if !base.is_empty() {
-                        list.push(base);
-                    }
-                    base = i.to_string();
-                    in_string = true;
-                } else {
-                    base.push(i);
+            } else if i.is_whitespace() {
+                if !base.is_empty() {
+                    list.push(base);
                 }
+                base = String::new();
+            } else if i == '(' || i == ')' {
+                if !base.is_empty() {
+                    list.push(base);
+                }
+                list.push(i.to_string());
+                base = String::new();
+            } else if i == '"' {
+                if !base.is_empty() {
+                    list.push(base);
+                }
+                base = i.to_string();
+                in_string = true;
+            } else {
+                base.push(i);
             }
             was_slash = false;
         }
@@ -95,11 +93,7 @@ impl TokenList {
 impl std::iter::Iterator for TokenList {
     type Item = String;
     fn next(&mut self) -> Option<String> {
-        if let Ok(p) = self.next_item() {
-            Some(p)
-        } else {
-            None
-        }
+        self.next_item().ok()
     }
 }
 pub fn parse_node(list: &mut TokenList) -> Result<Node, NodeError> {

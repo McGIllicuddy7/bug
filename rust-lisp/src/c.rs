@@ -20,7 +20,7 @@ pub fn mangle_function(name: &str, func: &Function) -> String {
     base
 }
 pub fn mangle_var(idx: usize) -> String {
-    format!("_x{}", idx)
+    format!("x{idx}")
 }
 pub fn write_var(var: &Var) -> String {
     match var {
@@ -29,7 +29,7 @@ pub fn write_var(var: &Var) -> String {
             vtype: _,
             byte_offset: _,
         } => mangle_var(*idx),
-        Var::StringLiteral { v } => format!("to_bug_string({})", v),
+        Var::StringLiteral { v } => format!("to_bug_string({v})"),
         Var::IntegerLiteral { v } => format!("{v}"),
         Var::DoubleLiteral { v } => format!("{v}"),
         Var::BoolLiteral { v } => format!("{v}"),
@@ -125,7 +125,7 @@ pub fn compile_instruction(depth: usize, instruction: &Instruction) -> String {
                         out += &format!(
                             "{}(",
                             mangle_function(
-                                &v,
+                                v,
                                 &Function {
                                     return_type: output.as_ref().unwrap().get_type(),
                                     arguments: arguments.iter().map(|i| i.get_type()).collect(),
@@ -204,7 +204,7 @@ pub fn compile_function(name: &str, func: &Function) -> String {
     let mut out = format!(
         "{} {}(",
         mangle_type(&func.return_type),
-        mangle_function(name, &func)
+        mangle_function(name, func)
     );
     for i in 0..func.arguments.len() {
         out += &mangle_type(&func.arguments[i]);

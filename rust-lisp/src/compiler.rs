@@ -121,18 +121,29 @@ pub struct Scope {
     pub variables: HashMap<String, Var>,
     pub next: Option<Box<Scope>>,
     pub instructions: Vec<Instruction>,
+    pub is_function_base: bool,
 }
+impl Default for Scope {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Scope {
     pub fn new() -> Self {
         Self {
             variables: HashMap::new(),
             next: None,
             instructions: Vec::new(),
+            is_function_base: false,
         }
     }
     pub fn is_defined(&self, s: &str) -> bool {
         if self.variables.contains_key(s) {
             return true;
+        }
+        if self.is_function_base {
+            return false;
         }
         if let Some(k) = self.next.as_ref() {
             return k.is_defined(s);
@@ -143,6 +154,9 @@ impl Scope {
         if self.variables.contains_key(s) {
             return Some(self.variables[s].clone());
         }
+        if self.is_function_base {
+            return None;
+        }
         if let Some(k) = self.next.as_ref() {
             return k.get_var(s);
         }
@@ -150,7 +164,11 @@ impl Scope {
     }
     pub fn nv(&self) -> usize {
         let base = self.variables.len();
-        return base + if let Some(p) = &self.next { p.nv() } else { 0 };
+        if self.is_function_base {
+            base
+        } else {
+            base + if let Some(p) = &self.next { p.nv() } else { 0 }
+        }
     }
     pub fn decl_tmp(&mut self, vtype: &Type) -> Var {
         let id = self.nv();
@@ -160,8 +178,8 @@ impl Scope {
             byte_offset: 0,
         };
 
-        self.variables.insert(format!("tmp_x{}", id), v.clone());
-        return v;
+        self.variables.insert(format!("tmp_x{id}"), v.clone());
+        v
     }
     pub fn decl(&mut self, name: String, vtype: &Type) -> Var {
         let id = self.nv();
@@ -171,7 +189,7 @@ impl Scope {
             byte_offset: 0,
         };
         self.variables.insert(name, v.clone());
-        return v;
+        v
     }
 }
 #[derive(Clone, Debug)]
@@ -181,12 +199,18 @@ pub struct Compiler {
     pub global_functions: HashMap<String, Vec<Function>>,
 }
 
+impl Default for Compiler {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Compiler {
     pub fn declare_function(&mut self, name: String, func: Function) {
         if !self.global_functions.contains_key(&name) {
             self.global_functions.insert(name.clone(), vec![]);
         }
-        let mut ps = self.global_functions.get_mut(&name).unwrap();
+        let ps = self.global_functions.get_mut(&name).unwrap();
         let mut inserted = false;
         for i in ps {
             let mut hit = false;
@@ -209,8 +233,7 @@ impl Compiler {
                     break;
                 } else {
                     println!(
-                        "error:functions {} and {} have the same signature {:#?}, {:#?}",
-                        name, name, i, func
+                        "error:functions {name} and {name} have the same signature {i:#?}, {func:#?}"
                     );
                     todo!()
                 }
@@ -461,7 +484,7 @@ impl Compiler {
                         condition: cond,
                         to_do: ins,
                     };
-                    println!("{:#?}", p);
+                    println!("{p:#?}");
                     self.current_scope.instructions.push(p);
                 } else if s == "defun" {
                     let name = ls[1].assume_value().unwrap();
@@ -471,6 +494,7 @@ impl Compiler {
                         Type::Integer
                     };
                     self.push_scope();
+                    self.current_scope.is_function_base = true;
                     let arg_list = ls[3].assume_list()?;
                     let mut args = Vec::new();
                     let mut i = 0;
@@ -499,9 +523,10 @@ impl Compiler {
                     let type_name = ls[2].assume_value().unwrap();
                     let t = self.parse_type(&type_name).unwrap();
                     let v = self.current_scope.decl(name.clone(), &t);
-                    self.current_scope
-                        .instructions
-                        .push(Instruction::Declare { to_declare: v })
+                    self.current_scope.instructions.push(Instruction::Declare {
+                        to_declare: v.clone(),
+                    });
+                    return Some(v);
                 } else if s == "extern" {
                     let name = ls[1].assume_value().unwrap();
                     let return_type_name = ls[2].assume_value().unwrap();
