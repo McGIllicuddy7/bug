@@ -1,1 +1,1 @@
-/home/bridget/bug/rust-lisp/target/debug/rust-lisp: /home/bridget/bug/rust-lisp/src/c.rs /home/bridget/bug/rust-lisp/src/compiler.rs /home/bridget/bug/rust-lisp/src/interpreter.rs /home/bridget/bug/rust-lisp/src/lisp.rs /home/bridget/bug/rust-lisp/src/main.rs
+/Users/bridget/bug/rust-lisp/target/debug/rust-lisp: /Users/bridget/bug/rust-lisp/src/c.rs /Users/bridget/bug/rust-lisp/src/compiler.rs /Users/bridget/bug/rust-lisp/src/interpreter.rs /Users/bridget/bug/rust-lisp/src/lisp.rs /Users/bridget/bug/rust-lisp/src/main.rs

@@ -59,6 +59,10 @@ pub enum Var {
     BoolLiteral {
         v: bool,
     },
+    FunctionPointer {
+        name: String,
+        args: Vec<Type>,
+    },
 }
 impl Var {
     pub fn get_type(&self) -> Type {
@@ -516,7 +520,7 @@ impl Compiler {
                         ins,
                         external: false,
                     };
-                    self.declare_function(name, func);
+                    self.declare_function(name, func.clone());
                     self.pop_scope();
                 } else if s == "let" {
                     let name = ls[1].assume_value().unwrap();
@@ -583,8 +587,10 @@ impl Compiler {
                     Some(Var::IntegerLiteral { v: i })
                 } else if let Ok(d) = s.parse::<f64>() {
                     Some(Var::DoubleLiteral { v: d })
-                } else {
+                } else if let Some(p) = self.current_scope.get_var(&s) {
                     self.current_scope.get_var(s.as_ref())
+                } else {
+                    None
                 }
             }
         }
