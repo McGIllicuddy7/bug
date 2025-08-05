@@ -1,13 +1,13 @@
-(extern test void())
-(= (let a int) 2)
-(defun main int ()(
-	(println "i love toast")
-	(= (let a int) 2)
-	(println (to_string a))
-	(test)
-	(return 1)
+(defun test (fun () ()) (x string) (	
+	(= (let a (fun () ())) (lambda () ()(
+		(println x)
+		)))	
+	(return a)
 ))
-(defun test void ()(
-	(println "testing 1 2 3")
+(defun main int ()(
+	(println "i have working lambdas")
+	(= (let a (fun () ())) (test "also i love you"))
+	(a)
+	(return 0)
 ))
 

@@ -20,8 +20,8 @@ pub enum Type {
         vtype: Box<Type>,
     },
     FunctionPointer {
-        captures: Vec<Var>,
-        to_call: Box<Callable>,
+        return_type: Box<Type>,
+        args: Vec<Type>,
     },
 }
 #[derive(Clone, Debug, PartialEq)]
@@ -59,9 +59,20 @@ pub enum Var {
     BoolLiteral {
         v: bool,
     },
-    FunctionPointer {
+    FunctionPointerLiteral {
         name: String,
         args: Vec<Type>,
+        return_type: Type,
+    },
+    LambdaLiteral {
+        name: String,
+        args: Vec<Type>,
+        return_type: Type,
+        captures: Vec<Var>,
+    },
+    Capture {
+        idx: usize,
+        vtype: Type,
     },
 }
 impl Var {
@@ -75,6 +86,15 @@ impl Var {
             Self::StringLiteral { v: _ } => Type::String,
             Self::IntegerLiteral { v: _ } => Type::Integer,
             Self::DoubleLiteral { v: _ } => Type::Double,
+            Self::Capture { idx: _, vtype } => vtype.clone(),
+            Self::FunctionPointerLiteral {
+                name: _,
+                args,
+                return_type,
+            } => Type::FunctionPointer {
+                args: args.clone(),
+                return_type: Box::new(return_type.clone()),
+            },
             _ => {
                 todo!();
             }
@@ -126,6 +146,8 @@ pub struct Scope {
     pub next: Option<Box<Scope>>,
     pub instructions: Vec<Instruction>,
     pub is_function_base: bool,
+    pub can_capture: bool,
+    pub captures: Vec<Var>,
 }
 impl Default for Scope {
     fn default() -> Self {
@@ -140,13 +162,32 @@ impl Scope {
             next: None,
             instructions: Vec::new(),
             is_function_base: false,
+            can_capture: false,
+            captures: Vec::new(),
         }
+    }
+    pub fn get_capture(&self, s: &str) -> Option<Var> {
+        if let Some(var) = self.variables.get(s) {
+            return Some(var.clone());
+        }
+        if self.is_function_base {
+            return None;
+        }
+        if let Some(k) = self.next.as_ref() {
+            return k.get_capture(s);
+        }
+        None
     }
     pub fn is_defined(&self, s: &str) -> bool {
         if self.variables.contains_key(s) {
             return true;
         }
         if self.is_function_base {
+            if self.can_capture {
+                if let Some(k) = self.next.as_ref() {
+                    return k.get_capture(s).is_some();
+                }
+            }
             return false;
         }
         if let Some(k) = self.next.as_ref() {
@@ -154,14 +195,38 @@ impl Scope {
         }
         false
     }
-    pub fn get_var(&self, s: &str) -> Option<Var> {
+    pub fn get_var(&mut self, s: &str) -> Option<Var> {
         if self.variables.contains_key(s) {
             return Some(self.variables[s].clone());
         }
         if self.is_function_base {
+            if self.can_capture {
+                if let Some(k) = self.next.as_ref() {
+                    if let Some(p) = k.get_capture(s) {
+                        let mut idx = 0;
+                        let mut hit = false;
+                        for i in 0..self.captures.len() {
+                            if self.captures[i] == p {
+                                hit = true;
+                                idx = i;
+                            }
+                        }
+                        if (!hit) {
+                            idx = self.captures.len();
+                            self.captures.push(p.clone());
+                        }
+                        return Some(Var::Capture {
+                            idx,
+                            vtype: p.get_type(),
+                        });
+                    } else {
+                        return None;
+                    }
+                }
+            }
             return None;
         }
-        if let Some(k) = self.next.as_ref() {
+        if let Some(k) = self.next.as_mut() {
             return k.get_var(s);
         }
         None
@@ -195,12 +260,27 @@ impl Scope {
         self.variables.insert(name, v.clone());
         v
     }
+    pub fn in_global_scope(&self) -> bool {
+        self.next.is_none()
+    }
+    pub fn get_function_pointer(&mut self, name: &str) -> Option<Var> {
+        let p = self.get_var(name)?;
+        let v = p.get_type();
+        match v {
+            Type::FunctionPointer {
+                return_type: _,
+                args: _,
+            } => Some(p),
+            _ => None,
+        }
+    }
 }
 #[derive(Clone, Debug)]
 pub struct Compiler {
     pub types: HashMap<String, Type>,
     pub current_scope: Box<Scope>,
     pub global_functions: HashMap<String, Vec<Function>>,
+    pub lambda_count: usize,
 }
 
 impl Default for Compiler {
@@ -252,6 +332,7 @@ impl Compiler {
             types: HashMap::new(),
             current_scope: Box::new(Scope::new()),
             global_functions: HashMap::new(),
+            lambda_count: 0,
         };
         out.declare_function(
             "print".to_owned(),
@@ -369,30 +450,55 @@ impl Compiler {
         std::mem::swap(self.current_scope.as_mut(), &mut p);
         self.current_scope.next = Some(Box::new(p));
     }
-    pub fn parse_type(&self, s: &str) -> Option<Type> {
-        if &s[0..1] == "*" {
-            Some(Type::Box {
-                vtype: Box::new(self.parse_type(&s[2..])?),
-            })
-        } else if &s[0..2] == "[]" {
-            Some(Type::List {
-                vtype: Box::new(self.parse_type(&s[2..])?),
-            })
-        } else if s == "int" {
+    pub fn parse_type_string(&self, s: &str) -> Option<Type> {
+        if s == "int" {
             Some(Type::Integer)
         } else if s == "real" {
             Some(Type::Double)
-        } else if s == "String" {
+        } else if s == "string" {
             Some(Type::String)
         } else if s == "byte" {
             Some(Type::Char)
-        } else if s == "void" {
-            Some(Type::Void)
         } else {
             self.types.get(s).cloned()
         }
     }
-    pub fn is_valid_type(&self, s: &str) -> bool {
+    pub fn parse_type(&self, s: &lisp::Node) -> Option<Type> {
+        if let Some(st) = s.assume_value() {
+            self.parse_type_string(&st)
+        } else if let Some(vec) = s.assume_list() {
+            if vec.is_empty() {
+                return Some(Type::Void);
+            } else {
+                let base = vec[0].assume_value().unwrap();
+                if base == "[]" {
+                    return Some(Type::List {
+                        vtype: Box::new(self.parse_type(&vec[1])?),
+                    });
+                } else if base == "box" {
+                    return Some(Type::Box {
+                        vtype: Box::new(self.parse_type(&vec[1])?),
+                    });
+                } else if base == "fun" {
+                    let ret = self.parse_type(&vec[1])?;
+                    let arg_nodes = vec[2].assume_list()?;
+                    let mut args = Vec::new();
+                    for i in &arg_nodes {
+                        let t = self.parse_type(&i)?;
+                        args.push(t);
+                    }
+                    return Some(Type::FunctionPointer {
+                        return_type: Box::new(ret),
+                        args,
+                    });
+                }
+                None
+            }
+        } else {
+            None
+        }
+    }
+    pub fn is_valid_type(&self, s: &lisp::Node) -> bool {
         self.parse_type(s).is_some()
     }
 
@@ -454,7 +560,54 @@ impl Compiler {
                     };
                     self.current_scope.instructions.push(ir);
                     return Some(outv);
-                } else if s == "branch" {
+                } else if let Some(func) = self.current_scope.get_function_pointer(&s) {
+                    let mut iargs = Vec::new();
+                    for i in 1..ls.len() {
+                        iargs.push(self.compile(ls[i].clone())?);
+                    }
+                    let mut types = Vec::new();
+                    for i in &iargs {
+                        types.push(i.get_type());
+                    }
+                    match func.get_type() {
+                        Type::FunctionPointer { return_type, args } => {
+                            if args.len() != types.len() {
+                                todo!()
+                            }
+                            for i in 0..args.len() {
+                                if args[i] != types[i] {
+                                    todo!()
+                                }
+                            }
+                            let out = self.current_scope.decl_tmp(&return_type);
+                            let ins = Instruction::FunctionCall {
+                                to_call: Callable::Variable { v: func },
+                                output: Some(out.clone()),
+                                arguments: iargs,
+                            };
+                            self.current_scope.instructions.push(ins);
+                            return Some(out);
+                        }
+                        _ => unreachable!(),
+                    }
+                } else if s == "ref" {
+                    let name = ls[1].assume_value().unwrap();
+                    if let Some(t) = self.current_scope.get_function_pointer(&name) {
+                        return Some(t);
+                    }
+                    let ret_type = self.parse_type(&ls[2]).unwrap();
+                    let l = ls[3].assume_list().unwrap();
+                    let mut types = Vec::new();
+                    for i in &l {
+                        let p = self.parse_type(i).unwrap();
+                        types.push(p);
+                    }
+                    return Some(Var::FunctionPointerLiteral {
+                        name,
+                        args: types,
+                        return_type: ret_type,
+                    });
+                } else if s == "if" {
                     let cond = self.compile(ls[1].clone())?;
                     self.push_scope();
                     let _ = self.compile(ls[2].clone());
@@ -488,15 +641,13 @@ impl Compiler {
                         condition: cond,
                         to_do: ins,
                     };
-                    println!("{p:#?}");
                     self.current_scope.instructions.push(p);
                 } else if s == "defun" {
                     let name = ls[1].assume_value().unwrap();
-                    let ret = if let Some(r) = ls[2].assume_value() {
-                        self.parse_type(r.as_ref())?
-                    } else {
-                        Type::Integer
-                    };
+                    if name == "lambda" {
+                        todo!()
+                    }
+                    let ret = self.parse_type(&ls[2])?;
                     self.push_scope();
                     self.current_scope.is_function_base = true;
                     let arg_list = ls[3].assume_list()?;
@@ -504,14 +655,23 @@ impl Compiler {
                     let mut i = 0;
                     while i < arg_list.len() {
                         let s = arg_list[i].assume_value().unwrap();
-                        let t = arg_list[i + 1].assume_value().unwrap();
-                        let typ = self.parse_type(t.as_ref())?;
+                        let t = arg_list[i + 1].clone();
+                        let typ = self.parse_type(&t)?;
                         let v = self.current_scope.decl(s, &typ);
                         args.push(v);
                         i += 2;
                     }
+                    self.declare_function(
+                        name.clone(),
+                        Function {
+                            return_type: ret.clone(),
+                            arguments: args.clone().iter().map(|i| i.get_type()).collect(),
+                            ins: vec![],
+                            external: true,
+                        },
+                    );
                     let scope_node = ls[4].clone();
-                    let t = self.compile(scope_node)?;
+                    let _ = self.compile(scope_node)?;
                     let ins = self.current_scope.instructions.clone();
                     self.current_scope.instructions = Vec::new();
                     let func = Function {
@@ -522,9 +682,57 @@ impl Compiler {
                     };
                     self.declare_function(name, func.clone());
                     self.pop_scope();
+                } else if s == "lambda" {
+                    let return_type = self.parse_type(&ls[1]).unwrap();
+                    let arg_list = ls[2].assume_list().unwrap();
+                    let mut args = Vec::new();
+                    let mut i = 0;
+                    self.push_scope();
+                    self.current_scope.is_function_base = true;
+                    self.current_scope.can_capture = true;
+                    while i < arg_list.len() {
+                        let s = arg_list[i].assume_value().unwrap();
+                        let t = arg_list[i + 1].clone();
+                        let typ = self.parse_type(&t)?;
+                        let v = self.current_scope.decl(s, &typ);
+                        args.push(v);
+                        i += 2;
+                    }
+                    let name = format!("lamdba {}", self.lambda_count);
+                    self.lambda_count += 1;
+                    self.declare_function(
+                        name.clone(),
+                        Function {
+                            return_type: return_type.clone(),
+                            arguments: args.clone().iter().map(|i| i.get_type()).collect(),
+                            ins: vec![],
+                            external: true,
+                        },
+                    );
+                    let scope_node = ls[3].clone();
+                    let _ = self.compile(scope_node)?;
+                    let ins = self.current_scope.instructions.clone();
+                    self.current_scope.instructions = Vec::new();
+                    let captures = self.current_scope.captures.clone();
+                    let func = Function {
+                        return_type: return_type.clone(),
+                        arguments: args.iter().map(|i| i.get_type()).collect(),
+                        ins,
+                        external: false,
+                    };
+                    self.declare_function(name.clone(), func.clone());
+                    self.pop_scope();
+                    let out = Var::LambdaLiteral {
+                        name,
+                        args: args.iter().map(|i| i.get_type()).collect(),
+                        return_type,
+                        captures,
+                    };
+                    return Some(out);
                 } else if s == "let" {
+                    assert!(!self.current_scope.in_global_scope());
                     let name = ls[1].assume_value().unwrap();
-                    let type_name = ls[2].assume_value().unwrap();
+                    let type_name = ls[2].clone();
                     let t = self.parse_type(&type_name).unwrap();
                     let v = self.current_scope.decl(name.clone(), &t);
                     self.current_scope.instructions.push(Instruction::Declare {
@@ -533,15 +741,15 @@ impl Compiler {
                     return Some(v);
                 } else if s == "extern" {
                     let name = ls[1].assume_value().unwrap();
-                    let return_type_name = ls[2].assume_value().unwrap();
+                    let return_type_name = ls[2].clone();
                     let return_type = self.parse_type(&return_type_name).unwrap();
                     let arg_list = ls[3].assume_list().unwrap();
                     let mut args = Vec::new();
                     let mut i = 0;
                     while i < arg_list.len() {
                         let s = arg_list[i].assume_value().unwrap();
-                        let t = arg_list[i + 1].assume_value().unwrap();
-                        let typ = self.parse_type(t.as_ref()).unwrap();
+                        let t = arg_list[i + 1].clone();
+                        let typ = self.parse_type(&t).unwrap();
                         args.push(typ);
                         i += 2;
                     }
@@ -558,6 +766,7 @@ impl Compiler {
                     self.current_scope.instructions.push(ins)
                 } else if s == "import" {
                     let p = ls[1].assume_value().unwrap();
+                    todo!()
                 } else {
                     println!("{s}");
                     todo!()
