@@ -8,6 +8,11 @@
 	(println "i have working lambdas")
 	(= (let a (fun () ())) (test "also i love you"))
 	(a)
+	(= (let b int) 0)
+	(loop (<= b 1000)(
+		(println (to_string b))
+		(= b (+ b 1))
+	))
 	(return 0)
 ))
 

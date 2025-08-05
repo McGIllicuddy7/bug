@@ -362,7 +362,7 @@ pub fn compile_instruction(depth: usize, instruction: &Instruction, cinfo: &mut 
             }
         }
         Instruction::Loop { condition, to_do } => {
-            out += &format!("while({}){{", write_var(condition));
+            out += &format!("while({}.{}){{", write_var(condition), var_get(condition));
             for i in to_do {
                 out += &compile_instruction(depth + 4, i, cinfo);
             }
@@ -374,7 +374,7 @@ pub fn compile_instruction(depth: usize, instruction: &Instruction, cinfo: &mut 
             if_true,
             if_false,
         } => {
-            out += &format!("if({}){{", write_var(condition));
+            out += &format!("if({}.{}){{", write_var(condition), var_get(condition));
             for i in if_true {
                 out += &compile_instruction(depth + 4, i, cinfo);
             }
@@ -496,7 +496,7 @@ pub fn compile_to_c(comp: &crate::compiler::Compiler) -> String {
         }
     }
     if has_main {
-        out += "int main(int argc ,const char ** argv){ bug_context_t main_context = bug_create_context();return (int)(bug_main(&main_context).car.integer);}";
+        out += "int main(int argc ,const char ** argv){ bug_context_t main_context = bug_create_context();int out =(int)(bug_main(&main_context).car.integer); gc_collect(main_context.stack, main_context.stack_ptr, main_context.heap); free_heap(&main_context); return out;}";
     }
     out
 }

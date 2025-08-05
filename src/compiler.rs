@@ -548,6 +548,14 @@ impl Compiler {
                             }
                         }
                     }
+                    if func_opt.is_none() {
+                        println!(
+                            "error could not find function {} with arguments {:#?}",
+                            s.as_str(),
+                            args.iter().map(|i| i.get_type()).collect::<Vec<Type>>()
+                        );
+                        panic!();
+                    }
                     let f = func_opt.unwrap();
                     let outv = self.current_scope.decl_tmp(&f.return_type);
                     self.current_scope.instructions.push(Instruction::Declare {
@@ -631,8 +639,8 @@ impl Compiler {
                     };
                     self.current_scope.instructions.push(p);
                 } else if s == "loop" {
-                    let cond = self.compile(ls[1].clone()).unwrap();
                     self.push_scope();
+                    let cond = self.compile(ls[1].clone()).unwrap();
                     let _ = self.compile(ls[2].clone());
                     let ins = self.current_scope.instructions.clone();
                     self.pop_scope();
