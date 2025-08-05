@@ -1,1 +1,0 @@
-/Users/bridget/bug/rust-lisp/target/release/rust-lisp: /Users/bridget/bug/rust-lisp/src/c.rs /Users/bridget/bug/rust-lisp/src/compiler.rs /Users/bridget/bug/rust-lisp/src/interpreter.rs /Users/bridget/bug/rust-lisp/src/lisp.rs /Users/bridget/bug/rust-lisp/src/main.rs
