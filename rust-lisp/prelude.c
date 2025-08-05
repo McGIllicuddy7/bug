@@ -1,35 +1,16 @@
 #include "prelude.h"
 typedef struct {
-	bug_node_t node;
-	bool reachable;
-}bug_allocation_t;
-typedef struct bug_allocation_list_t{	
-	bug_node_t node;
-	bool reachable;
-	struct bug_allocation_list_t * next;
-}bug_allocation_list_t;
-typedef struct bug_large_alloc_t{
-	struct bug_large_alloc_t * next;
-	size_t is_reachable;
-}bug_large_alloc_t;
-typedef struct{
-	bug_allocation_t* nursery;
-	size_t next_nursery_idx;
-	bug_allocation_t * survivors;
-	size_t next_survivor_idx;
-	bug_allocation_list_t * old_ones;
-	bug_large_alloc_t * large_allocations;
-} bug_heap_t;
-void move_pointer(void * base_ptr, void * to_move_to, bug_node_t * start, bug_node_t * end, bug_heap_t * heap){
-
-}
+}bug_heap_t;
 void  mark_reachable_from(bug_node_t * node){
 	
 }
 void gc_collect(bug_node_t * base, bug_node_t *end, bug_heap_t * heap){
 	
 }
-
+void * gc_alloc(bug_context_t* context, size_t count){
+	printf("allocated %zu bytes\n",count);
+	return malloc(count);	
+}
 bug_context_t bug_create_context(){
 	bug_context_t out;
 	out.stack = (bug_node_t*)malloc(sizeof(bug_node_t)*16000);
@@ -40,10 +21,7 @@ bug_context_t bug_create_context(){
 }
 bug_context_t bug_reserve_stack_space(bug_context_t * context,size_t object_count);
 
-void * gc_alloc(bug_context_t* context, size_t count){
-	printf("allocated %zu bytes\n",count);
-	return malloc(count);	
-}
+
 bug_node_t bug_to_stringlong(bug_context_t *context){
 	char buff[100];
 	bug_node_t b =*context->stack;
