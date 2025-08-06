@@ -7,6 +7,7 @@ pub enum CompilerResult {
 }
 #[derive(Clone, Debug, PartialEq)]
 pub enum Type {
+    Any,
     Void,
     Integer,
     Double,
@@ -41,9 +42,6 @@ pub enum Var {
     TakeRef {
         base: Box<Var>,
     },
-    ListLiteral {
-        list: Vec<Var>,
-    },
     StringLiteral {
         v: String,
     },
@@ -74,6 +72,20 @@ pub enum Var {
         idx: usize,
         vtype: Type,
     },
+    Car {
+        v: Box<Var>,
+    },
+    Cdr {
+        v: Box<Var>,
+    },
+    Assume {
+        vtype: Type,
+        base: Box<Var>,
+    },
+    IsA {
+        assumed: String,
+        var: Box<Var>,
+    },
 }
 impl Var {
     pub fn get_type(&self) -> Type {
@@ -95,6 +107,32 @@ impl Var {
                 args: args.clone(),
                 return_type: Box::new(return_type.clone()),
             },
+            Self::Car { v } => match v.get_type() {
+                Type::Box { vtype } => match vtype.as_ref() {
+                    Type::List { vtype } => return vtype.as_ref().clone(),
+                    _ => {
+                        todo!()
+                    }
+                },
+                _ => {
+                    todo!()
+                }
+            },
+            Self::Cdr { v } => match v.get_type() {
+                Type::Box { vtype: _ } => v.get_type(),
+                _ => {
+                    todo!()
+                }
+            },
+            Self::Assume { vtype, base: _ } => vtype.clone(),
+            Self::DeRef { base } => {
+                let t = base.get_type();
+                match t {
+                    Type::Box { vtype } => vtype.as_ref().clone(),
+                    _ => todo!(),
+                }
+            }
+            Self::IsA { assumed: _, var: _ } => Type::Bool,
             _ => {
                 todo!();
             }
@@ -123,6 +161,7 @@ pub enum Instruction {
     },
     Loop {
         condition: Var,
+        preamble: Vec<Instruction>,
         to_do: Vec<Instruction>,
     },
     Declare {
@@ -131,6 +170,18 @@ pub enum Instruction {
     Assignment {
         left: Var,
         right: Var,
+    },
+    OperatorNew {
+        to_box: Var,
+        output: Var,
+    },
+    CreateList {
+        list: Vec<Var>,
+        output: Var,
+    },
+    OperatorColon {
+        base: Var,
+        to_add: Var,
     },
 }
 #[derive(Clone, Debug)]
@@ -211,7 +262,7 @@ impl Scope {
                                 idx = i;
                             }
                         }
-                        if (!hit) {
+                        if !hit {
                             idx = self.captures.len();
                             self.captures.push(p.clone());
                         }
@@ -459,6 +510,8 @@ impl Compiler {
             Some(Type::String)
         } else if s == "byte" {
             Some(Type::Char)
+        } else if s == "any" {
+            Some(Type::Any)
         } else {
             self.types.get(s).cloned()
         }
@@ -472,8 +525,10 @@ impl Compiler {
             } else {
                 let base = vec[0].assume_value().unwrap();
                 if base == "[]" {
-                    return Some(Type::List {
-                        vtype: Box::new(self.parse_type(&vec[1])?),
+                    return Some(Type::Box {
+                        vtype: Box::new(Type::List {
+                            vtype: Box::new(self.parse_type(&vec[1])?),
+                        }),
                     });
                 } else if base == "box" {
                     return Some(Type::Box {
@@ -506,14 +561,7 @@ impl Compiler {
         let p = ls.first()?;
         match p {
             lisp::Node::Value { s } => {
-                let u = "_".to_string() + s.as_ref();
-                if self.current_scope.is_defined(u.as_ref()) {
-                    let mut list = Vec::new();
-                    for i in ls {
-                        list.push(self.compile(i)?);
-                    }
-                    return Some(Var::ListLiteral { list });
-                } else if s == "=" {
+                if s == "=" {
                     let l = self.compile(ls[1].clone())?;
                     let r = self.compile(ls[2].clone())?;
                     self.current_scope
@@ -616,7 +664,7 @@ impl Compiler {
                         return_type: ret_type,
                     });
                 } else if s == "if" {
-                    let cond = self.compile(ls[1].clone())?;
+                    let cond = self.compile(ls[1].clone()).unwrap();
                     self.push_scope();
                     let _ = self.compile(ls[2].clone());
                     let ins = self.current_scope.instructions.clone();
@@ -641,12 +689,17 @@ impl Compiler {
                 } else if s == "loop" {
                     self.push_scope();
                     let cond = self.compile(ls[1].clone()).unwrap();
+                    let base_ins = self.current_scope.instructions.clone();
+                    self.current_scope.instructions = Vec::new();
+                    self.pop_scope();
+                    self.push_scope();
                     let _ = self.compile(ls[2].clone());
                     let ins = self.current_scope.instructions.clone();
-                    self.pop_scope();
                     self.current_scope.instructions = Vec::new();
+                    self.pop_scope();
                     let p = Instruction::Loop {
                         condition: cond,
+                        preamble: base_ins,
                         to_do: ins,
                     };
                     self.current_scope.instructions.push(p);
@@ -775,9 +828,88 @@ impl Compiler {
                 } else if s == "import" {
                     let p = ls[1].assume_value().unwrap();
                     todo!()
+                } else if s == "car" {
+                    let v = self.compile(ls[1].clone()).unwrap();
+                    return Some(Var::Car { v: Box::new(v) });
+                } else if s == "cdr" {
+                    let v = self.compile(ls[1].clone()).unwrap();
+                    return Some(Var::Cdr { v: Box::new(v) });
+                } else if s == "^" {
+                    let v = self.compile(ls[1].clone()).unwrap();
+                    return Some(Var::DeRef { base: Box::new(v) });
+                } else if s == "new" {
+                    let v = self.compile(ls[1].clone()).unwrap();
+                    let tt = Type::Box {
+                        vtype: Box::new(v.get_type()),
+                    };
+                    let output = self.current_scope.decl_tmp(&tt);
+                    self.current_scope.instructions.push(Instruction::Declare {
+                        to_declare: output.clone(),
+                    });
+                    let ins = Instruction::OperatorNew {
+                        to_box: v.clone(),
+                        output: output.clone(),
+                    };
+                    self.current_scope.instructions.push(ins);
+                    return Some(output);
+                } else if s == "[]" {
+                    let mut out = Vec::new();
+                    let ls = (&ls[1..]).to_owned();
+                    for i in ls {
+                        out.push(self.compile(i).unwrap());
+                    }
+                    let ty0 = if out.len() > 0 {
+                        out[0].get_type()
+                    } else {
+                        Type::Any
+                    };
+                    let mut ty1 = ty0.clone();
+                    for i in &out {
+                        if i.get_type() != ty0 {
+                            ty1 = Type::Any;
+                            break;
+                        }
+                    }
+                    let t = self.current_scope.decl_tmp(&Type::Box {
+                        vtype: Box::new(Type::List {
+                            vtype: Box::new(ty1),
+                        }),
+                    });
+                    self.current_scope.instructions.push(Instruction::Declare {
+                        to_declare: t.clone(),
+                    });
+                    let p = Instruction::CreateList {
+                        list: out,
+                        output: t.clone(),
+                    };
+                    self.current_scope.instructions.push(p);
+                    return Some(t);
+                } else if s == "::" {
+                    let p0 = self.compile(ls[1].clone()).unwrap();
+                    let p1 = self.compile(ls[2].clone()).unwrap();
+                    let ins = Instruction::OperatorColon {
+                        base: p0.clone(),
+                        to_add: p1,
+                    };
+                    self.current_scope.instructions.push(ins);
+                    return Some(p0);
+                } else if s == "assume" {
+                    let to_assume_type = self.parse_type(&ls[1]).unwrap();
+                    let base = self.compile(ls[2].clone()).unwrap();
+                    return Some(Var::Assume {
+                        vtype: to_assume_type,
+                        base: Box::new(base),
+                    });
+                } else if s == "is_a" {
+                    let assumed = ls[1].assume_value().unwrap();
+                    let base = self.compile(ls[2].clone()).unwrap();
+                    return Some(Var::IsA {
+                        assumed,
+                        var: Box::new(base),
+                    });
                 } else {
-                    println!("{s}");
-                    todo!()
+                    println!("{}", s);
+                    todo!();
                 }
             }
             lisp::Node::List { s: _ } => {
@@ -789,7 +921,10 @@ impl Compiler {
                         //todo!();
                     }
                 }
-                return Some(Var::ListLiteral { list });
+                let t = self.current_scope.decl_tmp(&Type::List {
+                    vtype: Box::new(Type::Any),
+                });
+                return Some(t);
             }
         }
         None

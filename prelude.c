@@ -200,9 +200,9 @@ bug_node_t bug_to_stringlong(bug_context_t *context){
 	bug_node_t out;
 	out.vtype = bug_string;
 	size_t l = strlen(buff);
-	out.car.char_ptr = (char*)gc_alloc(context,l);
-	memcpy(out.car.char_ptr, buff, l);
-	out.cdr.integer = l;
+	out.cdr.char_ptr = (char*)gc_alloc(context,l+1);
+	memcpy(out.cdr.char_ptr, buff, l+1);
+	out.car.integer = l+1;
 	return out;
 }
 bug_node_t bug_to_stringdouble(bug_context_t *context){
@@ -212,22 +212,22 @@ bug_node_t bug_to_stringdouble(bug_context_t *context){
 	bug_node_t out;
 	out.vtype = bug_string;
 	size_t l = strlen(buff);
-	out.car.char_ptr = (char*)gc_alloc(context,l);
-	memcpy(out.car.char_ptr, buff, l);
-	out.cdr.integer = l;
+	out.cdr.char_ptr = (char*)gc_alloc(context,l+1);
+	memcpy(out.cdr.char_ptr, buff, l+1);	
+	out.car.integer = l+1;
 	return out;
 }
 bug_node_t bug_printbug_string(bug_context_t * context){
 	bug_node_t out = {};
 	out.vtype = bug_integer;
-	out.car.integer = printf("%.*s",(int)(context->stack->cdr.integer), context->stack->car.char_ptr);
+	out.car.integer = printf("%.*s",(int)(context->stack->car.integer), context->stack->cdr.char_ptr);
 	out.cdr.integer =0;
 	return out;
 }
 bug_node_t bug_printlnbug_string(bug_context_t * context){
 	bug_node_t out = {};
 	out.vtype = bug_integer;
-	out.car.integer = printf("%.*s\n",(int)(context->stack->cdr.integer), context->stack->car.char_ptr);
+	out.car.integer = printf("%.*s\n",(int)(context->stack->car.integer), context->stack->cdr.char_ptr);
 	out.cdr.integer =0;
 	return out;
 }
@@ -235,9 +235,9 @@ bug_node_t to_bug_string(bug_context_t * context,const char * chars){
 	bug_node_t out;
 	out.vtype = bug_string;
 	long l = strlen(chars);
-	out.car.char_ptr = (char*)gc_alloc(context,l);
-	memcpy(out.car.char_ptr,chars, l);
-	out.cdr.integer = l;
+	out.cdr.char_ptr = (char*)gc_alloc(context,l+1);
+	memcpy(out.cdr.char_ptr,chars, l+1);
+	out.car.integer = l;
 	return out;
 }
 bug_node_t * bug_make_captures(bug_context_t* context, int* values, size_t count){
@@ -333,4 +333,55 @@ static void debug_print_node(bug_node_t * node,int indentation){
 }
 void debug_node(bug_node_t * node){
 	debug_print_node(node,0);
+}
+bug_node_t bug_empty_list(bug_context_t * context){
+	bug_node_t out;
+	out.vtype = bug_ptr;;
+	out.car.integer =0;
+	out.cdr.ptr= 0;
+	return out;
+}
+bug_node_t bug_list_cat(bug_context_t * context, bug_node_t base, bug_node_t end){
+	bug_node_t * out = (bug_node_t*)gc_alloc(context, sizeof(bug_node_t));
+	bug_node_t * box =(bug_node_t*)gc_alloc(context, sizeof(bug_node_t));
+	*box = end;
+	out->cdr.node =0;
+	out->car.node = box;
+	if(!base.cdr.node){
+		base.cdr.node = out;
+		return base;
+	}
+	bug_node_t *cur = base.cdr.node;
+	while(true){
+		if(!cur->cdr.node){
+			cur->cdr.node = out;
+			break;
+		}
+		cur = cur->cdr.node;
+	}
+	return base;
+}
+bug_node_t bug_cdr(bug_node_t node){
+	bug_node_t out;
+	out.vtype = bug_ptr;
+	out.car.integer= 1;
+	out.cdr.node = node.cdr.node->cdr.node;
+	return out;
+}
+bug_node_t bug_box_value(bug_context_t * context, bug_node_t node){
+	bug_node_t * p = (bug_node_t*)gc_alloc(context, sizeof(node));
+	*p = node;
+	bug_node_t out;
+	out.cdr.node = p;
+	out.car.integer = 1;
+	out.vtype = bug_ptr;
+	return out;
+}
+bug_node_t bug_is_a(bug_node_t b, bug_type_t t){
+	bool out = b.vtype == t;
+	bug_node_t node;
+	node.vtype = bug_bool;
+	node.car.boolean = out;
+	node.cdr.integer = 0;
+	return node;
 }

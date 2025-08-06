@@ -69,7 +69,6 @@ pub fn write_var(var: &Var) -> String {
         Var::Capture { idx, vtype: _ } => {
             format!("context.captures[{}]", idx)
         }
-
         Var::FunctionPointerLiteral {
             name,
             args,
@@ -143,6 +142,19 @@ pub fn write_var(var: &Var) -> String {
                 tmp, st, capt_string
             )
         }
+        Var::Car { v } => {
+            format!("*({}.cdr.node->car.node->cdr.node)", write_var(v))
+        }
+        Var::Cdr { v } => {
+            format!("bug_cdr({})", write_var(v))
+        }
+        Var::DeRef { base } => {
+            format!("(*(({}.cdr).node))", write_var(base))
+        }
+        Var::Assume { vtype: _, base } => write_var(base),
+        Var::IsA { assumed, var } => {
+            format!("bug_is_a({}, bug_{})", write_var(var), assumed)
+        }
         _ => {
             todo!()
         }
@@ -164,6 +176,7 @@ pub fn var_get(var: &Var) -> String {
                 "car._non_void_fn".to_owned()
             }
         }
+        Type::Box { vtype: _ } => "cdr.node".to_owned(),
         _ => todo!(),
     }
 }
@@ -287,7 +300,7 @@ pub fn compile_instruction(depth: usize, instruction: &Instruction, cinfo: &mut 
                             &var_get(output.as_ref().unwrap()),
                         );
                         out += &format!(
-                            "{}.{}=={}.{}",
+                            "{}.{}=={}.{};",
                             &write_var(&arguments[0]),
                             &var_get(&arguments[0]),
                             &write_var(&arguments[1]),
@@ -304,7 +317,7 @@ pub fn compile_instruction(depth: usize, instruction: &Instruction, cinfo: &mut 
                             &var_get(output.as_ref().unwrap()),
                         );
                         out += &format!(
-                            "{}.{}<={}.{}",
+                            "{}.{}<={}.{};",
                             &write_var(&arguments[0]),
                             &var_get(&arguments[0]),
                             &write_var(&arguments[1]),
@@ -322,7 +335,7 @@ pub fn compile_instruction(depth: usize, instruction: &Instruction, cinfo: &mut 
                             &var_get(output.as_ref().unwrap()),
                         );
                         out += &format!(
-                            "{}.{}<={}.{}",
+                            "{}.{}>={}.{};",
                             &write_var(&arguments[0]),
                             &var_get(&arguments[0]),
                             &write_var(&arguments[1]),
@@ -331,7 +344,7 @@ pub fn compile_instruction(depth: usize, instruction: &Instruction, cinfo: &mut 
                     }
                     _ => {
                         out += &format!(
-                            "{}(&context)",
+                            "{}(&out_context)",
                             mangle_function(
                                 v,
                                 &Function {
@@ -361,34 +374,76 @@ pub fn compile_instruction(depth: usize, instruction: &Instruction, cinfo: &mut 
                 out += ";\n";
             }
         }
-        Instruction::Loop { condition, to_do } => {
-            out += &format!("while({}.{}){{", write_var(condition), var_get(condition));
+        Instruction::Loop {
+            condition,
+            to_do,
+            preamble,
+        } => {
+            let loop_base = cinfo.label_count;
+            cinfo.label_count += 1;
+            let loop_beginning = cinfo.label_count;
+            cinfo.label_count += 1;
+            let loop_end = cinfo.label_count;
+            cinfo.label_count += 1;
+            out = String::new();
+            out += &format!("l{}:\n", loop_base);
+            out += &indent(depth);
+            for i in preamble {
+                out += &compile_instruction(depth + 4, i, cinfo);
+            }
+            out += &indent(depth);
+            out += &format!(
+                "if ({}.{}) goto l{}; else goto l{};\n",
+                write_var(condition),
+                var_get(condition),
+                loop_beginning,
+                loop_end,
+            );
+
+            out += &format!("l{}:\n", loop_beginning);
             for i in to_do {
                 out += &compile_instruction(depth + 4, i, cinfo);
             }
             out += &indent(depth);
-            out += "}\n";
+            out += &format!("goto l{};\n", loop_base);
+            out += &format!("l{}:\n", loop_end);
+            out += &indent(depth);
         }
         Instruction::Branch {
             condition,
             if_true,
             if_false,
         } => {
-            out += &format!("if({}.{}){{", write_var(condition), var_get(condition));
+            let true_lb = cinfo.label_count;
+            cinfo.label_count += 1;
+            let false_lb = cinfo.label_count;
+            cinfo.label_count += 1;
+            let end = cinfo.label_count;
+            cinfo.label_count += 1;
+            out += &format!(
+                "if({}.{}) goto l{}; else goto l{};",
+                write_var(condition),
+                var_get(condition),
+                true_lb,
+                false_lb
+            );
+            out += &format!("l{}:\n", true_lb);
             for i in if_true {
                 out += &compile_instruction(depth + 4, i, cinfo);
             }
             out += &indent(depth);
-            out += "} else {\n";
+            out += &format!("goto l{};\n", end);
+            out += &format!("l{}:\n", false_lb);
             for i in if_false {
                 out += &compile_instruction(depth + 4, i, cinfo);
             }
             out += &indent(depth);
-            out += "}\n";
+            out += &format!("goto l{};\n", end);
+            out += &format!("l{}:\n", end);
         }
         Instruction::Declare { to_declare } => match to_declare {
             Var::Basic {
-                idx,
+                idx: _,
                 vtype,
                 byte_offset: _,
             } => {
@@ -396,7 +451,6 @@ pub fn compile_instruction(depth: usize, instruction: &Instruction, cinfo: &mut 
                     return "".to_string();
                 }
                 cinfo.var_count += 1;
-                /*out += &format!("{} {};\n", mangle_type(vtype), mangle_var(*idx));*/
             }
             _ => {
                 todo!()
@@ -411,6 +465,43 @@ pub fn compile_instruction(depth: usize, instruction: &Instruction, cinfo: &mut 
             } else {
                 out += "return;\n";
             }
+        }
+        Instruction::OperatorNew { to_box, output } => {
+            out += &format!(
+                "{} = bug_box_variable(&context,{});\n",
+                write_var(to_box),
+                write_var(output)
+            );
+        }
+        Instruction::CreateList { list, output } => {
+            out += &format!("{} = bug_empty_list(&context);\n", write_var(output));
+            if list.is_empty() {
+                return out;
+            }
+            let mut t0 = list[0].get_type();
+            for i in list {
+                if i.get_type() != t0 {
+                    t0 = Type::Any;
+                    break;
+                }
+            }
+            for i in list {
+                out += &indent(depth);
+                out += &format!(
+                    "{} = bug_list_cat(&context,{},bug_box_value(&context,{}));\n",
+                    write_var(output),
+                    write_var(output),
+                    write_var(i)
+                );
+            }
+        }
+        Instruction::OperatorColon { base, to_add } => {
+            out += &format!(
+                "{} = bug_list_cat(&context, {}, bug_box_value(&context,{}));\n",
+                write_var(base),
+                write_var(base),
+                write_var(to_add)
+            );
         }
     }
     out
@@ -442,10 +533,13 @@ pub fn compile_function(name: &str, func: &Function) -> String {
         out
     } else {
         out += "{\n    bug_context_t context = *in_context;bug_context_t out_context = context;\n";
+        let mut tmp = String::new();
         for i in &func.ins {
-            out += &compile_instruction(4, i, &mut cinfo);
+            tmp += &compile_instruction(4, i, &mut cinfo);
         }
-        out += "}\n";
+        tmp += "}\n";
+        out += &format!("    context.stack_ptr += {};\n", cinfo.var_count);
+        out += &tmp;
         out
     }
 }
