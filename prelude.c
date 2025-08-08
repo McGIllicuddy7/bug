@@ -5,6 +5,10 @@ bug_context_t bug_create_context(){
 	bug_context_t out;
 	out.heap = (bug_heap_t*)malloc(sizeof(bug_heap_t));
 	out.heap->allocations =0;
+	out.heap->temp_heap = (char*)malloc(16000);
+	out.heap->next_tmp_alloc= out.heap->temp_heap;
+	out.heap->temp_heap_end = out.heap->temp_heap+16000;
+	out.heap->tmp_allocations =0;
 	out.stack = (bug_node_t*)malloc(16000*sizeof(bug_node_t));
 	out.stack_ptr = out.stack;
 	out.stack_end = out.stack+16000;
@@ -129,6 +133,9 @@ tail_call:
 			return;
 		}
 		case bug_ptr:{	
+			if(node->cdr.node == old_ptr){
+				node->cdr.node = new_ptr;
+			}
 			node = node->cdr.node;
 			is_root = false;
 			goto tail_call;
@@ -151,41 +158,58 @@ tail_call:
 			break;
 		}
 		case bug_list_ptr:{	
+			if(node->car.node == old_ptr){
+				node->car.node = new_ptr;
+			}
 			gc_object_move_pointer(node->car.node,new_ptr, old_ptr, false);
 			is_root = false;
+			if(node->cdr.node == old_ptr){
+				node->cdr.node = new_ptr;
+			}	
 			node = node->cdr.node;
 			goto tail_call;
 			break;
 		}
 		case bug_list_bool:{	
+			if(node->cdr.node == old_ptr){
+				node->cdr.node = new_ptr;
+			}
 			node = node->cdr.node;
 			is_root = false;
 			goto tail_call;
 			break;
 		}
 		case bug_list_char:{	
+			if(node->cdr.node == old_ptr){
+				node->cdr.node = new_ptr;
+			}
 			node = node->cdr.node;
 			is_root = false;
 			goto tail_call;
 			break;
 		}
 		case bug_list_integer:{
+			if(node->cdr.node == old_ptr){
+				node->cdr.node = new_ptr;
+			}
 			node = node->cdr.node;
 			is_root = false;
 			goto tail_call;
 			break;
 		}
 		case bug_list_double:{	
+			if(node->cdr.node == old_ptr){
+				node->cdr.node = new_ptr;
+			}
 			node = node->cdr.node;
 			is_root = false;
 			goto tail_call;
 			break;
 		}
 		case bug_string:{	
-			void * ptr = node->cdr.node;
-			bug_allocation_t* p= (bug_allocation_t *)ptr;
-			p--;
-			p->reachable = true;	
+			if(node->cdr.node == old_ptr){
+				node->cdr.node = new_ptr;
+			}
 			break;
 		}
 		case bug_integer:{	
@@ -217,6 +241,7 @@ void gc_move_pointer(void * new_ptr, void * old_ptr, bug_node_t * start, bug_nod
 		cur->moved_reachable = false;
 		cur = cur->next;
 	}
+	printf("setting to %p\n", new_ptr);
 	for(bug_node_t * i =start; i != end; i++){
 		gc_object_move_pointer(i, new_ptr, old_ptr,true);
 	}
@@ -264,39 +289,75 @@ void gc_collect(bug_node_t * base, bug_node_t * end, bug_heap_t * heap){
 	while(cur){
 		if(cur->reachable){
 			size_t count = cur->is_objects? cur->object_count*sizeof(bug_node_t) : cur->object_count;
+			printf("count: %zu ", count);
 			count += sizeof(bug_allocation_t);
+			if(count %(2*sizeof(size_t)) !=0){
+				count += (2*sizeof(size_t))-count%(2*sizeof(size_t));
+			}
+			printf("desired size:%zu sizeof(bug_allocation-t):%zu sizeof(bug_node_t):%zu ", count, sizeof(bug_allocation_t), sizeof(bug_node_t));
 			bug_allocation_t * new_ptr = (bug_allocation_t*)malloc(count);
 			memcpy(new_ptr, cur, count);
 			new_ptr->next = heap->allocations;
 			heap->allocations = new_ptr;
-			gc_move_pointer(new_ptr+1,cur+1,base, end);
+			printf("%p, %p\n", new_ptr, new_ptr+1);
+			gc_move_pointer(new_ptr+1,cur+1,base, end,heap);
 		}
+		cur = cur->next;
 	}
 	heap->tmp_allocations =0;
-	heap->next_tmp_alloc = heap->temp_heap;
-	
+	heap->next_tmp_alloc = heap->temp_heap;	
 }
 void * gc_alloc(bug_context_t * context, size_t byte_count){
-	bug_allocation_t * out= (bug_allocation_t*)malloc(byte_count+sizeof(bug_allocation_t));
+	size_t count = byte_count+sizeof(bug_allocation_t);
+	if(count %(2*sizeof(size_t))!=0){
+		count += (2*sizeof(size_t))-count%(2*sizeof(size_t));
+	}
+	if(context->heap->next_tmp_alloc+count>context->heap->temp_heap_end){
+		bug_allocation_t * out = (bug_allocation_t*) malloc(count);
+		if(!out){
+			return 0;
+		}
+		out->is_objects = false;
+		out->reachable = false;
+		out->next = context->heap->allocations;
+		out->object_count = byte_count;
+		context->heap->allocations = out;
+		return out+1;
+	}
+	bug_allocation_t * out = (bug_allocation_t*)context->heap->next_tmp_alloc;
+	context->heap->next_tmp_alloc+= count;
 	out->is_objects = false;
 	out->reachable = false;
-	out->next = context->heap->allocations;
+	out->next = context->heap->tmp_allocations;
 	out->object_count = byte_count;
-	context->heap->allocations = out;
-	context->heap->temp_heap = (char*)malloc(4096*16);
-	context->heap->next_tmp_alloc = context->heap->temp_heap;
-	context->heap->temp_heap_end = context->heap->temp_heap+4096*16;
+	context->heap->tmp_allocations = out;
 	return out+1;
 }
 bug_node_t * gc_new(bug_context_t * context, uint32_t object_count){		
-	bug_allocation_t * out= (bug_allocation_t*)malloc(object_count*sizeof(bug_node_t)+sizeof(bug_allocation_t));
+	size_t count = object_count*sizeof(bug_node_t)+sizeof(bug_allocation_t);
+	if(count %(2*sizeof(size_t))!=0){
+		count += (2*sizeof(size_t))-count%(2*sizeof(size_t));
+	}
+	if(context->heap->next_tmp_alloc+count>context->heap->temp_heap_end){
+		bug_allocation_t * out = (bug_allocation_t*) malloc(count);
+		if(!out){
+			return 0;
+		}
+		out->is_objects = true;
+		out->reachable = false;
+		out->next = context->heap->allocations;
+		out->object_count = object_count;
+		context->heap->allocations = out;
+		return (bug_node_t*)(out+1);
+	}
+	bug_allocation_t * out = (bug_allocation_t*)context->heap->next_tmp_alloc;
+	context->heap->next_tmp_alloc+= count;
 	out->is_objects = true;
 	out->reachable = false;
-	out->next = context->heap->allocations;
-	out->object_count = object_count;
-	context->heap->allocations = out;
-	void * ot = out+1;
-	return (bug_node_t*)ot;
+	out->next = context->heap->tmp_allocations;
+	out->object_count =object_count;
+	context->heap->tmp_allocations = out;
+	return (bug_node_t*)(out+1);
 }
 bug_node_t bug_to_stringlong(bug_context_t *context){
 	char buff[100];
@@ -357,7 +418,9 @@ bug_node_t * bug_make_captures(bug_context_t* context, int* values, size_t count
 }
 void free_heap(bug_context_t * context){
 	free(context->stack);	
+	free(context->heap->temp_heap);
 	free(context->heap);
+	
 	context->stack =0;
 }
 static void debug_print_node(bug_node_t * node,int indentation){

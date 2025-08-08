@@ -3,11 +3,11 @@ extern bug_node_t bug_printbug_string(bug_context_t * in_context);
 extern bug_node_t bug_testbug_string(bug_context_t * in_context);
 extern bug_node_t bug_to_stringlong(bug_context_t * in_context);
 extern bug_node_t bug_to_stringdouble(bug_context_t * in_context);
+extern void bug_lamdba0(bug_context_t * in_context);
+extern void bug_lamdba0(bug_context_t * in_context);
+extern bug_node_t bug_main(bug_context_t * in_context);
+extern bug_node_t bug_main(bug_context_t * in_context);
 extern bug_node_t bug_printlnbug_string(bug_context_t * in_context);
-extern bug_node_t bug_main(bug_context_t * in_context);
-extern bug_node_t bug_main(bug_context_t * in_context);
-extern void bug_lamdba0(bug_context_t * in_context);
-extern void bug_lamdba0(bug_context_t * in_context);
 bug_node_t bug_testbug_string(bug_context_t * in_context){
     bug_context_t context = *in_context;bug_context_t out_context = context;
     bug_node_t *arg_prev = context.stack_ptr;
@@ -16,6 +16,18 @@ bug_node_t bug_testbug_string(bug_context_t * in_context){
         context.stack[1] = (bug_node_t){.vtype = bug_void_fn,.car= (bug_value_t){.void_fn =bug_lamdba0},.cdr = {.ptr = bug_make_captures(&context,(int[]){0},1)}};
     runtime_checkups(&context);
     return context.stack[1];
+    runtime_checkups(&context);
+}
+
+void bug_lamdba0(bug_context_t * in_context){
+    bug_context_t context = *in_context;bug_context_t out_context = context;
+    bug_node_t *arg_prev = context.stack_ptr;
+    context.stack_ptr += 1;
+    memset(arg_prev, 0, sizeof(bug_node_t)*1);
+    out_context = context;
+    out_context.stack= out_context.stack_ptr;
+    *out_context.stack_ptr = context.captures[0];out_context.stack_ptr++;
+    context.stack[0] = bug_printlnbug_string(&out_context);
     runtime_checkups(&context);
 }
 
@@ -70,18 +82,6 @@ l7:
 l8:
         runtime_checkups(&context);
     return (bug_node_t){.vtype = bug_integer, .car = (bug_value_t){.integer = 0}, .cdr= (bug_value_t){.integer =0}};
-    runtime_checkups(&context);
-}
-
-void bug_lamdba0(bug_context_t * in_context){
-    bug_context_t context = *in_context;bug_context_t out_context = context;
-    bug_node_t *arg_prev = context.stack_ptr;
-    context.stack_ptr += 1;
-    memset(arg_prev, 0, sizeof(bug_node_t)*1);
-    out_context = context;
-    out_context.stack= out_context.stack_ptr;
-    *out_context.stack_ptr = context.captures[0];out_context.stack_ptr++;
-    context.stack[0] = bug_printlnbug_string(&out_context);
     runtime_checkups(&context);
 }
 
