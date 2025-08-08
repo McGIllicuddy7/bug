@@ -1,227 +1,302 @@
 #include "prelude.h"
+#include "assert.h"
 //every allocation either contains structured data in the form of bug_objects or just bytes (string)
-void local_move_ptr(void * base_ptr, void * to_move_to, bug_node_t * node, bool is_root){
+bug_context_t bug_create_context(){
+	bug_context_t out;
+	out.heap = (bug_heap_t*)malloc(sizeof(bug_heap_t));
+	out.heap->allocations =0;
+	out.stack = (bug_node_t*)malloc(16000*sizeof(bug_node_t));
+	out.stack_ptr = out.stack;
+	out.stack_end = out.stack+16000;
+	return out;
+}
+void mark_reachable_from(bug_node_t * node,bool is_root, size_t * reachable_count){
+	tail_call:	
 	if(!node){
 		return;
 	}
 	if(!is_root){
-		bug_allocation_t * alc =(void*)((char*)node-sizeof(bug_allocation_t));
-		if(alc->reached_move){
+		bug_allocation_t * alc = (bug_allocation_t*)(((size_t)node)-sizeof(bug_allocation_t));
+		if(alc->reachable){
 			return;
-		}else{
-			alc->reached_move = true;
+		}
+		alc->reachable = true;
+		(*reachable_count)++;
+		if(!alc->is_objects){
+			return;
 		}
 	}
-	if(node->vtype == bug_ptr){
-		bug_node_t * nd = node->cdr.node;
-		if(nd == base_ptr){
-			node->cdr.node = to_move_to;
-			nd = to_move_to;
+	switch(node->vtype){
+		case bug_undefined_type:{
+			return;
 		}
-		for(long i =0; i<node->car.integer; i++){
-			local_move_ptr(base_ptr, to_move_to,nd+i, false);
+		case bug_ptr:{	
+			node = node->cdr.node;
+			is_root = false;
+			goto tail_call;
+			break;
 		}
-	}
-	if(node->vtype == bug_string){
-		char * base = node->cdr.char_ptr;
-		if(base == base_ptr){
-			node->cdr.char_ptr = base;
+		case bug_void_fn:{
+			assert(false);
+			mark_reachable_from(node->cdr.node, false,reachable_count);
+			is_root = false;
+			node = node->cdr.node;
+			goto tail_call;
+			break;
 		}
-	}
-	if(node->vtype == bug_void_fn || node->vtype == bug_non_void_fn){
-		bug_node_t * base = node->cdr.node-1;
-		if(node->cdr.node ==base_ptr){
-			node->cdr.node = to_move_to;
-			base = node->cdr.node-1; 
+		case bug_non_void_fn:{
+			assert(false);
+			mark_reachable_from(node->cdr.node, false,reachable_count);
+			is_root = false;
+			node = node->cdr.node;
+			goto tail_call;
+			break;
 		}
-		long l = base->car.integer;
-		for(long i =0 ;i<l; i++){
-			local_move_ptr(base_ptr, to_move_to,base+i,false);
+		case bug_list_ptr:{	
+			mark_reachable_from(node->car.node, false,reachable_count);
+			is_root = false;
+			node = node->cdr.node;
+			goto tail_call;
+			break;
 		}
-	}
-	if(node->vtype == bug_list_ptr){
-		if(node->car.node == base_ptr){
-			node->car.node = to_move_to;
+		case bug_list_bool:{	
+			node = node->cdr.node;
+			is_root = false;
+			goto tail_call;
+			break;
 		}
-		if(node->cdr.node == base_ptr){
-			node->cdr.node = to_move_to;
+		case bug_list_char:{	
+			node = node->cdr.node;
+			is_root = false;
+			goto tail_call;
+			break;
 		}
-		local_move_ptr(base_ptr, to_move_to,node->car.node,false);
-		local_move_ptr(base_ptr, to_move_to,node->cdr.node,false);
-	}
-	if(node->vtype == bug_list_integer || node->vtype == bug_list_double || node->vtype == bug_list_char || node->vtype == bug_list_bool){	
-		if(node->cdr.node == base_ptr){
-			node->cdr.node = to_move_to;
-		}	
-		local_move_ptr(base_ptr, to_move_to,node->cdr.node,false);
+		case bug_list_integer:{
+			node = node->cdr.node;
+			is_root = false;
+			goto tail_call;
+			break;
+		}
+		case bug_list_double:{	
+			node = node->cdr.node;
+			is_root = false;
+			goto tail_call;
+			break;
+		}
+		case bug_string:{	
+			void * ptr = node->cdr.node;
+			bug_allocation_t* p= (bug_allocation_t *)ptr;
+			p--;
+			p->reachable = true;
+			(*reachable_count)++;
+			break;
+		}
+		case bug_integer:{	
+			break;
+		}
+		case bug_double:{	
+			break;
+		}
+		case bug_char:{	
+			break;
+		}
+		case bug_bool:{	
+			break;
+		}
+		default:
+			printf("is a %zu\n",  node->vtype);
+			assert(false);
+			return;
 	}
 }
-void move_pointer(void * base_ptr, void * to_move_to, bug_node_t * start, bug_node_t * end, bug_heap_t * heap){
-	printf("moved %p, to %p\n", base_ptr, to_move_to);
-	bug_allocation_t * cur = heap->gen1;
-	while(cur){	
-		cur->reached_move = false;
-		cur = cur->next;
-	}
-	cur = heap->allocations;
-	while(cur){
-		printf("%p\n",cur);
-		cur->reached_move = false;
-		cur = cur->next;
-	}
-	for(bug_node_t * b = start; b != end; b++){
-		local_move_ptr(base_ptr, to_move_to, b,  true);		
-	}
-}
-void mark_reachable_from(bug_node_t * node, bool is_root){
+void gc_object_move_pointer(bug_node_t * node, void * new_ptr, void * old_ptr, bool is_root){
+tail_call:	
 	if(!node){
 		return;
 	}
-	//debug_node(node);
-	if(!is_root){	
-		printf("marked reachable:%p\n", node);
-		bug_allocation_t * alloc = (bug_allocation_t*)((char*)node-16);
-		if(alloc->is_reachable){
+	if(!is_root){
+		bug_allocation_t * alc = (bug_allocation_t*)(((size_t)node)-sizeof(bug_allocation_t));
+		if(alc->moved_reachable){
 			return;
 		}
-		alloc->is_reachable= true;
-	}
-	if(node->vtype == bug_ptr){
-		bug_node_t * nd = node->cdr.node;
-		for(long i =0; i<node->car.integer; i++){
-			printf("%p points to %p\n",node, nd+i);
-			mark_reachable_from(nd+i, false);
+		alc->moved_reachable = true;	
+		if(!alc->is_objects){
+			return;
 		}
 	}
-	if(node->vtype == bug_string){
-		char * base = node->cdr.char_ptr;
-		bug_allocation_t * b = (bug_allocation_t*)(base-sizeof(bug_allocation_t));
-		b->is_reachable = true;
-	}
-	if(node->vtype == bug_void_fn || node->vtype == bug_non_void_fn){
-		bug_node_t * base = node->cdr.node-1;
-		long l = base->car.integer;
-		base += 1;
-		for(long i =0 ;i<l; i++){
-			mark_reachable_from(base+i,false);
+	switch(node->vtype){
+		case bug_undefined_type:{
+			return;
 		}
-	}
-	if(node->vtype == bug_list_ptr){	
-		mark_reachable_from(node->car.node,false);
-		mark_reachable_from(node->cdr.node,false);
-	}
-	if(node->vtype == bug_list_integer || node->vtype == bug_list_double || node->vtype == bug_list_char || node->vtype == bug_list_bool){	
-		mark_reachable_from(node->cdr.node,false);
-
+		case bug_ptr:{	
+			node = node->cdr.node;
+			is_root = false;
+			goto tail_call;
+			break;
+		}
+		case bug_void_fn:{
+			assert(false);
+			gc_object_move_pointer(node->cdr.node,new_ptr, old_ptr, false);
+			is_root = false;
+			node = node->cdr.node;
+			goto tail_call;
+			break;
+		}
+		case bug_non_void_fn:{
+			assert(false);
+			gc_object_move_pointer(node->cdr.node,new_ptr, old_ptr, false);	
+			is_root = false;
+			node = node->cdr.node;
+			goto tail_call;
+			break;
+		}
+		case bug_list_ptr:{	
+			gc_object_move_pointer(node->car.node,new_ptr, old_ptr, false);
+			is_root = false;
+			node = node->cdr.node;
+			goto tail_call;
+			break;
+		}
+		case bug_list_bool:{	
+			node = node->cdr.node;
+			is_root = false;
+			goto tail_call;
+			break;
+		}
+		case bug_list_char:{	
+			node = node->cdr.node;
+			is_root = false;
+			goto tail_call;
+			break;
+		}
+		case bug_list_integer:{
+			node = node->cdr.node;
+			is_root = false;
+			goto tail_call;
+			break;
+		}
+		case bug_list_double:{	
+			node = node->cdr.node;
+			is_root = false;
+			goto tail_call;
+			break;
+		}
+		case bug_string:{	
+			void * ptr = node->cdr.node;
+			bug_allocation_t* p= (bug_allocation_t *)ptr;
+			p--;
+			p->reachable = true;	
+			break;
+		}
+		case bug_integer:{	
+			break;
+		}
+		case bug_double:{	
+			break;
+		}
+		case bug_char:{	
+			break;
+		}
+		case bug_bool:{	
+			break;
+		}
+		default:
+			printf("is a %zu\n",  node->vtype);
+			assert(false);
+			return;
 	}
 }
-void gc_collect(bug_node_t * base, bug_node_t *end, bug_heap_t * heap){
-	printf("gc begin\n");
-	bug_allocation_t * cur = heap->allocations;	
-	while(cur){	
-		cur->is_reachable = false;
+void gc_move_pointer(void * new_ptr, void * old_ptr, bug_node_t * start, bug_node_t * end,bug_heap_t * heap){
+	bug_allocation_t * cur = heap->allocations;
+	while(cur){
+		cur->moved_reachable = false;
 		cur = cur->next;
 	}
-	cur = heap->gen1;
+	cur = heap->tmp_allocations;
 	while(cur){
-		cur->is_reachable = false;
+		cur->moved_reachable = false;
 		cur = cur->next;
-	
-	}	
-	for(bug_node_t * node = base; node != end; node++){	
-		mark_reachable_from(node,true);	
 	}
-	cur = heap->gen1;
+	for(bug_node_t * i =start; i != end; i++){
+		gc_object_move_pointer(i, new_ptr, old_ptr,true);
+	}
+}
+void gc_collect(bug_node_t * base, bug_node_t * end, bug_heap_t * heap){	
+	bug_allocation_t * cur = heap->allocations;
+	size_t allocation_count =0;
 	while(cur){
-		if(cur->is_reachable){
-			printf("%p is reachable\n",cur+sizeof(bug_allocation_t));
-			void * s = malloc(cur->byte_count);
-			memcpy(s, cur, cur->byte_count);
-			move_pointer((char*)cur+sizeof(bug_allocation_t),(char*)s+sizeof(bug_allocation_t), base, end, heap);
-			((bug_allocation_t*)s)->next = heap->allocations;
-			heap->allocations = s;
-		} else {
-		//	printf("allocation from gen1 :%p is unreachable\n", cur);
-		}
+		cur->reachable =0;
 		cur = cur->next;
-	}	
+		allocation_count++;
+	}
+	cur = heap->tmp_allocations;
+	while(cur){
+		cur->reachable =0;
+		cur = cur->next;
+		allocation_count++;
+	}
+	size_t reachable_count =0;
+	for(bug_node_t *i = base; i != end; i++){	
+		mark_reachable_from(i,true, &reachable_count);
+	}
+	printf("%zu allocations, %zu reachable\n", allocation_count, reachable_count);
 	cur = heap->allocations;
-	bug_allocation_t *old =0;
+	bug_allocation_t * prev =0;
 	while(cur){
-		bug_allocation_t * next = cur->next;
-		if(!cur->is_reachable){
-			if(old){
-				old->next = next;
-			}else{
-				heap->allocations = next;
+		if(!cur->reachable){
+			bug_allocation_t* nxt= cur->next;
+			if(prev){
+				prev->next=  nxt;
+			} else{
+				heap->allocations = nxt;
 			}
-			printf("collection freed:%p\n", cur+1);
 			free(cur);
+			cur = nxt;
 		}else{
-//			printf("allocation from heap :%p is unreachable\n", cur);
-			old = cur;
+			prev = cur;
+			cur = cur->next;
 		}
-		cur = next;
 	}
-//	printf("%p, %p\n",heap->gen1_next ,heap->gen1_heap);
-	heap->gen1_next = heap->gen1_heap;
-	printf("gc end\n");
-}
-
-bug_context_t bug_create_context(){
-	bug_context_t out;
-	out.stack = (bug_node_t*)malloc(sizeof(bug_node_t)*16000);
-	out.base_ptr = out.stack;
-	out.stack_ptr = out.stack;
-	out.stack_end = out.stack+16000;
-	out.heap = malloc(sizeof(bug_heap_t));
-	out.heap->allocations =0;
-	out.heap->gen1 =0;
-	out.heap->gen1_heap =malloc(16000);
-	out.heap->gen1_next = out.heap->gen1_heap;
-	out.heap->gen1_heap_end = out.heap->gen1_heap+16000;
-	return out;
-}
-bug_context_t bug_reserve_stack_space(bug_context_t * context,size_t object_count);
-
-void * gc_alloc(bug_context_t* context, size_t count){
-	if(count>=512){
-		void * out;
-	just_return:
-		out = malloc(count+sizeof(bug_allocation_t));
-		memset(out, 0, count+sizeof(bug_allocation_t));
-		bug_allocation_t * alc = out;
-		alc->byte_count = count+sizeof(bug_allocation_t);
-		alc->next = context->heap->allocations;
-		context->heap->allocations = alc;
-		printf("allocated on actual heap:%p\n",(char*)out + sizeof(bug_allocation_t));
-
-		return (char*)out + sizeof(bug_allocation_t);
-	}else{
-		
-		void * out =(void*)context->heap->gen1_next;
-		size_t offset;
-		if (count %16 != 0){offset = count+16-count%16;} 
-		else{offset =count;}
-		offset += sizeof(bug_allocation_t);
-		if(context->heap->gen1_next+offset >= context->heap->gen1_heap_end){
-			gc_collect(context->base_ptr, context->stack_ptr, context->heap);
-			if(context->heap->gen1_next+offset >= context->heap->gen1_heap_end){
-				goto just_return;
-			}else{
-				out = (void*)context->heap->gen1_next;
-			}
+	if(!prev){
+		heap->allocations = 0;
+	}
+	cur = heap->tmp_allocations;	
+	while(cur){
+		if(cur->reachable){
+			size_t count = cur->is_objects? cur->object_count*sizeof(bug_node_t) : cur->object_count;
+			count += sizeof(bug_allocation_t);
+			bug_allocation_t * new_ptr = (bug_allocation_t*)malloc(count);
+			memcpy(new_ptr, cur, count);
+			new_ptr->next = heap->allocations;
+			heap->allocations = new_ptr;
+			gc_move_pointer(new_ptr+1,cur+1,base, end);
 		}
-		context->heap->gen1_next+= offset;
-		memset(out, 0, count+sizeof(bug_allocation_t));
-		bug_allocation_t * alc = out;
-		alc->next = context->heap->gen1;
-		alc->byte_count = offset;
-		alc->is_reachable = false;
-		context->heap->gen1 = alc;
-		printf("allocated on arena:%p offset = %zu\n",(char*)out + sizeof(bug_allocation_t) ,(char*)out-context->heap->gen1_heap);
-		return (char*)out+sizeof(bug_allocation_t);
 	}
+	heap->tmp_allocations =0;
+	heap->next_tmp_alloc = heap->temp_heap;
+	
+}
+void * gc_alloc(bug_context_t * context, size_t byte_count){
+	bug_allocation_t * out= (bug_allocation_t*)malloc(byte_count+sizeof(bug_allocation_t));
+	out->is_objects = false;
+	out->reachable = false;
+	out->next = context->heap->allocations;
+	out->object_count = byte_count;
+	context->heap->allocations = out;
+	context->heap->temp_heap = (char*)malloc(4096*16);
+	context->heap->next_tmp_alloc = context->heap->temp_heap;
+	context->heap->temp_heap_end = context->heap->temp_heap+4096*16;
+	return out+1;
+}
+bug_node_t * gc_new(bug_context_t * context, uint32_t object_count){		
+	bug_allocation_t * out= (bug_allocation_t*)malloc(object_count*sizeof(bug_node_t)+sizeof(bug_allocation_t));
+	out->is_objects = true;
+	out->reachable = false;
+	out->next = context->heap->allocations;
+	out->object_count = object_count;
+	context->heap->allocations = out;
+	void * ot = out+1;
+	return (bug_node_t*)ot;
 }
 bug_node_t bug_to_stringlong(bug_context_t *context){
 	char buff[100];
@@ -271,7 +346,7 @@ bug_node_t to_bug_string(bug_context_t * context,const char * chars){
 	return out;
 }
 bug_node_t * bug_make_captures(bug_context_t* context, int* values, size_t count){
-	bug_node_t * out = (bug_node_t*)gc_alloc(context,sizeof(bug_node_t)*(count+1));
+	bug_node_t * out = gc_new(context,count+1);
 	out[0].vtype = bug_integer;
 	out[0].car.integer = count;
 	out[0].cdr.integer =0;
@@ -281,8 +356,7 @@ bug_node_t * bug_make_captures(bug_context_t* context, int* values, size_t count
 	return out+1;
 }
 void free_heap(bug_context_t * context){
-	free(context->stack);
-	free(context->heap->gen1_heap);
+	free(context->stack);	
 	free(context->heap);
 	context->stack =0;
 }
@@ -299,64 +373,65 @@ static void debug_print_node(bug_node_t * node,int indentation){
 		for(int i =0; i<indentation; i++){
 			printf("   ");
 		}	
-	}
-	if(node->vtype == bug_integer){
+	}else if(node->vtype == bug_integer){
 		printf("%ld" ,node->car.integer);
 	}
-	if(node->vtype == bug_double){
+	else if(node->vtype == bug_double){
 		printf("%f" ,node->car.db);
 	}
-	if(node->vtype == bug_char){
+	else if(node->vtype == bug_char){
 		printf("%c" ,node->car.character);
 	}
-	if(node->vtype == bug_bool){
+	else if(node->vtype == bug_bool){
 		printf("%b" ,node->car.boolean);
 	}
-	if(node->vtype == bug_string){
+	else if(node->vtype == bug_string){
 		printf("\"%.*s\"" ,(int)(node->car.integer), node->cdr.char_ptr);
 	}
-	if(node->vtype == bug_list_ptr ){ 
+	else if(node->vtype == bug_list_ptr ){ 
 		debug_print_node(node->car.node, indentation+1);
 		debug_print_node(node->cdr.node, indentation+1);
 		for(int i =0; i<indentation; i++){
 			printf("   ");
 		}	
 	}	
-	if(node->vtype == bug_list_ptr ){ 
+	else if(node->vtype == bug_list_ptr ){ 
 		debug_print_node(node->car.node, indentation+1);
 		debug_print_node(node->cdr.node, indentation+1);
 		for(int i =0; i<indentation; i++){
 			printf("   ");
 		}	
 	}	
-	if(node->vtype == bug_list_integer){ 
+	else if(node->vtype == bug_list_integer){ 
 		printf("%ld\n", node->car.integer);	
 		debug_print_node(node->cdr.node, indentation+1);
 		for(int i =0; i<indentation; i++){
 			printf("   ");
 		}	
 	}	
-	if(node->vtype == bug_list_double){ 
+	else if(node->vtype == bug_list_double){ 
 		printf("%f\n", node->car.db);	
 		debug_print_node(node->cdr.node, indentation+1);
 		for(int i =0; i<indentation; i++){
 			printf("   ");
 		}	
 	}	
-	if(node->vtype == bug_list_char){ 
+	else if(node->vtype == bug_list_char){ 
 		printf("%c\n", node->car.character);	
 		debug_print_node(node->cdr.node, indentation+1);
 		for(int i =0; i<indentation; i++){
 			printf("   ");
 		}	
 	}	
-	if(node->vtype == bug_list_bool){ 
+	else if(node->vtype == bug_list_bool){ 
 		printf("%b\n", node->car.boolean);	
 		debug_print_node(node->cdr.node, indentation+1);
 		for(int i =0; i<indentation; i++){
 			printf("   ");
 		}	
-	}	
+	}else{
+		assert(false);
+	}
 	printf("}\n");
 
 
@@ -371,26 +446,27 @@ bug_node_t bug_empty_list(bug_context_t * context){
 	out.cdr.ptr= 0;
 	return out;
 }
-bug_node_t bug_list_cat(bug_context_t * context, bug_node_t base, bug_node_t end){
-	bug_node_t * out = (bug_node_t*)gc_alloc(context, sizeof(bug_node_t));
-	bug_node_t * box =(bug_node_t*)gc_alloc(context, sizeof(bug_node_t));
+bug_node_t bug_list_cat(bug_context_t * context, bug_node_t base, bug_node_t end){	
+	bug_node_t * out = (bug_node_t*)gc_new(context,1);
+	bug_node_t * box =(bug_node_t*)gc_new(context, 1);
 	*box = end;
 	out->vtype = bug_list_ptr;
 	out->cdr.node =0;
 	out->car.node = box;
-	if(!base.cdr.node){
-		base.cdr.node = out;
-		return base;
-	}
-	bug_node_t *cur = base.cdr.node;	
-	while(cur){	
-		if(!cur->cdr.node){
-			cur->cdr.node = out;
-			break;
+	if(base.cdr.node){
+		bug_node_t * node = base.cdr.node;
+		while(true){
+			if(!node->cdr.node){
+				node->cdr.node = out;
+				break;
+			}else{
+				node = node->cdr.node;
+			}
 		}
-		cur = cur->cdr.node;	
+	}else{
+		base.cdr.node = out;
 	}
-	return base;
+	return base;	
 }
 bug_node_t bug_cdr(bug_node_t node){
 	bug_node_t out;
@@ -400,7 +476,7 @@ bug_node_t bug_cdr(bug_node_t node){
 	return out;
 }
 bug_node_t bug_box_value(bug_context_t * context, bug_node_t node){
-	bug_node_t * p = (bug_node_t*)gc_alloc(context, sizeof(node));
+	bug_node_t * p = (bug_node_t*)gc_new(context, 1);
 	*p = node;
 	bug_node_t out;
 	out.cdr.node = p;
@@ -415,4 +491,7 @@ bug_node_t bug_is_a(bug_node_t b, bug_type_t t){
 	node.car.boolean = out;
 	node.cdr.integer = 0;
 	return node;
+}
+void runtime_checkups(bug_context_t * context){
+	gc_collect(context->stack, context->stack_ptr, context->heap);
 }

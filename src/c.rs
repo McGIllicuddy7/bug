@@ -405,6 +405,9 @@ pub fn compile_instruction(depth: usize, instruction: &Instruction, cinfo: &mut 
                 out += &compile_instruction(depth + 4, i, cinfo);
             }
             out += &indent(depth);
+            out += "runtime_checkups(&context);\n";
+
+            out += &indent(depth);
             out += &format!("goto l{};\n", loop_base);
             out += &format!("l{}:\n", loop_end);
             out += &indent(depth);
@@ -438,6 +441,8 @@ pub fn compile_instruction(depth: usize, instruction: &Instruction, cinfo: &mut 
                 out += &compile_instruction(depth + 4, i, cinfo);
             }
             out += &indent(depth);
+            out += "runtime_checkups(&context);\n";
+            out += &indent(depth);
             out += &format!("goto l{};\n", end);
             out += &format!("l{}:\n", end);
         }
@@ -460,6 +465,8 @@ pub fn compile_instruction(depth: usize, instruction: &Instruction, cinfo: &mut 
             out += &format!("{} = {};\n", write_var(left), write_var(right));
         }
         Instruction::Return { to_return } => {
+            out += "runtime_checkups(&context);\n";
+            out += &indent(depth);
             if let Some(v) = to_return {
                 out += &format!("return {};\n", write_var(v));
             } else {
@@ -537,9 +544,16 @@ pub fn compile_function(name: &str, func: &Function) -> String {
         for i in &func.ins {
             tmp += &compile_instruction(4, i, &mut cinfo);
         }
+        tmp += "    runtime_checkups(&context);\n";
         tmp += "}\n";
+        out += "    bug_node_t *arg_prev = context.stack_ptr;\n";
         out += &format!("    context.stack_ptr += {};\n", cinfo.var_count);
+        out += &format!(
+            "    memset(arg_prev, 0, sizeof(bug_node_t)*{});\n",
+            cinfo.var_count
+        );
         out += &tmp;
+
         out
     }
 }

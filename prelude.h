@@ -6,7 +6,8 @@
 #include <stdbool.h>
 struct bug_node_t;
 //generally cdr stores any pointers
-typedef enum{
+typedef enum:size_t{
+	bug_undefined_type,
 	bug_ptr,
 	bug_integer,
 	bug_double,
@@ -39,17 +40,18 @@ typedef struct bug_node_t{
 	bug_value_t cdr;
 }bug_node_t;
 typedef struct bug_allocation_t {	
-	uint16_t is_reachable;
-	uint16_t reached_move;
-	uint32_t byte_count;
+	bool reachable;
+	bool moved_reachable;
+	bool is_objects;
+	size_t object_count;
 	struct bug_allocation_t * next;
 } bug_allocation_t;
 typedef struct {
 	bug_allocation_t * allocations;
-	bug_allocation_t * gen1;
-	char * gen1_heap;
-	char * gen1_next;
-	char * gen1_heap_end;
+	bug_allocation_t * tmp_allocations;
+	char * temp_heap;
+	char * next_tmp_alloc;
+	char * temp_heap_end;
 }bug_heap_t;
 
 typedef struct bug_context_t{
@@ -59,6 +61,7 @@ typedef struct bug_context_t{
 	bug_node_t * stack_end;
 	bug_node_t * captures;
 	bug_heap_t * heap;
+	bool gc_lock;
 }bug_context_t;
 bug_context_t bug_create_context();
 bug_context_t bug_reserve_stack_space(bug_context_t * context,size_t object_count);
@@ -77,3 +80,4 @@ void gc_collect(bug_node_t * base, bug_node_t * end, bug_heap_t * heap);
 bug_node_t bug_is_a(bug_node_t b, bug_type_t t);
 void free_heap(bug_context_t* context);
 void debug_node(bug_node_t* node);
+void runtime_checkups(bug_context_t * context);
