@@ -1,6 +1,9 @@
 #include "prelude.h"
 //every allocation either contains structured data in the form of bug_objects or just bytes (string)
 void local_move_ptr(void * base_ptr, void * to_move_to, bug_node_t * node, bool is_root){
+	if(!node){
+		return;
+	}
 	if(!is_root){
 		bug_allocation_t * alc =(void*)((char*)node-sizeof(bug_allocation_t));
 		if(alc->reached_move){
@@ -12,7 +15,7 @@ void local_move_ptr(void * base_ptr, void * to_move_to, bug_node_t * node, bool 
 	if(node->vtype == bug_ptr){
 		bug_node_t * nd = node->cdr.node;
 		if(nd == base_ptr){
-			node->car.node = to_move_to;
+			node->cdr.node = to_move_to;
 			nd = to_move_to;
 		}
 		for(long i =0; i<node->car.integer; i++){
@@ -32,7 +35,6 @@ void local_move_ptr(void * base_ptr, void * to_move_to, bug_node_t * node, bool 
 			base = node->cdr.node-1; 
 		}
 		long l = base->car.integer;
-		base += 1;
 		for(long i =0 ;i<l; i++){
 			local_move_ptr(base_ptr, to_move_to,base+i,false);
 		}
@@ -55,22 +57,29 @@ void local_move_ptr(void * base_ptr, void * to_move_to, bug_node_t * node, bool 
 	}
 }
 void move_pointer(void * base_ptr, void * to_move_to, bug_node_t * start, bug_node_t * end, bug_heap_t * heap){
+	printf("moved %p, to %p\n", base_ptr, to_move_to);
 	bug_allocation_t * cur = heap->gen1;
 	while(cur){	
-		cur = cur->next;
 		cur->reached_move = false;
+		cur = cur->next;
 	}
 	cur = heap->allocations;
 	while(cur){
-		cur = cur->next;
+		printf("%p\n",cur);
 		cur->reached_move = false;
+		cur = cur->next;
 	}
 	for(bug_node_t * b = start; b != end; b++){
 		local_move_ptr(base_ptr, to_move_to, b,  true);		
 	}
 }
 void mark_reachable_from(bug_node_t * node, bool is_root){
+	if(!node){
+		return;
+	}
+	//debug_node(node);
 	if(!is_root){	
+		printf("marked reachable:%p\n", node);
 		bug_allocation_t * alloc = (bug_allocation_t*)((char*)node-16);
 		if(alloc->is_reachable){
 			return;
@@ -80,6 +89,7 @@ void mark_reachable_from(bug_node_t * node, bool is_root){
 	if(node->vtype == bug_ptr){
 		bug_node_t * nd = node->cdr.node;
 		for(long i =0; i<node->car.integer; i++){
+			printf("%p points to %p\n",node, nd+i);
 			mark_reachable_from(nd+i, false);
 		}
 	}
@@ -96,36 +106,45 @@ void mark_reachable_from(bug_node_t * node, bool is_root){
 			mark_reachable_from(base+i,false);
 		}
 	}
-	if(node->vtype == bug_list_ptr){
+	if(node->vtype == bug_list_ptr){	
 		mark_reachable_from(node->car.node,false);
 		mark_reachable_from(node->cdr.node,false);
 	}
 	if(node->vtype == bug_list_integer || node->vtype == bug_list_double || node->vtype == bug_list_char || node->vtype == bug_list_bool){	
 		mark_reachable_from(node->cdr.node,false);
+
 	}
 }
 void gc_collect(bug_node_t * base, bug_node_t *end, bug_heap_t * heap){
+	printf("gc begin\n");
 	bug_allocation_t * cur = heap->allocations;	
-	while(cur){
+	while(cur){	
 		cur->is_reachable = false;
 		cur = cur->next;
 	}
-	for(bug_node_t * node = base; node != end; node++){
-		mark_reachable_from(node,true);
+	cur = heap->gen1;
+	while(cur){
+		cur->is_reachable = false;
+		cur = cur->next;
+	
+	}	
+	for(bug_node_t * node = base; node != end; node++){	
+		mark_reachable_from(node,true);	
 	}
 	cur = heap->gen1;
 	while(cur){
 		if(cur->is_reachable){
+			printf("%p is reachable\n",cur+sizeof(bug_allocation_t));
 			void * s = malloc(cur->byte_count);
 			memcpy(s, cur, cur->byte_count);
 			move_pointer((char*)cur+sizeof(bug_allocation_t),(char*)s+sizeof(bug_allocation_t), base, end, heap);
 			((bug_allocation_t*)s)->next = heap->allocations;
 			heap->allocations = s;
 		} else {
-//			printf("allocation from gen1 :%p is unreachable\n", cur);
+		//	printf("allocation from gen1 :%p is unreachable\n", cur);
 		}
 		cur = cur->next;
-	}
+	}	
 	cur = heap->allocations;
 	bug_allocation_t *old =0;
 	while(cur){
@@ -136,13 +155,17 @@ void gc_collect(bug_node_t * base, bug_node_t *end, bug_heap_t * heap){
 			}else{
 				heap->allocations = next;
 			}
+			printf("collection freed:%p\n", cur+1);
 			free(cur);
 		}else{
-//		printf("allocation from heap :%p is unreachable\n", cur);
+//			printf("allocation from heap :%p is unreachable\n", cur);
 			old = cur;
 		}
 		cur = next;
 	}
+//	printf("%p, %p\n",heap->gen1_next ,heap->gen1_heap);
+	heap->gen1_next = heap->gen1_heap;
+	printf("gc end\n");
 }
 
 bug_context_t bug_create_context(){
@@ -166,10 +189,13 @@ void * gc_alloc(bug_context_t* context, size_t count){
 		void * out;
 	just_return:
 		out = malloc(count+sizeof(bug_allocation_t));
+		memset(out, 0, count+sizeof(bug_allocation_t));
 		bug_allocation_t * alc = out;
 		alc->byte_count = count+sizeof(bug_allocation_t);
 		alc->next = context->heap->allocations;
 		context->heap->allocations = alc;
+		printf("allocated on actual heap:%p\n",(char*)out + sizeof(bug_allocation_t));
+
 		return (char*)out + sizeof(bug_allocation_t);
 	}else{
 		
@@ -182,14 +208,18 @@ void * gc_alloc(bug_context_t* context, size_t count){
 			gc_collect(context->base_ptr, context->stack_ptr, context->heap);
 			if(context->heap->gen1_next+offset >= context->heap->gen1_heap_end){
 				goto just_return;
+			}else{
+				out = (void*)context->heap->gen1_next;
 			}
 		}
 		context->heap->gen1_next+= offset;
+		memset(out, 0, count+sizeof(bug_allocation_t));
 		bug_allocation_t * alc = out;
 		alc->next = context->heap->gen1;
 		alc->byte_count = offset;
 		alc->is_reachable = false;
 		context->heap->gen1 = alc;
+		printf("allocated on arena:%p offset = %zu\n",(char*)out + sizeof(bug_allocation_t) ,(char*)out-context->heap->gen1_heap);
 		return (char*)out+sizeof(bug_allocation_t);
 	}
 }
@@ -337,7 +367,7 @@ void debug_node(bug_node_t * node){
 bug_node_t bug_empty_list(bug_context_t * context){
 	bug_node_t out;
 	out.vtype = bug_ptr;;
-	out.car.integer =0;
+	out.car.integer =1;
 	out.cdr.ptr= 0;
 	return out;
 }
@@ -345,19 +375,20 @@ bug_node_t bug_list_cat(bug_context_t * context, bug_node_t base, bug_node_t end
 	bug_node_t * out = (bug_node_t*)gc_alloc(context, sizeof(bug_node_t));
 	bug_node_t * box =(bug_node_t*)gc_alloc(context, sizeof(bug_node_t));
 	*box = end;
+	out->vtype = bug_list_ptr;
 	out->cdr.node =0;
 	out->car.node = box;
 	if(!base.cdr.node){
 		base.cdr.node = out;
 		return base;
 	}
-	bug_node_t *cur = base.cdr.node;
-	while(true){
+	bug_node_t *cur = base.cdr.node;	
+	while(cur){	
 		if(!cur->cdr.node){
 			cur->cdr.node = out;
 			break;
 		}
-		cur = cur->cdr.node;
+		cur = cur->cdr.node;	
 	}
 	return base;
 }

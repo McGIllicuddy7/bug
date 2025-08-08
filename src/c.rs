@@ -249,7 +249,7 @@ pub fn compile_instruction(depth: usize, instruction: &Instruction, cinfo: &mut 
                             &var_get(output.as_ref().unwrap()),
                         );
                         out += &format!(
-                            "{}.{}-{}.{}",
+                            "{}.{}-{}.{};",
                             &write_var(&arguments[0]),
                             &var_get(&arguments[0]),
                             &write_var(&arguments[1]),
@@ -266,7 +266,7 @@ pub fn compile_instruction(depth: usize, instruction: &Instruction, cinfo: &mut 
                             &var_get(output.as_ref().unwrap()),
                         );
                         out += &format!(
-                            "{}.{}/{}.{}",
+                            "{}.{}/{}.{};",
                             &write_var(&arguments[0]),
                             &var_get(&arguments[0]),
                             &write_var(&arguments[1]),
@@ -283,7 +283,7 @@ pub fn compile_instruction(depth: usize, instruction: &Instruction, cinfo: &mut 
                             &var_get(output.as_ref().unwrap()),
                         );
                         out += &format!(
-                            "{}.{}/{}.{}",
+                            "{}.{}*{}.{};",
                             &write_var(&arguments[0]),
                             &var_get(&arguments[0]),
                             &write_var(&arguments[1]),
