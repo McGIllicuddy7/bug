@@ -1,24 +1,13 @@
 #include "prelude.h"
-extern bug_node_t bug_printbug_string(bug_context_t * in_context);
+extern void bug_lamdba0(bug_context_t * in_context);
+extern void bug_lamdba0(bug_context_t * in_context);
 extern bug_node_t bug_testbug_string(bug_context_t * in_context);
 extern bug_node_t bug_to_stringlong(bug_context_t * in_context);
 extern bug_node_t bug_to_stringdouble(bug_context_t * in_context);
-extern void bug_lamdba0(bug_context_t * in_context);
-extern void bug_lamdba0(bug_context_t * in_context);
-extern bug_node_t bug_main(bug_context_t * in_context);
-extern bug_node_t bug_main(bug_context_t * in_context);
 extern bug_node_t bug_printlnbug_string(bug_context_t * in_context);
-bug_node_t bug_testbug_string(bug_context_t * in_context){
-    bug_context_t context = *in_context;bug_context_t out_context = context;
-    bug_node_t *arg_prev = context.stack_ptr;
-    context.stack_ptr += 1;
-    memset(arg_prev, 0, sizeof(bug_node_t)*1);
-        context.stack[1] = (bug_node_t){.vtype = bug_void_fn,.car= (bug_value_t){.void_fn =bug_lamdba0},.cdr = {.ptr = bug_make_captures(&context,(int[]){0},1)}};
-    runtime_checkups(&context);
-    return context.stack[1];
-    runtime_checkups(&context);
-}
-
+extern bug_node_t bug_main(bug_context_t * in_context);
+extern bug_node_t bug_main(bug_context_t * in_context);
+extern bug_node_t bug_printbug_string(bug_context_t * in_context);
 void bug_lamdba0(bug_context_t * in_context){
     bug_context_t context = *in_context;bug_context_t out_context = context;
     bug_node_t *arg_prev = context.stack_ptr;
@@ -28,6 +17,17 @@ void bug_lamdba0(bug_context_t * in_context){
     out_context.stack= out_context.stack_ptr;
     *out_context.stack_ptr = context.captures[0];out_context.stack_ptr++;
     context.stack[0] = bug_printlnbug_string(&out_context);
+    runtime_checkups(&context);
+}
+
+bug_node_t bug_testbug_string(bug_context_t * in_context){
+    bug_context_t context = *in_context;bug_context_t out_context = context;
+    bug_node_t *arg_prev = context.stack_ptr;
+    context.stack_ptr += 1;
+    memset(arg_prev, 0, sizeof(bug_node_t)*1);
+        context.stack[1] = (bug_node_t){.vtype = bug_void_fn,.car= (bug_value_t){.void_fn =bug_lamdba0},.cdr = {.ptr = bug_make_captures(&context,(int[]){0},1)}};
+    runtime_checkups(&context);
+    return context.stack[1];
     runtime_checkups(&context);
 }
 
