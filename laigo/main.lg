@@ -1,0 +1,11 @@
+global _main
+_main:
+	begin func
+	i1 = 2
+	i2 = 2
+	i0 = i1+i2
+	i3 = i0
+	i0 = 0
+	int 1
+	end func
+	ret
