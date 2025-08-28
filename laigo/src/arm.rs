@@ -18,23 +18,40 @@ pub fn compile_ins(ins_list: &[LaigoIns], idx: usize) -> String {
                 BinopType::Sub => "sub",
                 BinopType::Mul => "mul",
                 BinopType::Div => "div",
-                BinopType::Equal => todo!(),
-                BinopType::Greater => todo!(),
-                BinopType::Less => todo!(),
+                BinopType::Equal => "cmp",
+                BinopType::Greater => "cmp",
+                BinopType::Less => "cmp",
                 BinopType::And => "and",
                 BinopType::Or => "or",
                 BinopType::Xor => "xor",
             };
-            return format!(
+            let l1 = left.get_imm_arm();
+            let l2 = right.get_imm_arm();
+            let out = output.get_imm_arm();
+            match binop_type{
+                BinopType::Greater=>{
+                    format!("subs {}, {}, {}\n    cset {}, gt\n", l1, out, l2,out)
+                }
+                BinopType::Equal=>{
+                    format!("subs {}, {}, {}\n    cset {}, eq\n", l1, out, l2,out) 
+                }
+                BinopType::Less=>{
+                     format!("subs {}, {}, {}\n    cset {}, lt\n", l1, out, l2,out) 
+                }
+                _=>{
+                return format!(
                 "   {} {}, {}, {}\n",
                 op,
                 left.get_imm_arm(),
                 right.get_imm_arm(),
                 output.get_imm_arm()
-            );
+                );
+
+                }
+            }
         }
         LaigoIns::Not { left, right } => {
-            todo!()
+            return format!("not {}, {}\n",right.get_imm_arm(), left.get_imm_arm());
         }
         LaigoIns::Assign { left, right } => {
             if left.is_reg() {
@@ -49,14 +66,15 @@ pub fn compile_ins(ins_list: &[LaigoIns], idx: usize) -> String {
             }
         }
         LaigoIns::Jmp { target } => {
-            todo!()
+            return format!("   b {}\n", target.get_imm_arm());
         }
         LaigoIns::If {
             condition,
             left,
             right,
         } => {
-            todo!()
+             return format!("    cbz {},{}\n    b {}\n", condition.get_imm_arm(), left.get_imm_arm(), right.get_imm_arm());
+
         }
         LaigoIns::Call { to_call } => {
             format!("bl {}\n", to_call.get_imm_arm())
@@ -87,7 +105,7 @@ pub fn compile(prog: LaigoUnit, name: &str) {
     }
     for i in 0..prog.instructions.len() {
         if let Some(p) = prog.label_indexs.get(&i) {
-            out += &format!("{p}:\n");
+            out += &format!("_{p}:\n");
         }
         out += &compile_ins(&prog.instructions, i);
     }

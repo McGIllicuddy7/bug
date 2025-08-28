@@ -41,6 +41,8 @@ pub enum Register {
     F5,
     F6,
     F7,
+    Out0, 
+    Out1,
 }
 #[derive(Clone, Debug)]
 pub enum LaigoOp {
@@ -141,18 +143,98 @@ impl LaigoOp {
                 Register::R7 => {
                     format!("x7")
                 }
+                Register::Out0=>{
+                    format!("x0")
+                }
+                Register::Out1=>{
+                    format!("x1")
+                }
+
                 _ => todo!(),
             },
             Self::Integer { v } => format!("#{v}"),
             Self::Ptr { v } => format!("#{v}"),
-            Self::Symbol { v } => format!("{v}"),
+            Self::Symbol { v } => format!("_{v}"),
             _ => todo!(),
         }
     }
     pub fn get_mem_op_arm(&self) -> String {
         match self {
             Self::StackOperand { word_offset } => {
-                format!("[fp,{}]", word_offset * 8)
+                format!("[fp,#-{}]", word_offset * 8)
+            }
+            _ => todo!(),
+        }
+    }
+pub fn get_imm_x86(&self) -> String {
+        match self {
+            Self::Register { idx } => match idx {
+                Register::I0 => {
+                    format!("rdi")
+                }
+                Register::I1 => {
+                    format!("rsi")
+                }
+                Register::I2 => {
+                    format!("rdx")
+                }
+                Register::I3 => {
+                    format!("rcx")
+                }
+                Register::I4 => {
+                    format!("r8")
+                }
+                Register::I5 => {
+                    format!("r9")
+                }
+                Register::I6 => {
+                    format!("rax")
+                }
+                Register::I7 => {
+                    format!("rbx")
+                }
+                Register::R0 => {
+                    format!("rdi")
+                }
+                Register::R1 => {
+                    format!("rsi")
+                }
+                Register::R2 => {
+                    format!("rdx")
+                }
+                Register::R3 => {
+                    format!("rcx")
+                }
+                Register::R4 => {
+                    format!("r8")
+                }
+                Register::R5 => {
+                    format!("r9")
+                }
+                Register::R6 => {
+                    format!("rax")
+                }
+                Register::R7 => {
+                    format!("rbx")
+                }
+                Register::Out0=>{
+                    format!("rax")
+                }
+                Register::Out1=>{
+                    format!("rbx")
+                }
+                _ => todo!(),
+            },
+            Self::Integer { v } => format!("{v}"),
+            Self::Ptr { v } => format!("{v}"),
+            Self::Symbol { v } => format!("{v}"),
+            _ => todo!(),
+        }
+    }
+    pub fn get_mem_op_x86(&self) -> String {
+        match self {
+            Self::StackOperand { word_offset } => {
+                format!("[rbp-{}]", word_offset * 8)
             }
             _ => todo!(),
         }
@@ -442,7 +524,13 @@ impl Compiler {
                 return Err(format!("line:{}, no such register{}", line[*idx].line, s).into());
             }
             *idx += 1;
-        } else {
+        } else if s == "out0"{
+            out = LaigoOp::Register{idx:Register::Out0};
+            *idx += 1;
+        }else if s == "out1"{
+            out = LaigoOp::Register{idx:Register::Out1};
+            *idx += 1; 
+        }else {
             out = LaigoOp::Symbol { v: s.into() };
             *idx += 1;
         }
@@ -565,6 +653,18 @@ impl Compiler {
             }
         } else if line[0].s.as_ref() == "global" {
             self.globals.push(line[1].s.to_string());
+            return Ok(());
+        }else if line[0].s.as_ref() == "if"{
+            let mut idx =1;
+            let cond = Self::expect_op(line,&mut idx)?;
+            let l1 = Self::expect_op(line, &mut idx)?;
+            let l2 = Self::expect_op(line, &mut idx)?;
+            self.ins.push(LaigoIns::If{condition:cond, left:l1, right:l2});
+            return Ok(());
+        }else if line[0].s.as_ref() == "jmp"{
+            let mut idx =1;
+            let to = Self::expect_op(line, &mut idx)?;
+            self.ins.push(LaigoIns::Jmp{target:to});
             return Ok(());
         }
         let mut idx = 0;
