@@ -28,80 +28,136 @@ pub fn compile_ins(ins_list: &[LaigoIns], idx: usize) -> String {
             let l1 = left.get_imm_arm();
             let l2 = right.get_imm_arm();
             let out = output.get_imm_arm();
-            match binop_type{
-                BinopType::Greater=>{
-                    format!("subs {}, {}, {}\n    cset {}, gt\n", l1, out, l2,out)
+            match binop_type {
+                BinopType::Greater => {
+                    format!("    subs {}, {}, {}\n    cset {}, gt\n", l1, out, l2, out)
                 }
-                BinopType::Equal=>{
-                    format!("subs {}, {}, {}\n    cset {}, eq\n", l1, out, l2,out) 
+                BinopType::Equal => {
+                    format!("    subs {}, {}, {}\n    cset {}, eq\n", l1, out, l2, out)
                 }
-                BinopType::Less=>{
-                     format!("subs {}, {}, {}\n    cset {}, lt\n", l1, out, l2,out) 
+                BinopType::Less => {
+                    format!("    subs {}, {}, {}\n    cset {}, lt\n", l1, out, l2, out)
                 }
-                _=>{
-                return format!(
-                "   {} {}, {}, {}\n",
-                op,
-                left.get_imm_arm(),
-                right.get_imm_arm(),
-                output.get_imm_arm()
-                );
-
+                _ => {
+                    format!(
+                        "   {} {}, {}, {}\n",
+                        op,
+                        output.get_imm_arm(),
+                        left.get_imm_arm(),
+                        right.get_imm_arm()
+                    )
                 }
             }
         }
         LaigoIns::Not { left, right } => {
-            return format!("not {}, {}\n",right.get_imm_arm(), left.get_imm_arm());
+            format!("    not {}, {}\n", right.get_imm_arm(), left.get_imm_arm())
         }
         LaigoIns::Assign { left, right } => {
             if left.is_reg() {
                 if right.is_num_or_reg() {
-                    return format!("    mov {}, {}\n", left.get_imm_arm(), right.get_imm_arm());
+                    format!("    mov {}, {}\n", left.get_imm_arm(), right.get_imm_arm())
                 } else {
-                    return format!("ldr {}, {}", left.get_imm_arm(), right.get_mem_op_arm());
+                    match right {
+                        LaigoOp::TakeRef { to_take_ref } => {
+                            format!(
+                                "    mov {}, {}\n    sub {}, {}, {}\n",
+                                left.get_imm_arm(),
+                                to_take_ref.get_as_ref_arm().0,
+                                left.get_imm_arm(),
+                                left.get_imm_arm(),
+                                to_take_ref.get_as_ref_arm().1,
+                            )
+                        }
+                        LaigoOp::Symbol { v } => {
+                            format!(
+                                "   adrp {}, _{}@PAGE\n    add {}, {}, _{}@PAGEOFF\n",
+                                left.get_imm_arm(),
+                                v,
+                                left.get_imm_arm(),
+                                left.get_imm_arm(),
+                                v
+                            )
+                        }
+                        _ => {
+                            format!(
+                                "   ldr {}, {}\n",
+                                left.get_imm_arm(),
+                                right.get_mem_op_arm()
+                            )
+                        }
+                    }
                 }
             } else {
                 assert!(right.is_reg());
-                return format!("str {}, {}", right.get_imm_arm(), left.get_mem_op_arm());
+                format!(
+                    "    str {}, {}\n",
+                    right.get_imm_arm(),
+                    left.get_mem_op_arm()
+                )
             }
         }
         LaigoIns::Jmp { target } => {
-            return format!("   b {}\n", target.get_imm_arm());
+            format!("   b {}\n", target.get_imm_arm())
         }
         LaigoIns::If {
             condition,
             left,
             right,
         } => {
-             return format!("    cbz {},{}\n    b {}\n", condition.get_imm_arm(), left.get_imm_arm(), right.get_imm_arm());
-
+            format!(
+                "    cbz {},{}\n    b {}\n",
+                condition.get_imm_arm(),
+                left.get_imm_arm(),
+                right.get_imm_arm()
+            )
         }
         LaigoIns::Call { to_call } => {
-            format!("bl {}\n", to_call.get_imm_arm())
+            format!("    blr {}\n", to_call.get_imm_arm())
         }
         LaigoIns::Syscall { call } => {
-            format!("bl _interupt\n")
+            format!("    bl _interupt\n")
         }
         LaigoIns::Ret => {
-            format!("mov sp, fp\n ldr lr, [sp, #8]\n ldr fp,[sp, #8]\n")
-        }
-        LaigoIns::Noop => {
-            todo!()
-        }
-        LaigoIns::FnBegin => {
             format!(
-                "sub sp, sp ,#16\n str fp, [sp, #-8]\n str lr ,[sp, #-16]\nmov fp, sp\n sub fp, fp, #16\n"
+                "    mov sp, fp\n    ldr fp, [sp, #8]\n   ldr lr, [sp, #16]\n    add sp, sp, #16\n    ret\n"
+            )
+        }
+        LaigoIns::Noop => "    nop\n".into(),
+        LaigoIns::FnBegin => {
+            let mut depth = 0;
+            for i in idx + 1..ins_list.len() {
+                match &ins_list[i] {
+                    LaigoIns::Declare { count } => {
+                        depth += count;
+                    }
+                    LaigoIns::FnEnd => {
+                        break;
+                    }
+                    _ => continue,
+                }
+            }
+            if depth % 2 != 0 {
+                depth += 1;
+            }
+            format!(
+                "    sub sp, sp, #16\n    str fp, [sp, #16]\n    str lr, [sp, #16]\n    mov fp, sp\n    sub sp, sp, {}\n",
+                depth * 8
             )
         }
         LaigoIns::FnEnd => {
-            format!("")
+            format!(
+                "    mov sp, fp\n    ldr fp, [sp, #8]\n   ldr lr, [sp, #16]\n    add sp, sp, #16\n    ret\n"
+            )
         }
     }
 }
 pub fn compile(prog: LaigoUnit, name: &str) {
     let mut out = String::from(".extern _interupt\n");
     for i in prog.globals {
-        out += &format!(".global {}\n", i);
+        out += &format!(".global _{}\n", i);
+    }
+    for i in prog.externs {
+        out += &format!(".extern _{}\n", i);
     }
     for i in 0..prog.instructions.len() {
         if let Some(p) = prog.label_indexs.get(&i) {

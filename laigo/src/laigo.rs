@@ -1,4 +1,4 @@
-pub use std::collections::HashMap;
+pub use std::collections::{HashMap, HashSet};
 pub use std::error::Error;
 pub use std::sync::Arc;
 #[derive(Copy, Clone, Debug)]
@@ -41,7 +41,7 @@ pub enum Register {
     F5,
     F6,
     F7,
-    Out0, 
+    Out0,
     Out1,
 }
 #[derive(Clone, Debug)]
@@ -82,7 +82,6 @@ impl LaigoOp {
             Self::Register { idx: _ } => true,
             Self::Ptr { v: _ } => true,
             Self::Integer { v: _ } => true,
-            Self::Symbol { v: _ } => true,
             _ => false,
         }
     }
@@ -143,10 +142,10 @@ impl LaigoOp {
                 Register::R7 => {
                     format!("x7")
                 }
-                Register::Out0=>{
+                Register::Out0 => {
                     format!("x0")
                 }
-                Register::Out1=>{
+                Register::Out1 => {
                     format!("x1")
                 }
 
@@ -163,10 +162,23 @@ impl LaigoOp {
             Self::StackOperand { word_offset } => {
                 format!("[fp,#-{}]", word_offset * 8)
             }
+            Self::Deref { to_deref } => match to_deref.as_ref() {
+                LaigoOp::Register { idx: _ } => {
+                    format!("[{},#0]", to_deref.get_imm_arm())
+                }
+                _ => todo!(),
+            },
+            Self::Symbol { v } => v.as_ref().into(),
             _ => todo!(),
         }
     }
-pub fn get_imm_x86(&self) -> String {
+    pub fn get_as_ref_arm(&self) -> (String, String) {
+        match self {
+            Self::StackOperand { word_offset } => (format!("fp"), format!("{}", word_offset * 8)),
+            _ => todo!(),
+        }
+    }
+    pub fn get_imm_x86(&self) -> String {
         match self {
             Self::Register { idx } => match idx {
                 Register::I0 => {
@@ -217,10 +229,10 @@ pub fn get_imm_x86(&self) -> String {
                 Register::R7 => {
                     format!("rbx")
                 }
-                Register::Out0=>{
+                Register::Out0 => {
                     format!("rax")
                 }
-                Register::Out1=>{
+                Register::Out1 => {
                     format!("rbx")
                 }
                 _ => todo!(),
@@ -302,6 +314,7 @@ pub struct LaigoUnit {
     pub instructions: Vec<LaigoIns>,
     pub data_table: HashMap<String, LaigoValue>,
     pub globals: Vec<String>,
+    pub externs: Vec<String>,
 }
 #[derive(Clone, Debug)]
 pub struct TokenOwned {
@@ -423,12 +436,14 @@ pub fn parse_to_unit(s: &str) -> Result<LaigoUnit, Box<dyn Error>> {
         instructions: compiler.ins,
         data_table: compiler.statics,
         globals: compiler.globals,
+        externs: compiler.externs,
     })
 }
 pub struct Compiler {
     pub in_fn: bool,
     pub ins: Vec<LaigoIns>,
     pub statics: HashMap<String, LaigoValue>,
+    pub externs: Vec<String>,
     pub labels: HashMap<String, usize>,
     pub label_idxes: HashMap<usize, String>,
     pub globals: Vec<String>,
@@ -524,14 +539,27 @@ impl Compiler {
                 return Err(format!("line:{}, no such register{}", line[*idx].line, s).into());
             }
             *idx += 1;
-        } else if s == "out0"{
-            out = LaigoOp::Register{idx:Register::Out0};
+        } else if s == "out0" {
+            out = LaigoOp::Register {
+                idx: Register::Out0,
+            };
             *idx += 1;
-        }else if s == "out1"{
-            out = LaigoOp::Register{idx:Register::Out1};
-            *idx += 1; 
-        }else {
-            out = LaigoOp::Symbol { v: s.into() };
+        } else if s == "out1" {
+            out = LaigoOp::Register {
+                idx: Register::Out1,
+            };
+            *idx += 1;
+        } else {
+            if let Ok(p) = s.parse() {
+                out = LaigoOp::Ptr { v: p };
+            } else if let Ok(p) = s.parse() {
+                out = LaigoOp::Integer { v: p };
+            } else if let Ok(p) = s.parse() {
+                out = LaigoOp::Double { v: p };
+            } else {
+                out = LaigoOp::Symbol { v: s.into() };
+            }
+
             *idx += 1;
         }
         if *idx < line.len() && line[*idx].s.as_ref() == "[" {
@@ -588,6 +616,7 @@ impl Compiler {
             labels: HashMap::new(),
             label_idxes: HashMap::new(),
             globals: Vec::new(),
+            externs: Vec::new(),
         }
     }
     pub fn compile_line(&mut self, mut line: &[TokenOwned]) -> Result<(), Box<dyn Error>> {
@@ -604,7 +633,7 @@ impl Compiler {
             line = &line[1..];
             self.ins.push(LaigoIns::Declare { count: 1 });
         } else if line[0].s.as_ref() == "call" {
-            let op = Self::expect_op(line, &mut 0)?;
+            let op = Self::expect_op(line, &mut 1)?;
             self.ins.push(LaigoIns::Call { to_call: op });
             return Ok(());
         } else if line[0].s.as_ref() == "ret" {
@@ -654,17 +683,24 @@ impl Compiler {
         } else if line[0].s.as_ref() == "global" {
             self.globals.push(line[1].s.to_string());
             return Ok(());
-        }else if line[0].s.as_ref() == "if"{
-            let mut idx =1;
-            let cond = Self::expect_op(line,&mut idx)?;
+        } else if line[0].s.as_ref() == "extern" {
+            self.externs.push(line[1].s.to_string());
+            return Ok(());
+        } else if line[0].s.as_ref() == "if" {
+            let mut idx = 1;
+            let cond = Self::expect_op(line, &mut idx)?;
             let l1 = Self::expect_op(line, &mut idx)?;
             let l2 = Self::expect_op(line, &mut idx)?;
-            self.ins.push(LaigoIns::If{condition:cond, left:l1, right:l2});
+            self.ins.push(LaigoIns::If {
+                condition: cond,
+                left: l1,
+                right: l2,
+            });
             return Ok(());
-        }else if line[0].s.as_ref() == "jmp"{
-            let mut idx =1;
+        } else if line[0].s.as_ref() == "jmp" {
+            let mut idx = 1;
             let to = Self::expect_op(line, &mut idx)?;
-            self.ins.push(LaigoIns::Jmp{target:to});
+            self.ins.push(LaigoIns::Jmp { target: to });
             return Ok(());
         }
         let mut idx = 0;

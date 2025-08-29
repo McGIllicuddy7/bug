@@ -1,42 +1,22 @@
-.intel_syntax noprefix
-.extern interupt
-.global main
-main:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 8
-    sub rsp,16
-    mov rsi, 2
-    mov rdx, 8
-    push rdx
-    imul rdx, rsi
-    mov rsi, rdx
- pop rdx
-    mov rdi, 0
-    mov rsi, [rbp-0]
-    call interupt
-    mov rsi, [rbp-0]
-   push rax
-   cmp rsi, 2
-   setg al
-    movzx rdi,al
-   pop rax
-    cmp rdi,0
-     je l1
-    jmp l2
-l1:
-    mov rdi, 0
-    mov rsi, 3
-    call interupt
-    jmp end
-l2:
-    mov rdi, 0
-    mov rsi, 100
-    call interupt
-end:
-mov rsp, rbp
-    pop rbp
+.extern _interupt
+.global _main
+.extern _hello_world
+_main:
+    sub sp, sp, #16
+    str fp, [sp, #16]
+    str lr, [sp, #16]
+    mov fp, sp
+    sub sp, sp, 0
+   adrp x0, _hello_world@PAGE
+    add x0, x0, _hello_world@PAGEOFF
+    blr x0
+    mov sp, fp
+    ldr fp, [sp, #8]
+   ldr lr, [sp, #16]
+    add sp, sp, #16
     ret
-    mov rsp, rbp
-    pop rbp
+    mov sp, fp
+    ldr fp, [sp, #8]
+   ldr lr, [sp, #16]
+    add sp, sp, #16
     ret

@@ -11,3 +11,6 @@ size_t interupt(size_t cd, reg_t x0, reg_t x1 ){
     }
     return 0;
 }
+void hello_world(){
+    printf("hello world\n");
+}

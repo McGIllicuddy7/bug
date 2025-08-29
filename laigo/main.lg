@@ -1,25 +1,8 @@
 global main
+extern hello_world
 main:
 	begin func
-	let x0
-	i1 = 2
-	i2 = 8
-	i1 = i2*i1
-	i0 = 0
-	x0  = i1
-	int 1
-	i1 = x0
-	i0 = i1 > 2
-	if i0 l1 l2	
-	l1: 
-	i0 = 0
-	i1 = 3
-	int 1
-	jmp end
-	l2:
-	i0 = 0
-	i1 = 100
-	int 1
-	end:
-	end func
+	i0 = hello_world
+	call i0
 	ret
+	end func
