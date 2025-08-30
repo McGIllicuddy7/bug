@@ -12,18 +12,34 @@ pub fn compile_ins(ins_list: &[LaigoIns], idx: usize) -> String {
             binop_type,
         } => {
             assert!(output.is_reg() && left.is_num_or_reg() && right.is_num_or_reg());
-            let op = match binop_type {
-                BinopType::None => todo!(),
-                BinopType::Add => "add",
-                BinopType::Sub => "sub",
-                BinopType::Mul => "mul",
-                BinopType::Div => "div",
-                BinopType::Equal => "cmp",
-                BinopType::Greater => "cmp",
-                BinopType::Less => "cmp",
-                BinopType::And => "and",
-                BinopType::Or => "or",
-                BinopType::Xor => "xor",
+            let op = if left.is_fp() {
+                match binop_type {
+                    BinopType::None => todo!(),
+                    BinopType::Add => "addv",
+                    BinopType::Sub => "subv",
+                    BinopType::Mul => "mulv",
+                    BinopType::Div => "divv",
+                    BinopType::Equal => "cmpv",
+                    BinopType::Greater => "cmpv",
+                    BinopType::Less => "cmpv",
+                    BinopType::And => todo!(),
+                    BinopType::Or => todo!(),
+                    BinopType::Xor => todo!(),
+                }
+            } else {
+                match binop_type {
+                    BinopType::None => todo!(),
+                    BinopType::Add => "add",
+                    BinopType::Sub => "sub",
+                    BinopType::Mul => "mul",
+                    BinopType::Div => "div",
+                    BinopType::Equal => "cmp",
+                    BinopType::Greater => "cmp",
+                    BinopType::Less => "cmp",
+                    BinopType::And => "and",
+                    BinopType::Or => "or",
+                    BinopType::Xor => "xor",
+                }
             };
             let l1 = left.get_imm_arm();
             let l2 = right.get_imm_arm();
@@ -112,7 +128,11 @@ pub fn compile_ins(ins_list: &[LaigoIns], idx: usize) -> String {
             )
         }
         LaigoIns::Call { to_call } => {
-            format!("    blr {}\n", to_call.get_imm_arm())
+            if to_call.is_reg() {
+                format!("    blr {}\n", to_call.get_imm_arm())
+            } else {
+                format!("    bl {}\n", to_call.get_imm_arm())
+            }
         }
         LaigoIns::Syscall { call } => {
             format!("    bl _interupt\n")
@@ -165,5 +185,43 @@ pub fn compile(prog: LaigoUnit, name: &str) {
         }
         out += &compile_ins(&prog.instructions, i);
     }
+    out += ".data\n";
+    for i in prog.data_table {
+        out += &format!("_{}:\n", i.0);
+        match &i.1 {
+            LaigoValue::Bytes { v } => {
+                out += ".byte ";
+                for j in 0..v.len() {
+                    out += &format!("{}", v[j]);
+                    if j != v.len() - 1 {
+                        out += ",";
+                    }
+                }
+                out += "\n";
+            }
+
+            LaigoValue::Float { f } => {
+                out += &format!(".word {}\n", unsafe {
+                    std::mem::transmute_copy::<f64, u64>(f)
+                });
+            }
+            LaigoValue::Integer { v } => {
+                out += &format!(".word {}\n", v);
+            }
+            LaigoValue::String { v } => {
+                let b: Vec<u8> = v.bytes().collect();
+                out += ".byte ";
+                for j in 0..b.len() {
+                    out += &format!("{}", b[j]);
+                    out += ",";
+                }
+                out += "0\n";
+            }
+            LaigoValue::Unsigned { u } => {
+                out += &format!(".word {}\n", u);
+            }
+        }
+    }
+
     std::fs::write(name, out).unwrap();
 }

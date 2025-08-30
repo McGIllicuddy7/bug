@@ -1,8 +1,20 @@
 global main
-extern hello_world
+extern printf
+static msg "hey toast i love you :%f\n"
+static flt "%f\n"
 main:
 	begin func
-	i0 = hello_world
-	call i0
+	i0 = msg
+	let x0
+	let x1
+	i0 = msg
+	i1 = 3.0
+	x0 = i1
+	i1 = &x0
+	f0 = *i1
+	va_arg0 = f0
+	f0 = f0+f0
+	call printf
 	ret
 	end func
+

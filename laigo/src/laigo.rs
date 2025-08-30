@@ -44,6 +44,21 @@ pub enum Register {
     Out0,
     Out1,
 }
+impl Register {
+    pub fn is_fp(&self) -> bool {
+        match self {
+            Self::F0 => true,
+            Self::F1 => true,
+            Self::F2 => true,
+            Self::F3 => true,
+            Self::F4 => true,
+            Self::F5 => true,
+            Self::F6 => true,
+            Self::F7 => true,
+            _ => false,
+        }
+    }
+}
 #[derive(Clone, Debug)]
 pub enum LaigoOp {
     Deref {
@@ -75,6 +90,9 @@ pub enum LaigoOp {
     Symbol {
         v: Arc<str>,
     },
+    Overflow {
+        word_offset: u64,
+    },
 }
 impl LaigoOp {
     pub fn is_num_or_reg(&self) -> bool {
@@ -82,6 +100,14 @@ impl LaigoOp {
             Self::Register { idx: _ } => true,
             Self::Ptr { v: _ } => true,
             Self::Integer { v: _ } => true,
+            Self::Double { v: _ } => true,
+            Self::Ptr { v: _ } => true,
+            _ => false,
+        }
+    }
+    pub fn is_fp(&self) -> bool {
+        match self {
+            Self::Register { idx } => idx.is_fp(),
             _ => false,
         }
     }
@@ -142,6 +168,30 @@ impl LaigoOp {
                 Register::R7 => {
                     format!("x7")
                 }
+                Register::F0 => {
+                    format!("d0")
+                }
+                Register::F1 => {
+                    format!("d1")
+                }
+                Register::F2 => {
+                    format!("d2")
+                }
+                Register::F3 => {
+                    format!("d3")
+                }
+                Register::F4 => {
+                    format!("d4")
+                }
+                Register::F5 => {
+                    format!("d5")
+                }
+                Register::F6 => {
+                    format!("d6")
+                }
+                Register::F7 => {
+                    format!("d7")
+                }
                 Register::Out0 => {
                     format!("x0")
                 }
@@ -154,6 +204,7 @@ impl LaigoOp {
             Self::Integer { v } => format!("#{v}"),
             Self::Ptr { v } => format!("#{v}"),
             Self::Symbol { v } => format!("_{v}"),
+            Self::Double { v } => format!("{}", unsafe { std::mem::transmute_copy::<f64, u64>(v) }),
             _ => todo!(),
         }
     }
@@ -161,6 +212,9 @@ impl LaigoOp {
         match self {
             Self::StackOperand { word_offset } => {
                 format!("[fp,#-{}]", word_offset * 8)
+            }
+            Self::Overflow { word_offset } => {
+                format!("[sp, #-{}]", (word_offset) * 8)
             }
             Self::Deref { to_deref } => match to_deref.as_ref() {
                 LaigoOp::Register { idx: _ } => {
@@ -175,6 +229,8 @@ impl LaigoOp {
     pub fn get_as_ref_arm(&self) -> (String, String) {
         match self {
             Self::StackOperand { word_offset } => (format!("fp"), format!("{}", word_offset * 8)),
+            Self::Overflow { word_offset } => (format!("sp"), format!("{}", word_offset * 8)),
+
             _ => todo!(),
         }
     }
@@ -428,7 +484,10 @@ pub fn parse_to_unit(s: &str) -> Result<LaigoUnit, Box<dyn Error>> {
     println!("{:#?}", tokens);
     let mut compiler = Compiler::new();
     for i in tokens {
-        compiler.compile_line(&i)?;
+        if let Err(e) = compiler.compile_line(&i) {
+            println!("error, line:{}, {}", i[0].line, e);
+            return Err(e);
+        }
     }
     Ok(LaigoUnit {
         labels: compiler.labels,
@@ -456,6 +515,13 @@ impl Compiler {
             );
         }
         let s = line[*idx].s.as_ref();
+        let numeric = {
+            if s.len() > 1 {
+                (&s[1..]).parse::<f64>().is_ok()
+            } else {
+                false
+            }
+        };
         let mut out: LaigoOp;
         if s == "&" {
             *idx += 1;
@@ -469,11 +535,15 @@ impl Compiler {
                 to_deref: Box::new(Self::expect_op(line, idx)?),
             };
             return Ok(out);
-        } else if let Some(id) = s.strip_prefix("x") {
+        } else if let Some(id) = if numeric { s.strip_prefix("x") } else { None } {
             let i = id.parse::<u64>()?;
             out = LaigoOp::StackOperand { word_offset: i };
             *idx += 1;
-        } else if let Some(id) = s.strip_prefix("i") {
+        } else if let Some(id) = s.strip_prefix("va_arg") {
+            let i = id.parse::<u64>()?;
+            out = LaigoOp::Overflow { word_offset: i };
+            *idx += 1;
+        } else if let Some(id) = if numeric { s.strip_prefix("i") } else { None } {
             let i = id.parse::<u64>()?;
             if i == 0 {
                 out = LaigoOp::Register { idx: Register::I0 };
@@ -495,7 +565,7 @@ impl Compiler {
                 return Err(format!("line:{}, no such register{}", line[*idx].line, s).into());
             }
             *idx += 1;
-        } else if let Some(id) = s.strip_prefix("r") {
+        } else if let Some(id) = if numeric { s.strip_prefix("r") } else { None } {
             let i = id.parse::<u64>()?;
             if i == 0 {
                 out = LaigoOp::Register { idx: Register::R0 };
@@ -517,7 +587,7 @@ impl Compiler {
                 return Err(format!("line:{}, no such register{}", line[*idx].line, s).into());
             }
             *idx += 1;
-        } else if let Some(id) = s.strip_prefix("f") {
+        } else if let Some(id) = if numeric { s.strip_prefix("f") } else { None } {
             let i = id.parse::<u64>()?;
             if i == 0 {
                 out = LaigoOp::Register { idx: Register::F0 };
@@ -619,6 +689,30 @@ impl Compiler {
             externs: Vec::new(),
         }
     }
+    pub fn post_process_str(s: &str) -> String {
+        let mut out = String::new();
+        let mut slash = false;
+        for i in s.chars() {
+            if slash {
+                if i == '0' {
+                    out.push('\0');
+                } else if i == 't' {
+                    out.push('\t');
+                } else if i == 'n' {
+                    out.push('\n');
+                }
+                slash = false;
+            } else {
+                if i == '\\' {
+                    slash = true;
+                } else {
+                    out.push(i);
+                    slash = false;
+                }
+            }
+        }
+        out
+    }
     pub fn compile_line(&mut self, mut line: &[TokenOwned]) -> Result<(), Box<dyn Error>> {
         if let Some(l) = line[0].s.strip_suffix(":") {
             self.labels.insert(l.into(), self.ins.len());
@@ -638,6 +732,34 @@ impl Compiler {
             return Ok(());
         } else if line[0].s.as_ref() == "ret" {
             self.ins.push(LaigoIns::Ret);
+            return Ok(());
+        } else if line[0].s.as_ref() == "static" {
+            let mut idx = 1;
+            let name = line[idx].s.to_string();
+            let mut value = LaigoValue::Bytes { v: vec![] };
+            idx += 1;
+            if line[idx].s.as_ref() == "[" {
+                todo!();
+            } else if line[idx].s.as_ref().starts_with('"') {
+                let p0 = line[idx].s.as_ref().strip_prefix('"').unwrap();
+                let p1 = p0.strip_suffix('"').unwrap();
+                value = LaigoValue::String {
+                    v: Self::post_process_str(p1),
+                };
+            } else if let Ok(k) = line[idx].s.parse::<i64>() {
+                value = LaigoValue::Integer { v: k };
+            } else if let Ok(k) = line[idx].s.parse::<u64>() {
+                value = LaigoValue::Unsigned { u: k };
+            } else if let Ok(k) = line[idx].s.parse::<f64>() {
+                value = LaigoValue::Float { f: k };
+            } else {
+                todo!();
+            }
+            if self.statics.contains_key(&name) {
+                todo!();
+            } else {
+                self.statics.insert(name, value);
+            }
             return Ok(());
         } else if line[0].s.as_ref() == "int" {
             if line.len() < 2 {
@@ -670,12 +792,15 @@ impl Compiler {
                 return Err(format!("line:{} expected operand", line[0].line).into());
             }
             if !self.in_fn {
-                return Err(
-                    format!("line:{} cannot end function in function", line[0].line).into(),
-                );
+                return Err(format!(
+                    "line:{} cannot end function outside of function",
+                    line[0].line
+                )
+                .into());
             }
             if line[1].s.as_ref() == "func" {
                 self.ins.push(LaigoIns::FnEnd);
+                self.in_fn = false;
                 return Ok(());
             } else {
                 return Err(format!("line:{} expected func", line[0].line).into());
