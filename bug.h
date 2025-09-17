@@ -35,48 +35,35 @@ typedef struct {
 	const char * base;
 	Arena * arena;
 }TokenStream;
-typedef enum{
-	o_add, 
-	o_sub, 
-	o_div, 
-	o_mul, 
-	o_asn, 
+typedef enum {
+	o_ad, 
+	o_sb, 
+	o_ml, 
+	o_dv, 
+	o_as, 
+	o_gt,
+	o_num,
+	o_flt,
+	o_fld,
+	o_call,
 }OpType;
-typedef enum {
-	v_immf,
-	v_immi,
-	v_stc,
-	v_nm,
-	v_take_ref, 
-	v_deref,
-	v_index,
-}VarType;
-typedef struct Operand{
-	VarType type;
-	int i;
-	float f;
-	int idx;
-	Str nm;
-	struct Operand * child;
-}Operand;
-
 typedef struct {
-	OpType type;
-	Operand * arguments;
-	size_t arg_count;
-	long output;
-}Operation;
-enable_vec_type(Operation);
-typedef struct{
-	OperationVec operations;
+	OpType t;
+	union{
+		Str s;
+		long v;
+		double d;
+	};
+}Opr;
+enable_vec_type(Opr);
+typedef struct {
+	OprVec ops;
 }Expr;
+enable_vec_type(Expr);
 enable_result(Expr);
-typedef enum {
-	If, 
-	While,
-}StatementType;
 TokenResult next_token(TokenStream * strm);
 TokenResult peek_token(TokenStream * strm);
+bool token_equals(Token t, const char * ptr);
 void print_token(Token t);
 TokenStream create_token_stream(Arena * arena, Str str, Str file_name);
 ExprResult parse_expression(Arena * arena,Token * tokens, size_t count);
