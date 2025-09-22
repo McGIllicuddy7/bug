@@ -67,6 +67,10 @@ TokenResult next_token(TokenStream * strm){
 					state = TTNum;
 					str_v_append(s,c);
 					continue;
+				}else if(c == ','){
+					str_v_append(s, c);
+					out.tt = TokenComma;
+					goto done;
 				}else if(is_reserved(c)){
 					bool has_next = strm->index<strm->end;
 					str_v_append(s,c);
@@ -187,7 +191,7 @@ const char * token_names[TokenTypeCount]= {"TokenNone",
 	"TokenCloseBracket"};
 #define STRF(s) (int)(s.length), s.items
 void print_token(Token t){
-	printf("{tt:%s, text:\"%.*s\", file:%.*s,line:%zu}\n",token_names[t.tt], STRF(t.str), STRF(t.file), t.line);
+	printf("{tt:%s, text:\"%.*s\", file:%.*s,line:%zu}\n",token_names[t.tt], STRF(t.str),STRF(t.file), t.line);
 }
 
 TokenStream create_token_stream(Arena * arena, Str str, Str file_name){

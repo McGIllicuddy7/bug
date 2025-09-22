@@ -4,6 +4,32 @@ bool token_equals(Token t, const char * ptr){
 	Str s = STR(ptr);
 	return str_equals(t.str, s);
 }
+
+static bool is_numbers(Token t){
+	for(int i =0; i<t.str.length; i++){
+		if(!is_number(t.str.items[i]) || t.str.items[i] == '.'){
+			return false;
+		}
+	}
+	return true;
+}
+
+static bool is_dec(Token t){
+	bool hit_dot = false;
+	for(int i =0; i<t.str.length; i++){
+		if(t.str.items[i] == '.'){
+			if(hit_dot){
+				return false;
+			}else{
+				hit_dot = true;
+			}
+		}else if(!is_number(t.str.items[i])){
+			return false;
+		}
+	}
+	return true;
+}
+
 typedef enum {
 	Er,
 	OpenParen,
@@ -14,100 +40,310 @@ typedef enum {
 	Div,
 	Call, 
 	Dot,
+	Colon,
+	ColonEquals,
 	Assign,
 }Op;
 enable_vec_type(Op);
 enable_result(Op);
+
 typedef struct {
 	Token t;
+	int sv;
 }Var;
 enable_vec_type(Var);
+
 typedef struct {
 	OprVec oprs;
 	OpVec ops; 
 	VarVec vars; 
+	int sp;
 }Eval;
+
 static int op_prior(Op o){
-	if(o == Dot){
-		return 0;
-	}
-	else if(o == Mul){
-		return 1;
+	if(o == Mul){
+		return 2;
 	}else if(o == Div){
-		return 1;
+		return 2;
 	}else if(o == Sub){
-		return 2;
+		return 1;
 	}else if(o == Add){
-		return 2;
+		return 1;
 	}else if(o == Assign){
+		return 0;
+	}else if(o == Dot){
 		return 3;
-	}
-}
-OpResult pop_op(Eval * ev){
-	if(ev->oprs.length>0){
-		Op o = ev->ops.items[ev->ops.length-1];
-		ev->ops.length--;
-		return Ok(Op, o);
-	}
-	return Err(Op);
-}
-void push_op(Eval * ev, Op o){
-	v_append(ev->ops, o);
-}
-UnitResult insert_op(Arena * arena,Eval * ev, Token t){
-	Op o = Er;
-	if(token_equals(t, "=")){
-		o = Assign;
-	}else if(token_equals(t, "+")){
-		o = Add;
-	}else if(token_equals(t, "-")){
-		o = Sub;
-	}else if(token_equals(t, "*")){
-		o = Mul;
-	}else if(token_equals(t, "/")){
-		o = Div;
+	}else if(o == Colon){
+		return 4;
+	}else if(o == ColonEquals){
+		return 4;
 	}else{
-		return Err(Unit);
+		todo();
 	}
-	OpResult op;
-	if(ev->ops.length == 0){
-		v_append(ev->ops, o);
-		return Ok(Unit, unit);
-	}
-	OpVec remainder = make(arena, Op);
-	int p0 = op_prior(o);
-	while((op = pop_op(ev)).data.ok){
-		Op ol = op.value;
-		int p1 = op_prior(ol);
-		if(ol== OpenParen || (p0>p1)){
-			break;
+	return -1;
+}
+
+long get_next_outside_of_expr(Token * tokens,size_t start, size_t count, TokenType t){
+	long paren_count = 0;
+	for(int i =start; i<count; i++){
+		if(paren_count == 0){
+			if(tokens[i].tt == t){
+				printf("found\n");
+				return i;
+			}
+		}
+		if(tokens[i].tt == TokenOpenParen){
+			paren_count ++;
+		}else if(tokens[i].tt == TokenCloseParen){
+			paren_count--;
 		}
 	}
+	return -1;
+}
+
+void write_var(Eval * ev, Var v){	
+	if(v.sv != -1){
+		return;
+	}
+	Opr o;	
+	if(v.t.tt == TokenInt){
+		o.t = o_num;
+		char buff[100];
+		snprintf(buff, 99, "%.*s", (int)v.t.str.length, v.t.str.items);
+		o.v = atol(buff);
+		
+	}else if(v.t.tt == TokenFloat){
+		o.t = o_num;
+		char buff[100];
+		snprintf(buff, 99, "%.*s", (int)v.t.str.length, v.t.str.items);
+		o.d = atof(buff);
+	}
+	else if(v.t.tt == TokenStr){
+		o.t = o_str;
+		o.s = v.t.str;
+	}else if(v.t.tt == TokenIdent){
+		o.t = o_idnt;
+		o.s = v.t.str;
+	}else{
+		todo();
+		return;
+	}
+	v_append(ev->oprs, o);
+}
+
+UnitResult eval_op(Op o,Eval * ev){
+	Var v0  = ev->vars.items[ev->vars.length-1];
+	ev->vars.length--;
+	Var v1  = ev->vars.items[ev->vars.length-1];
+	ev->vars.length--;
+	write_var(ev, v0);
+	write_var(ev, v1);
+	Opr op;
+	if(o == Add){
+		op.t = o_ad;
+	}else if(o == Sub){
+		op.t = o_sb;
+	}else if(o == Div){
+		op.t = o_dv;
+	}else if(o == Mul){
+		op.t = o_ml;
+	}else if(o == Assign){
+		op.t = o_as;
+	}else if(o == Dot){
+		op.t = o_fld;
+	}else if(o == Colon){
+		op.t = o_dec;
+	}else if(o == ColonEquals){
+		op.t = o_auto_dec;
+	}else{
+		printf("error not a valid op\n");
+		exit(1);
+	}
+	v_append(ev->oprs, op);
 	return Ok(Unit, unit);
 }
 
-ExprResult parse_expression(Arena * arena,Token * tokens, size_t count){
+ExprResult parse_expression(Arena * arena, Token * tokens, size_t count){
+	Arena * local = arena_create();
 	Expr out;
-	Eval eval;
-	eval.oprs = make(arena, Opr);
-	eval.ops = make(arena, Op);
-	eval.vars =make(arena, Var);
-	for(size_t i =0; i<count; i++){
-		Token t = tokens[i];
-		if(t.tt == TokenOperator || t.tt == TokenDot){
-			todo();
-		}else if(t.tt ==TokenOpenParen){
-			todo();
-		}else if(t.tt == TokenCloseParen){
-			todo();
-		}else if(t.tt == TokenStr || t.tt == TokenIdent || t.tt == TokenFloat || t.tt == TokenInt){
-			Var tmp;
-			tmp.t = t;
-			v_append(eval.vars,tmp);
+	Eval ev;
+	ev.ops = make(local, Op);
+	ev.oprs = make(arena, Opr);
+	ev.vars = make(local, Var);
+	bool last_was_v = false;	
+	for(int i =0; i<count; i++){	
+		if(tokens[i].tt == TokenInt || tokens[i].tt == TokenFloat || tokens[i].tt == TokenStr || tokens[i].tt == TokenIdent){
+			Var v;
+			v.t = tokens[i];
+			v.sv = -1;
+			v_append(ev.vars, v);
+			last_was_v = true;
+		}else if(tokens[i].tt == TokenOpenParen){
+			if(last_was_v){		
+     				i++;
+				Var v = ev.vars.items[ev.vars.length-1];
+				ev.vars.length--;
+				long end = get_next_outside_of_expr(tokens, i, count, TokenCloseParen);
+				if(end == -1){
+					return Err(Expr);
+				}
+				int arg_count =0;
+				for(; i<end; i++){
+					long e = get_next_outside_of_expr(tokens, i, count, TokenComma);
+					if(e == -1 || e>=end){
+						e = end;	
+					}
+					ExprResult er=parse_expression(arena, tokens+i, e-i);
+					if(!er.data.ok){
+						return Err(Expr);
+					}
+					Expr ep = er.value;
+					arg_count++;
+					for(int j=0; j<ep.ops.length; j++){
+						v_append(ev.oprs, ep.ops.items[j]);
+					}
+					i = e;
+				}
+				Opr op;
+				op.t = o_idnt;
+				op.s = v.t.str;
+				v_append(ev.oprs, op);
+				i= end+1;
+				last_was_v = true;
+				op.v = arg_count;
+				op.t = o_call;
+				v_append(ev.oprs, op);
+		
+			}else{
+				last_was_v = false;
+				v_append(ev.ops, OpenParen);
+			}
+		}else if(tokens[i].tt == TokenCloseParen){
+			while(ev.ops.items[ev.ops.length-1] != OpenParen){
+				Op o = ev.ops.items[ev.ops.length-1];
+				ev.ops.length--;
+				eval_op(o, &ev);
+			}
+			ev.ops.items--;
+			last_was_v = true;
+		}else if(tokens[i].tt == TokenDot || tokens[i].tt == TokenOperator || tokens[i].tt == TokenColon){
+			Op o;
+			if(tokens[i].tt== TokenDot){
+				o = Dot;
+			}else if(token_equals(tokens[i], "+")){
+				o = Add;
+			}
+			else if(token_equals(tokens[i], "-")){	
+				o = Sub;
+			}
+			else if(token_equals(tokens[i], "*")){	
+				o = Mul;
+			}
+			else if(token_equals(tokens[i], "/")){	
+				o = Div;
+			}
+			else if(token_equals(tokens[i], "=")){	
+				o = Assign;
+			}else if(token_equals(tokens[i], ":")){
+				o = Colon;
+			}else if(token_equals(tokens[i], ":=")){
+				o = ColonEquals;
+			}else{
+				return Err(Expr);
+			}
+			while(ev.ops.length>0){
+				if(op_prior(ev.ops.items[ev.ops.length-1])<op_prior(o)){	
+						break;
+				}
+				Op o = ev.ops.items[ev.ops.length-1];
+				ev.ops.length--;
+				if(o == OpenParen){
+					break;
+				}
+				eval_op(o, &ev);
+			}
+			v_append(ev.ops, o);
+			last_was_v = false;
 		}else{
+			print_token(tokens[i]);
 			return Err(Expr);
 		}
 	}
-	out.ops = eval.oprs;
+	if(ev.ops.length == 0){
+		if(ev.vars.length == 1){
+			write_var(&ev, ev.vars.items[0]);
+			ev.vars.length--;
+		}
+	}
+	while(ev.ops.length>0){
+		Op o = ev.ops.items[ev.ops.length-1];	
+		ev.ops.length--;
+		eval_op(o, &ev);
+	}
+	out.ops = ev.oprs;
 	return Ok(Expr, out);
 }
+StatementResult parse_statement(Arena * arena, Token * tokens, size_t count, FunctionVec * funcs,TypeVec * types){
+	Statement out = {0};
+	if(count == 0){
+		out.st = StatementExpr;
+		return Ok(Statement, out);
+	}
+	else if(token_equals(tokens[0], "let")){
+		todo();
+	}
+	else if(token_equals(tokens[0], "if")){
+		todo()
+	}else if(token_equals(tokens[0], "while")){
+		todo();
+	}else if(token_equals(tokens[0], "for")){
+		todo();
+	}else if(token_equals(tokens[0], "defun")){
+		todo();
+	}else if(token_equals(tokens[0], "struct")){
+		todo();
+	}else if(token_equals(tokens[0], "extern")){
+	}else if(token_equals(tokens[0], "{")){
+
+	}else{
+		long end = get_next_outside_of_expr(tokens, 0, count, TokenSemi);
+		if(end == -1){
+			return Err(Statement);
+		}
+		else{
+			ExprResult e = parse_expression(arena,tokens, count);
+			if(!e.data.ok){
+				return Err(Statement);
+			}
+			Expr * exp = arena_alloc(arena, sizeof(Expr));
+			*exp = e.value;
+			out.expr = exp;
+			out.st = StatementExpr;
+			return Ok(Statement, out);
+		}
+	}
+	return Err(Statement);
+}
+
+void print_expr(Expr s){
+	const char * op_names[] = {"+", "-", "*", "/", "=", "unknown what this is", "num", "float", "str", "ident", "field", "call", 0};
+	for(int i =0; i<len(s.ops); i++){
+		Opr o = s.ops.items[i];
+		if(o.t < o_num){
+			printf("exp:%s\n",op_names[o.t]);
+		}else if(o.t == o_num){
+			printf("exp:%ld\n",o.v);
+		}else if(o.t == o_flt){
+			printf("exp:%f\n", o.d);
+		}else if(o.t == o_str || o.t == o_idnt){
+			printf("exp ident:%.*s\n", (int)(o.s.length), o.s.items);
+		}else if(o.t == o_call){
+			printf("call:%ld\n", o.v);
+		}else if(o.t == o_fld){
+			printf("field_access\n");
+		}else{
+			todo();
+		}
+	}
+}
+
