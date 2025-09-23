@@ -100,7 +100,22 @@ long get_next_outside_of_expr(Token * tokens,size_t start, size_t count, TokenTy
 	}
 	return -1;
 }
-
+long get_scope_end(Token * tokens, size_t start, size_t count){
+	long e = 0;
+	int i =start;
+	do{
+		if(tokens[i].tt == TokenOpenBracket){
+			e++;
+		}else if(tokens[i].tt == TokenCloseBracket){
+			e--;
+		}
+		i++;
+		if(i>=count){
+			return -1;
+		}
+	}while(e >0);
+	return e;
+}
 void write_var(Eval * ev, Var v){	
 	if(v.sv != -1){
 		return;
@@ -283,28 +298,56 @@ ExprResult parse_expression(Arena * arena, Token * tokens, size_t count){
 	out.ops = ev.oprs;
 	return Ok(Expr, out);
 }
+long get_statement_end(Token *tokens, size_t start, size_t count){
+	Token t = tokens[start];
+	if(token_equals(t, "{")){
+		return get_scope_end(tokens, start,count);
+	}else if(token_equals(t, "if") || token_equals(t, "while")){
+		long e= get_next_outside_of_expr(tokens, 1, count, TokenCloseParen);
+		if(e == -1){
+			return -1;
+		}
+		return get_statement_end(tokens, e+1, count);
+	}else{
+		return get_next_outside_of_expr(tokens, start, count, TokenSemi);
+	}
+	return -1;
+}
 StatementResult parse_statement(Arena * arena, Token * tokens, size_t count, FunctionVec * funcs,TypeVec * types){
 	Statement out = {0};
 	if(count == 0){
 		out.st = StatementExpr;
 		return Ok(Statement, out);
 	}
-	else if(token_equals(tokens[0], "let")){
-		todo();
-	}
 	else if(token_equals(tokens[0], "if")){
-		todo()
+		long e= get_next_outside_of_expr(tokens, 1, count, TokenCloseParen);
+		if(e == -1){
+			return Err(Statement);
+		}
+		Expr s;
+		Try(Expr, Statement,p, parse_expression(arena, tokens+1, e-1), {s = p;});
+		Statement stmnt;
+		Try(Statement, Statement, p, parse_statement(arena, tokens+e+1, count-e-1, funcs, types),stmnt = p;);
+		todo();
 	}else if(token_equals(tokens[0], "while")){
+		long e= get_next_outside_of_expr(tokens, 1, count, TokenCloseParen);
+		if(e == -1){
+			return Err(Statement);
+		}
+		Expr s;
+		Try(Expr, Statement,p, parse_expression(arena, tokens+1, e-1), {s = p;});
+		Statement stmnt;
+		Try(Statement, Statement, p, parse_statement(arena, tokens+e+1, count-e-1, funcs, types),{stmnt = p;});
 		todo();
-	}else if(token_equals(tokens[0], "for")){
-		todo();
-	}else if(token_equals(tokens[0], "defun")){
-		todo();
-	}else if(token_equals(tokens[0], "struct")){
-		todo();
-	}else if(token_equals(tokens[0], "extern")){
 	}else if(token_equals(tokens[0], "{")){
+		long e = get_scope_end(tokens, 1, count);
+		long i =2;
+		while(i<e){
+			Token t= tokens[i];
+			long end = get_statement_end(tokens, i, count);
+			i = end;
 
+		}
 	}else{
 		long end = get_next_outside_of_expr(tokens, 0, count, TokenSemi);
 		if(end == -1){
