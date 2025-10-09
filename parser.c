@@ -77,6 +77,8 @@ static int op_prior(Op o){
 		return 4;
 	}else if(o == ColonEquals){
 		return 4;
+	}else if(o == OpenParen){
+		-1;
 	}else{
 		todo();
 	}
@@ -172,6 +174,7 @@ UnitResult eval_op(Op o,Eval * ev){
 		op.t = o_auto_dec;
 	}else{
 		printf("error not a valid op\n");
+		todo();
 		exit(1);
 	}
 	v_append(ev->oprs, op);
@@ -270,7 +273,6 @@ ExprResult parse_expression(Arena * arena, Token * tokens, size_t count){
 				if(op_prior(ev.ops.items[ev.ops.length-1])<op_prior(o)){	
 						break;
 				}
-				Op o = ev.ops.items[ev.ops.length-1];
 				ev.ops.length--;
 				if(o == OpenParen){
 					break;
@@ -292,7 +294,11 @@ ExprResult parse_expression(Arena * arena, Token * tokens, size_t count){
 	}
 	while(ev.ops.length>0){
 		Op o = ev.ops.items[ev.ops.length-1];	
-		ev.ops.length--;
+		if(o == OpenParen|| o == CloseParen){
+			ev.ops.length--;
+			continue;
+		}
+		ev.ops.length--;	
 		eval_op(o, &ev);
 	}
 	out.ops = ev.oprs;
@@ -327,7 +333,7 @@ StatementResult parse_statement(Arena * arena, Token * tokens, size_t count, Fun
 		Expr s;
 		Try(Expr, Statement,p, parse_expression(arena, tokens+1, e-1), {s = p;});
 		Statement stmnt;
-		Try(Statement, Statement, p, parse_statement(arena, tokens+e+1, count-e-1, funcs, types),stmnt = p;);
+		Try(Statement, Statement, p, parse_statement(arena, tokens+e+1, count-e-1, funcs, types),stmnt = p;);	
 		todo();
 	}else if(token_equals(tokens[0], "while")){
 		long e= get_next_outside_of_expr(tokens, 1, count, TokenCloseParen);
@@ -348,6 +354,7 @@ StatementResult parse_statement(Arena * arena, Token * tokens, size_t count, Fun
 			i = end;
 
 		}
+		
 	}else{
 		long end = get_next_outside_of_expr(tokens, 0, count, TokenSemi);
 		if(end == -1){
