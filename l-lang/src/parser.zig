@@ -56,6 +56,7 @@ const Opr = struct {
         v: i64,
         f: f64,
     },
+    token: Token,
 };
 const Op = enum {
     Er,
@@ -130,28 +131,29 @@ pub fn eval_op(o: Op, ev: *Eval) !void {
 }
 pub fn write_var(ev: *Eval, v: Var) !void {
     var o: Opr = undefined;
+    o.token = v.t;
     if (v.t.tt == TokenType.TokenInt) {
         o = Opr{ .t = OpType.o_num, .v = @TypeOf(o.v){
             .v = 0,
-        } };
+        }, .token = v.t };
         o.t = OpType.o_num;
         o.v.v = try std.fmt.parseInt(i64, v.t.str, 10);
     } else if (v.t.tt == TokenType.TokenFloat) {
         o = Opr{ .t = OpType.o_num, .v = @TypeOf(o.v){
             .f = 0.0,
-        } };
+        }, .token = v.t };
         o.t = OpType.o_flt;
         o.v.f = try std.fmt.parseFloat(f64, v.t.str);
     } else if (v.t.tt == TokenType.TokenStr) {
         o = Opr{ .t = OpType.o_num, .v = @TypeOf(o.v){
             .s = "",
-        } };
+        }, .token = v.t };
         o.t = OpType.o_str;
         o.v.s = v.t.str;
     } else if (v.t.tt == TokenType.TokenIdent) {
         o = Opr{ .t = OpType.o_num, .v = @TypeOf(o.v){
             .s = "",
-        } };
+        }, .token = v.t };
         o.t = OpType.o_idnt;
         o.v.s = v.t.str;
     } else {
@@ -180,6 +182,7 @@ pub fn get_next_outside_of_expr(tokens: []Token, start: usize, t: TokenType) i64
             curly_count -= 1;
         }
     }
+    tokens[tokens.len - 1].print();
     return -1;
 }
 pub fn parse_expression(alloc: Alloc, tokens: []Token) !Expr {
@@ -225,10 +228,10 @@ pub fn parse_expression(alloc: Alloc, tokens: []Token) !Expr {
                 }
                 const _t: Opr = undefined;
                 last_was_v = true;
-                var op = Opr{ .t = OpType.o_idnt, .v = @TypeOf(_t.v){ .s = v.t.str } };
+                var op = Opr{ .t = OpType.o_idnt, .v = @TypeOf(_t.v){ .s = v.t.str }, .token = tokens[i] };
                 try ev.oprs.append(alloc, op);
                 last_was_v = true;
-                op = Opr{ .t = OpType.o_call, .v = @TypeOf(_t.v){ .v = arg_count } };
+                op = Opr{ .t = OpType.o_call, .v = @TypeOf(_t.v){ .v = arg_count }, .token = tokens[i] };
                 try ev.oprs.append(alloc, op);
             } else {
                 last_was_v = false;
@@ -260,6 +263,7 @@ pub fn parse_expression(alloc: Alloc, tokens: []Token) !Expr {
             } else if (tokens[i].equals(":=")) {
                 o = Op.ColonEquals;
             } else {
+                tokens[i].print();
                 return error.invalid_expression;
             }
             while (ev.ops.items.len > 0) {
@@ -301,100 +305,4 @@ pub fn parse_expression(alloc: Alloc, tokens: []Token) !Expr {
     var out: Expr = undefined;
     out.ops = ev.oprs;
     return out;
-}
-pub const Function = struct { instructions: std.ArrayList(Statement) };
-pub const Scope = struct { vars: std.ArrayList(Field), parent: ?*Scope };
-pub const Parser = struct {
-    functions: std.AutoHashMap(
-        []u8,
-        Function,
-    ),
-    scope: ?*Scope,
-};
-
-pub const Field = union(enum) {
-    vtype: *Type,
-    name: []const u8,
-    offset: usize,
-    size: usize,
-};
-pub const Type = union(enum) { t_int, t_flt, t_str, t_struct: struct {
-    name: []const u8,
-    fields: []Field,
-} };
-pub const Statement = union(enum) {
-    basicExpr: Expr,
-    if_statement: struct { cond: Expr, instructions: []Statement, elsef: []Statement },
-    while_loop: struct { cond: Expr, instructions: []Statement },
-    declare: struct {
-        varname: []const u8,
-        vtype: Type,
-        expr: Expr,
-    },
-};
-pub fn get_scope_end(tokens: []Token, start: i64) i64 {
-    var count = 0;
-    for (start..tokens.len) |i| {
-        if (tokens[i].tt == TokenType.TokenOpenCurl) {
-            count += 1;
-        } else if (tokens[i].tt == TokenType.TokenCloseCurl) {
-            count -= 1;
-        }
-        if (count == 0) {
-            return @as(i64, @intCast(i));
-        }
-    }
-    return -1;
-}
-pub fn get_statement_end(tokens: []Token) i64 {
-    if (tokens[0].equals("if") or tokens[0].equals("while")) {
-        const start = get_next_outside_of_expr(tokens, 1, TokenType.TokenOpenCurl);
-        const end = get_scope_end(tokens, start);
-        if (tokens.len() > end + 2) {
-            if (tokens[0].equals("if") and tokens[end + 1].equals("else")) {
-                return get_scope_end(tokens, end + 2);
-            }
-        }
-        return end;
-    } else {
-        return get_next_outside_of_expr(tokens, 0, TokenType.TokenSemi);
-    }
-}
-pub fn parse_statement(parser: *Parser, tokens: []Token) !Statement {
-    var out: Statement = undefined;
-    if (tokens[0].equals("if") or tokens[0].equals("while")) {
-        const e1 = get_next_outside_of_expr(tokens, 1, TokenType.TokenOpenCurl);
-        const expr = try parse_expression(alloc, tokens[1 .. e1 - 2]);
-        const e2 = get_scope_end(tokens, e1);
-        const scope = try parse_scope(alloc, parser, tokens[e1 + 1 .. e2]);
-
-        if (tokens[0].equals("if")) {
-            out = .{ .if_statement = .{ expr, scope.items, []Statement{} } };
-            if (tokens[e2 + 1].equals("else")) {
-                const e3 = get_scope_end(tokens, e2 + 2);
-                const scope2 = try parse_scope(alloc, parser, tokens[e2 + 3 .. e3]);
-                out.if_statement.elsef = scope2.items;
-            }
-        } else {
-            out = .{ .while_loop = .{ expr, scope.items } };
-        }
-        return out;
-    }
-    const end = get_statement_end(tokens);
-    if (tokens[0].equals("let")) {
-        const name = tokens[1];
-        const t = tokens[2];
-        const expr = try parse_expression(alloc, tokens[2..end]);
-        out = .{ .declare = .{ .varname = name.str, .vtype = try parse_type(parser, t), .epxpr = expr } };
-    }
-}
-pub fn parse_scope(parser: *Parser, tokens: []Token) !ArrayList(Statement) {
-    var i: i64 = 0;
-    var out = try ArrayList(Statement).initCapacity(parser.alloc, 64);
-    while (i < tokens.len) {
-        const e = get_statement_end(tokens[i..]);
-        const s = try parse_statement(parser, tokens[i..e]);
-        try out.append(parser.alloc, s);
-        i = e + 1;
-    }
 }

@@ -4,13 +4,14 @@ const utils = @import("utils.zig");
 const l_lang = @import("l_lang");
 const tokens = @import("tokens.zig");
 const parse = @import("parser.zig");
+const bug = @import("bug.zig");
 const arena = std.heap.ArenaAllocator;
 pub fn getline(buf: []u8) ![]u8 {
     var stdin = std.fs.File.stdin();
     var int = stdin.reader(buf).interface;
     return try int.takeSentinel('\n');
 }
-pub fn main() !void {
+pub fn loop() !void {
     var ar = arena.init(std.heap.c_allocator);
     var finished = false;
     while (true) {
@@ -38,4 +39,14 @@ pub fn main() !void {
         const expr = try parse.parse_expression(ar.allocator(), tlist.items);
         expr.print();
     }
+}
+pub fn main() !void {
+    var ar = arena.init(std.heap.c_allocator);
+    const f = try std.fs.cwd().openFile("main.bug", .{});
+    const str = try f.readToEndAlloc(ar.allocator(), 1000000);
+    var ts = tokens.TokenStream.new(ar.allocator(), str, "main.bug");
+    const v = try ts.collect(ar.allocator());
+    const tlist = v.items;
+    var progr = try bug.parse_token_stream(ar.allocator(), tlist);
+    progr.print();
 }

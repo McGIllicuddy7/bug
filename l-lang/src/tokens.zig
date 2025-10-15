@@ -334,6 +334,17 @@ pub const TokenStream = struct {
         strm.* = prev;
         return out;
     }
+    pub fn collect(strm: *@This(), alloc: std.mem.Allocator) !std.ArrayList(Token) {
+        var out = try std.ArrayList(Token).initCapacity(alloc, 4096);
+        while (true) {
+            const v = try strm.next();
+            if (v == null) {
+                break;
+            }
+            try out.append(alloc, v.?);
+        }
+        return out;
+    }
 };
 pub fn str_equals(a: []const u8, b: []const u8) bool {
     if (a.len != b.len) {
