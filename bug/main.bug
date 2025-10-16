@@ -1,0 +1,6 @@
+defun main int(a int){
+    printf( add(10, 20));
+}
+defun add int(l int r int){
+    return out;
+}

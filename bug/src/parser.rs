@@ -35,7 +35,11 @@ pub enum OpType {
     o_idnt, //indentifer operator
     o_fld,  //field access
     o_call, //call
+    o_lable, //label
+    o_return,//return
+    o_clear,//clear stack/cleanup
     o_function,
+    o_func_begin,//function prelude
     o_auto_dec, //auto_declare
 }
 #[derive(Debug, Clone)]
@@ -224,7 +228,10 @@ pub fn parse_expression(tokens: &[tokens::Token]) -> Result<Expr, Box<dyn std::e
                         let k = ep.ops[j].clone();
                         ev.oprs.push(k);
                     }
-                    i = e as usize + 1;
+                    i = e as usize+1;
+                }
+                if arg_count>0{
+                     i -=1;
                 }
                 last_was_v = true;
                 let mut op = Opr {
@@ -276,7 +283,9 @@ pub fn parse_expression(tokens: &[tokens::Token]) -> Result<Expr, Box<dyn std::e
                 o = Op::Colon;
             } else if tokens[i].equals(":=") {
                 o = Op::ColonEquals;
-            } else {
+            } else if tokens[i].equals("="){
+                o = Op::Assign;
+            }else {
                 tokens[i].print();
                 return Err("invalid expression".into());
             }

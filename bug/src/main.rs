@@ -1,4 +1,5 @@
 pub mod bug;
+pub mod compiler;
 pub mod parser;
 pub mod tokens;
 pub mod utils;
@@ -17,6 +18,13 @@ pub fn repl() {
         println!("{:#?}", exp);
     }
 }
+pub fn parse(filename: &str) {
+    let s = std::fs::read_to_string(filename).unwrap();
+    let token = tokens::TokenStream::new(&s, filename).collect();
+    let prg = bug::parse_program(token).unwrap();
+    println!("{:#?}", prg);
+}
 fn main() {
-    repl();
+    parse("main.bug");
+    //repl();
 }
