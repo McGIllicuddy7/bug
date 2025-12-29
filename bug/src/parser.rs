@@ -1,3 +1,4 @@
+use crate::bug::Type;
 pub use crate::tokens;
 use std::sync::Arc;
 pub use tokens::TokenType;
@@ -18,7 +19,7 @@ pub struct Eval {
     pub sp: i32,
 }
 #[allow(non_camel_case_types)]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum OpType {
     o_ad,   //add
     o_sb,   //subtract
@@ -37,10 +38,14 @@ pub enum OpType {
     o_call, //call
     o_lable, //label
     o_return,//return
+    o_begin_scope,
+    o_end_scope,
     o_clear,//clear stack/cleanup
     o_function,
     o_func_begin,//function prelude
     o_auto_dec, //auto_declare
+    o_gr,//greater than
+    o_ls,//less than
 }
 #[derive(Debug, Clone)]
 pub struct Opr {
@@ -48,6 +53,7 @@ pub struct Opr {
     pub s: Arc<str>,
     pub v: i64,
     pub f: f64,
+    pub vt:Type,
     pub token: tokens::Token,
 }
 impl Default for Opr {
@@ -63,6 +69,7 @@ impl Opr {
             s: "".into(),
             v: -1,
             f: -1.,
+            vt:Type::TVoid,
             token: tokens::Token {
                 st: "".into(),
                 file: "".into(),
@@ -83,6 +90,8 @@ pub enum Op {
     Mul,
     Div,
     Call,
+    Less, 
+    Greater,
     Dot,
     Colon,
     ColonEquals,
@@ -90,38 +99,48 @@ pub enum Op {
 }
 pub fn op_prior(o: Op) -> i32 {
     if o == Op::Mul {
-        2
+        3
     } else if o == Op::Div {
-        return 2;
+        return 3;
     } else if o == Op::Sub {
-        return 1;
+        return 2;
     } else if o == Op::Add {
-        return 1;
+        return 2;
     } else if o == Op::Assign {
         return 0;
-    } else if o == Op::Dot {
+    }else if o == Op::Dot {
         return 3;
     } else if o == Op::Colon {
-        return 4;
+        return 5;
     } else if o == Op::ColonEquals {
-        return 4;
+        return 5;
     } else if o == Op::OpenParen {
         return -1;
-    } else {
+    } else if o == Op::Greater{
+        return 1;
+    } else if o == Op::Less{
+        return 1;
+    }
+    else {
         todo!();
     }
 }
 pub fn eval_op(o: Op, ev: &mut Eval) {
+    let v0;
+    let v1;
     if !ev.vars.is_empty() {
-        let v0 = ev.vars[ev.vars.len() - 1].clone();
+        v0 = ev.vars[ev.vars.len() - 1].clone();
         ev.vars.pop();
-        write_var(ev, v0);
+    }else{
+        return;
     }
     if !ev.vars.is_empty() {
-        let v1 = ev.vars[ev.vars.len() - 1].clone();
+        v1 = ev.vars[ev.vars.len() - 1].clone();
         ev.vars.pop();
-        write_var(ev, v1);
-    }
+      
+    }else{return;}
+    write_var(ev, v1);
+    write_var(ev, v0);
     let mut op = Opr::new();
     if o == Op::Add {
         op.t = OpType::o_ad;
@@ -139,7 +158,11 @@ pub fn eval_op(o: Op, ev: &mut Eval) {
         op.t = OpType::o_dec;
     } else if o == Op::ColonEquals {
         op.t = OpType::o_auto_dec;
-    } else {
+    } else if o == Op::Less{
+        op.t = OpType::o_ls;
+    } else if o == Op::Greater{
+        op.t = OpType::o_gr;
+    }else {
         todo!();
     }
     ev.oprs.push(op);
@@ -183,7 +206,6 @@ pub fn get_next_outside_of_expr(tokens: &[tokens::Token], start: usize, t: Token
             curly_count -= 1;
         }
     }
-    tokens[tokens.len() - 1].print();
     -1
 }
 pub fn parse_expression(tokens: &[tokens::Token]) -> Result<Expr, Box<dyn std::error::Error>> {
@@ -240,6 +262,7 @@ pub fn parse_expression(tokens: &[tokens::Token]) -> Result<Expr, Box<dyn std::e
                     v: 0,
                     f: 0.0,
                     token: tokens[i].clone(),
+                    vt:Type::TVoid
                 };
                 ev.oprs.push(op);
                 last_was_v = true;
@@ -248,6 +271,7 @@ pub fn parse_expression(tokens: &[tokens::Token]) -> Result<Expr, Box<dyn std::e
                     v: arg_count,
                     s: "".into(),
                     f: -1.0,
+                    vt:Type::TVoid,
                     token: tokens[i].clone(),
                 };
                 ev.oprs.push(op);
@@ -285,7 +309,14 @@ pub fn parse_expression(tokens: &[tokens::Token]) -> Result<Expr, Box<dyn std::e
                 o = Op::ColonEquals;
             } else if tokens[i].equals("="){
                 o = Op::Assign;
-            }else {
+            }
+            else if tokens[i].equals("<") {
+                o = Op::Less;
+            }
+            else if tokens[i].equals(">") {
+                o = Op::Greater;
+            }
+            else {
                 tokens[i].print();
                 return Err("invalid expression".into());
             }
@@ -314,7 +345,6 @@ pub fn parse_expression(tokens: &[tokens::Token]) -> Result<Expr, Box<dyn std::e
         ev.vars.pop();
     }
     while !ev.ops.is_empty() {
-        //std.debug.print("{any}", .{ev});
         let o = ev.ops[ev.ops.len() - 1];
         if o == Op::OpenParen || o == Op::CloseParen {
             ev.ops.pop();

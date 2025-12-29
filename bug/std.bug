@@ -1,0 +1,7 @@
+pub extern defun int_to_string string (i int);
+pub extern defun float_to_string string (i float);
+pub extern defun print int (s string);
+pub extern defun println int (s string);
+pub extern defun strcat string (l string r string);
+pub extern defun or int (l int r int);
+pub extern defun and int(l int r int);

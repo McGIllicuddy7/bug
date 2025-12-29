@@ -242,7 +242,8 @@ impl TokenStream {
                     out.tt = TokenType::TokenComma;
                     done = true;
                     break;
-                } else if is_reserved(c) {
+                } 
+                 else if is_reserved(c) {
                     let has_next = self.idx < self.chars.len();
                     s.push(c);
                     if has_next {
@@ -327,10 +328,13 @@ impl TokenStream {
         out.file = self.file.clone();
         out.line = self.line;
         out.st = s.clone().into();
+        if s == "."{
+            out.tt = TokenType::TokenDot;
+        }
         if state == TTState::TTNum {
-            if s.contains('.') {
+            if s.contains('.') && s != "."{
                 out.tt = TokenType::TokenFloat;
-            } else {
+            } else if s != "."{
                 out.tt = TokenType::TokenInt;
             }
         } else if state == TTState::TTChar {

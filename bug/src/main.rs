@@ -21,10 +21,14 @@ pub fn repl() {
 pub fn parse(filename: &str) {
     let s = std::fs::read_to_string(filename).unwrap();
     let token = tokens::TokenStream::new(&s, filename).collect();
+    //println!("{:#?}", token);
     let prg = bug::parse_program(token).unwrap();
-    println!("{:#?}", prg);
+    //println!("{:#?}", prg);
+    let ir = compiler::compile_to_ir(&prg).unwrap();
+    println!("{:#?}", ir);
 }
 fn main() {
     parse("main.bug");
     //repl();
+   // vm::test();
 }
