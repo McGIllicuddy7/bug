@@ -1,0 +1,34 @@
+fn int main: 
+    b:int = 10
+    c:int = fib(b)
+    _:void = void(1 2)
+    _1:int = add(1 2)
+    return c
+end
+
+fn int fib n int:
+    cond:bool = n > 0
+    if cond goto next
+    return 0
+label next
+    cond = n > 1
+    if cond goto next2
+    return 1
+label next2
+    n = n-1
+    x0:int = fib(n)
+    n1:int = n-1
+    x1:int = fib(n1)
+    x2:int = x0+x1
+    return x2
+end
+
+fn void void x int y int:
+    _:int = x+y
+    return unit
+end
+
+fn int add x int y int:
+    tmp:int = x + y
+    return tmp
+end
