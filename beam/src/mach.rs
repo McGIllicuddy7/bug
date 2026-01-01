@@ -292,9 +292,6 @@ impl Var {
                 to: Box::new(Type::Void),
                 name: name.clone(),
             },
-            _ => {
-                todo!()
-            }
         }
     }
 }
@@ -378,7 +375,6 @@ impl Machine {
                 todo!()
             }
         }
-        Err("".into())
     }
     pub fn get_bool(&self, var: Var) -> Result<bool, String> {
         match self.get_value(var)? {

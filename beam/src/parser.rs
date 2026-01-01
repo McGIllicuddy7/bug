@@ -225,6 +225,21 @@ pub fn parse_to_program(string: String, file: String) -> Result<Program, Box<dyn
             }
         }
     }
+    let mut tnew =out.types.clone();
+    for i in &mut tnew{
+        match &mut i.1{
+            Type::Struct { name:_, fields } => {
+                for j in fields{
+                    let mut strm = TokenStream{tokens:vec![Token{text:j.1.name.clone(), file:file.clone(), line:0}], index:0};
+                    j.1 = parse_type(&mut strm, &mut out.types)?;
+                }
+            }
+            _=>{
+                continue;;
+            }
+        }
+    }
+    out.types = tnew;
     Ok(fixups(out)?)
 }
 pub fn parse_type(
@@ -266,7 +281,7 @@ pub fn parse_fn(
         variables.insert(i.0.clone(), (idx, i.1.clone()));
     }
     loop {
-        let n = parse_command(tokens, &mut variables, type_table, file.clone())?;
+        let n = parse_command(tokens, &mut variables, type_table, file.clone(), header.0.clone())?;
         match n {
             ParseCommandOutput::Label { name } => {
                 labels.insert(name, cmds.len());
@@ -300,10 +315,20 @@ pub fn parse_fn(
     ))
 }
 pub fn parse_struct(
-    _tokens: &mut TokenStream,
+    tokens: &mut TokenStream,
     _type_table: &[(String, Type)],
 ) -> Result<(String, Type), Box<dyn Error>> {
-    todo!()
+    let name = tokens.next().unwrap().text;
+    let mut v = Vec::new();
+    loop{
+        let name1 = tokens.next().unwrap().text;
+        if name1 == "end"{
+            break;
+        }
+        let typ1 = tokens.next().unwrap().text;
+        v.push((name1, ShallowType{index:0, name:typ1}));
+    }
+    Ok((name.clone(),Type::Struct { name, fields: v }))
 }
 pub fn parse_fn_header(
     tokens: &mut TokenStream,
@@ -381,11 +406,13 @@ pub fn parse_var(
     }
     Err(format!("unknown var:{}", v).into())
 }
+
 pub fn parse_command(
     tokens: &mut TokenStream,
     variables: &mut HashMap<String, (usize, ShallowType)>,
     type_table: &[(String, Type)],
     file: String,
+    function_name: String
 ) -> Result<ParseCommandOutput, Box<dyn Error>> {
     let Some(base) = tokens.next() else { todo!() };
     let s = base.text.clone();
@@ -402,13 +429,13 @@ pub fn parse_command(
     }
     if s == "label" {
         return Ok(ParseCommandOutput::Label {
-            name: tokens.next().unwrap().text,
+            name: function_name+&tokens.next().unwrap().text,
         });
     }
     if s == "goto" {
         return Ok(ParseCommandOutput::Command {
             cmd: Cmd::Jmp {
-                to: tokens.next().unwrap().text,
+                to: function_name+&tokens.next().unwrap().text,
             },
         });
     }
@@ -422,7 +449,7 @@ pub fn parse_command(
         return Ok(ParseCommandOutput::Command {
             cmd: Cmd::JmpCond {
                 cond: v,
-                to: to.text,
+                to: function_name+&to.text,
             },
         });
     }
@@ -450,7 +477,6 @@ pub fn parse_command(
             let Ok(l) = parse_var(ln.text.clone(), variables, type_table) else {
                 let paren = tokens.next().unwrap();
                 if paren.text != "(" {
-                    println!("{:#?}", paren);
                     todo!();
                 }
                 let mut args = Vec::new();
@@ -565,6 +591,7 @@ pub fn parse_command(
         todo!()
     }
 }
+
 pub fn func_mangle(function_name: String, file: String) -> String {
     format!("fn_{}_{}", file, function_name)
 }

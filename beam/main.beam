@@ -24,6 +24,7 @@ label next2
 end
 
 fn void void x int y int:
+label next
     _:int = x+y
     return unit
 end
@@ -31,4 +32,10 @@ end
 fn int add x int y int:
     tmp:int = x + y
     return tmp
+end
+fn vec2 try:
+end
+struct vec2
+    x int
+    y int
 end
