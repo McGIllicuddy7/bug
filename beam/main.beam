@@ -3,6 +3,7 @@ fn int main:
     c:int = fib(b)
     _:void = void(1 2)
     _1:int = add(1 2)
+    _2:vec2 = try()
     return c
 end
 
@@ -35,7 +36,7 @@ fn int add x int y int:
 end
 fn vec2 try:
 	out:vec2 
-    out = new vec2
+    	out = new vec2
 	out.x = 0
 	return out
 end

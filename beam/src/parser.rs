@@ -433,7 +433,9 @@ pub fn parse_fn(
     let mut arg_types = Vec::new();
     for i in variables {
         if i.1.1.is_ptr {
-            arg_types.push(Type::Ptr { to: i.1.1 });
+            let mut tmp = i.1.1.clone();
+            tmp.is_ptr = false;
+            arg_types.push(Type::Ptr { to: tmp });
         } else {
             arg_types.push(type_table[i.1.1.index as usize].1.clone());
         }
@@ -549,14 +551,13 @@ pub fn parse_var(
         if let Some(p) = v.find('.') {
             let mut st = v.clone();
             let bst = st.split_terminator(".").next().unwrap().to_string();
-            println!("{:#?}", bst);
             let base = parse_var(bst, variables, type_table)?;
             while let Some(p) = v.find('.') {
                 let bst = st.split_off(p + 1);
                 let t = base.get_type(type_table);
                 match t {
                     Type::Ptr { to } => {
-                        let typ = type_table[to.index as usize].1.clone();
+                        let typ = to.as_type(type_table);
                         match typ {
                             Type::Struct { name: _, fields } => {
                                 let mut idx = 0;
@@ -571,7 +572,9 @@ pub fn parse_var(
                                     idx += 1;
                                 }
                             }
-                            _ => {}
+                            _ => {
+                                println!("{:#?}", typ);
+                            }
                         }
                         todo!();
                     }
@@ -671,14 +674,20 @@ pub fn parse_command(
             })
         } else if n.text == "=" {
             let Some(ln) = tokens.next() else { todo!() };
-            if ln.text == "new"{
-                let t = parse_type(tokens, type_table)?;
-                return Ok(ParseCommandOutput::Command { cmd: Cmd::Assign { l:v, r: Var::OperatorNew { new_type: t } } })
+            if ln.text == "new" {
+                let mut t = parse_type(tokens, type_table)?;
+                t.is_ptr = false;
+                return Ok(ParseCommandOutput::Command {
+                    cmd: Cmd::Assign {
+                        l: v,
+                        r: Var::OperatorNew { new_type: t },
+                    },
+                });
             }
             let Ok(l) = parse_var(ln.text.clone(), variables, type_table) else {
                 let paren = tokens.next().unwrap();
                 if paren.text != "(" {
-                    println!("{:#?}, {:#?}", ln,paren);
+                    println!("{:#?}, {:#?}", ln, paren);
                     todo!();
                 }
                 let mut args = Vec::new();
@@ -756,10 +765,15 @@ pub fn parse_command(
                         args,
                     },
                 })
-            } else if op.text == "new"{
+            } else if op.text == "new" {
                 let t = parse_type(tokens, type_table)?;
-                Ok(ParseCommandOutput::Command { cmd: Cmd::Assign { l, r: Var::OperatorNew { new_type: t } } })
-            }else {
+                Ok(ParseCommandOutput::Command {
+                    cmd: Cmd::Assign {
+                        l,
+                        r: Var::OperatorNew { new_type: t },
+                    },
+                })
+            } else {
                 Ok(ParseCommandOutput::Command {
                     cmd: Cmd::Assign { l: v, r: l },
                 })
@@ -829,7 +843,11 @@ pub fn function_fixups(p: &Program, f: &Function) -> Result<Function, String> {
             }
             Cmd::Assign { l, r } => {
                 if l.get_type(&p.types) != r.get_type(&p.types) {
-                    println!("incompatable types:{:#?}, {:#?}", l.get_type(&p.types) ,r.get_type(&p.types));
+                    println!(
+                        "incompatable types:{:#?}, {:#?}",
+                        l.get_type(&p.types),
+                        r.get_type(&p.types)
+                    );
                     todo!()
                 }
             }
@@ -861,11 +879,8 @@ pub fn function_fixups(p: &Program, f: &Function) -> Result<Function, String> {
                     } => {
                         println!("{:#?}", name);
                         let f = &p.functions[&name];
-                        let from: Vec<Type> = f
-                            .arguments
-                            .iter()
-                            .map(|i| p.types[i.1.index as usize].1.clone())
-                            .collect();
+                        let from: Vec<Type> =
+                            f.arguments.iter().map(|i| i.1.as_type(&p.types)).collect();
                         let to = p.types[f.return_type.index as usize].1.clone();
                         if returned.get_type(&p.types) != to {
                             todo!()
@@ -885,7 +900,12 @@ pub fn function_fixups(p: &Program, f: &Function) -> Result<Function, String> {
                 }
             }
             Cmd::Return { to_return } => {
-                if to_return.get_type(&p.types) != p.types[f.return_type.index as usize].1 {
+                if to_return.get_type(&p.types) != f.return_type.as_type(&p.types) {
+                    println!(
+                        "expected type:{:#?}, found type:{:#?}",
+                        p.types[f.return_type.index as usize].1,
+                        to_return.get_type(&p.types),
+                    );
                     todo!()
                 }
             }

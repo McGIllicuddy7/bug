@@ -287,6 +287,17 @@ impl Type {
         }
     }
 }
+impl ShallowType {
+    pub fn as_type(&self, type_table: &[(String, Type)]) -> Type {
+        if self.is_ptr {
+            let mut tmp = self.clone();
+            tmp.is_ptr = false;
+            return Type::Ptr { to: tmp };
+        } else {
+            return type_table[self.index as usize].clone().1;
+        }
+    }
+}
 impl Var {
     pub fn get_type(&self, type_table: &[(String, Type)]) -> Type {
         match self {
@@ -294,7 +305,15 @@ impl Var {
                 vtype,
                 index: _,
                 name: _,
-            } => type_table[vtype.index as usize].1.clone(),
+            } => {
+                if vtype.is_ptr {
+                    let mut vt = vtype.clone();
+                    vt.is_ptr = false;
+                    Type::Ptr { to: vt }
+                } else {
+                    type_table[vtype.index as usize].1.clone()
+                }
+            }
             Var::ConstInt { value: _ } => Type::Integer,
             Var::ConstFloat { value: _ } => Type::Float,
             Var::ConstString { value: _ } => Type::String,

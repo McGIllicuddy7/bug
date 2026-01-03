@@ -9,8 +9,8 @@ fn main() {
     )
     .unwrap();
     println!("{:#?}", p);
-    //    let mut f = link(&[p]);
-    //   while !f.done {
-    //      f.update().unwrap();
-    // }
+    let mut f = parser::link(&[p]);
+    while !f.done {
+        f.update().unwrap();
+    }
 }
