@@ -34,6 +34,9 @@ fn int add x int y int:
     return tmp
 end
 fn vec2 try:
+	out:vec2
+	out.x = 0
+	return out
 end
 struct vec2
     x int

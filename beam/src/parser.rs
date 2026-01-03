@@ -1,4 +1,7 @@
-use std::{collections::HashMap, error::Error};
+use std::{
+    collections::{HashMap, HashSet},
+    error::Error,
+};
 
 use crate::mach::{self, Binop, Cmd, Function, Heap, Machine, Program, ShallowType, Type, Var};
 
@@ -8,11 +11,13 @@ pub struct Token {
     pub file: String,
     pub line: usize,
 }
+
 #[derive(Clone, Debug)]
 pub struct TokenStream {
     pub tokens: Vec<Token>,
     pub index: usize,
 }
+
 #[derive(Clone, Debug)]
 pub enum ParseCommandOutput {
     Label { name: String },
@@ -20,11 +25,13 @@ pub enum ParseCommandOutput {
     Declared { name: String, vt: ShallowType },
     Done,
 }
+
 impl AsRef<str> for Token {
     fn as_ref(&self) -> &str {
         &self.text
     }
 }
+
 impl TokenStream {
     pub fn from_string(s: String, file: String) -> Self {
         let tokens = tokenize(s, file);
@@ -38,6 +45,7 @@ impl TokenStream {
         self.tokens.insert(self.index, t);
     }
 }
+
 impl Iterator for TokenStream {
     type Item = Token;
     fn next(&mut self) -> Option<Self::Item> {
@@ -66,7 +74,7 @@ pub fn tokenize(s: String, file: String) -> Vec<Token> {
     for c in s.chars() {
         match state {
             State::Whitespace => {
-                if c == ' ' {
+                if c == ' ' || c == '\t' {
                 } else if c == '\n' {
                     line += 1;
                 } else if c == ':'
@@ -76,6 +84,8 @@ pub fn tokenize(s: String, file: String) -> Vec<Token> {
                     || c == '/'
                     || c == '('
                     || c == ')'
+                    || c == '<'
+                    || c == '>'
                 {
                     out.push(Token {
                         text: c.to_string(),
@@ -103,7 +113,9 @@ pub fn tokenize(s: String, file: String) -> Vec<Token> {
                         || c == '/'
                         || c == ';'
                         || c == '('
-                        || c == ')')
+                        || c == ')'
+                        || c == '>'
+                        || c == '<')
                 {
                     buf.push(c);
                 } else {
@@ -122,6 +134,8 @@ pub fn tokenize(s: String, file: String) -> Vec<Token> {
                         || c == '/'
                         || c == '('
                         || c == ')'
+                        || c == '>'
+                        || c == '<'
                     {
                         out.push(Token {
                             text: c.to_string(),
@@ -175,6 +189,7 @@ pub fn tokenize(s: String, file: String) -> Vec<Token> {
     println!("{:#?}", out);
     out
 }
+
 pub fn default_types() -> Vec<(String, Type)> {
     vec![
         ("int".to_string(), Type::Integer),
@@ -184,35 +199,137 @@ pub fn default_types() -> Vec<(String, Type)> {
         ("void".to_string(), Type::Void),
     ]
 }
-pub fn parse_to_program(string: String, file: String) -> Result<Program, Box<dyn Error>> {
+pub fn skip_fn(tokens: &mut TokenStream) -> Result<(), Box<dyn Error>> {
+    while let Some(n) = tokens.next() {
+        if n.as_ref() == "end" {
+            break;
+        }
+        if n.as_ref() == "fn" {
+            skip_fn(tokens)?;
+        }
+    }
+    Ok(())
+}
+pub fn skip_struct(tokens: &mut TokenStream) -> Result<(), Box<dyn Error>> {
+    while let Some(n) = tokens.next() {
+        if n.as_ref() == "end" {
+            break;
+        }
+        if n.as_ref() == "struct" {
+            skip_struct(tokens)?;
+        }
+        if n.as_ref() == "fn" {
+            skip_fn(tokens)?;
+        }
+    }
+    Ok(())
+}
+
+pub fn import_file(
+    name: String,
+    imports: &mut HashSet<String>,
+    prog: &mut Program,
+) -> Result<(), Box<dyn Error>> {
+    if imports.contains(&name) {
+        return Ok(());
+    }
+    imports.insert(name.clone());
+    let f = std::fs::read_to_string(&name)?;
+    let np = preprocess_file(f, name, imports)?;
+    for i in np.types {
+        if !prog.types.contains(&i) {
+            prog.types.push(i);
+        }
+    }
+    for i in np.functions {
+        prog.functions.insert(i.0, i.1);
+    }
+    todo!()
+}
+pub fn preprocess_file(
+    string: String,
+    file: String,
+    imports: &mut HashSet<String>,
+) -> Result<Program, Box<dyn Error>> {
+    let mut toks = TokenStream::from_string(string, file);
+    let old = toks.clone();
     let mut out = Program {
         types: default_types(),
         functions: HashMap::new(),
     };
-    let prefix = "fn_".to_string() + &file;
+    while let Some(n) = toks.next() {
+        match n.as_ref() {
+            "fn" => {
+                skip_fn(&mut toks)?;
+            }
+            "import" => {
+                let name = toks.next().unwrap().text;
+                import_file(name, imports, &mut out)?;
+            }
+            "struct" => {
+                skip_struct(&mut toks)?;
+            }
+            _ => {
+                todo!();
+            }
+        }
+    }
+    toks = old.clone();
+    while let Some(n) = toks.next() {
+        match n.as_ref() {
+            "fn" => {
+                skip_fn(&mut toks)?;
+            }
+            "import" => {
+                let _ = toks.next();
+            }
+            "struct" => {
+                let strct = parse_struct(&mut toks, &out.types)?;
+                out.types.push(strct);
+            }
+            _ => {
+                todo!();
+            }
+        }
+    }
+    toks = old.clone();
+    while let Some(n) = toks.next() {
+        match n.as_ref() {
+            "fn" => {
+                let f = parse_fn_header(&mut toks, &out.types)?;
+                skip_fn(&mut toks)?;
+                out.functions.insert(f.0, f.1);
+            }
+            "import" => {
+                let _ = toks.next();
+            }
+            "struct" => {
+                skip_struct(&mut toks)?;
+            }
+            _ => {
+                todo!();
+            }
+        }
+    }
+    Ok(out)
+}
+
+pub fn parse_to_program(string: String, file: String) -> Result<Program, Box<dyn Error>> {
+    let mut imports = HashSet::new();
+    let mut out = preprocess_file(string.clone(), file.clone(), &mut imports)?;
+    let prefix = "".to_string();
     let mut tokens = TokenStream::from_string(string, file.clone());
     while let Some(n) = tokens.next() {
         match n.as_ref() {
             "fn" => {
                 let (name, func) = parse_fn(&mut tokens, &out.types, file.clone())?;
-                out.functions.insert(prefix.clone() + "_" + &name, func);
+                out.functions.insert(prefix.clone() + &name, func);
             }
             "import" => {
-                todo!()
+                let _ = tokens.next();
             }
             "struct" => {
-                let (name, t) = parse_struct(&mut tokens, &out.types)?;
-                out.types.push((name, t));
-            }
-            "extern" => {
-                let Some(n) = tokens.next() else { todo!() };
-                if n.as_ref() == "fn" {
-                    todo!()
-                } else if n.as_ref() == "struct" {
-                    todo!()
-                } else {
-                    todo!()
-                }
+                skip_struct(&mut tokens)?;
             }
             _ => {
                 return Err(format!(
@@ -225,23 +342,31 @@ pub fn parse_to_program(string: String, file: String) -> Result<Program, Box<dyn
             }
         }
     }
-    let mut tnew =out.types.clone();
-    for i in &mut tnew{
-        match &mut i.1{
-            Type::Struct { name:_, fields } => {
-                for j in fields{
-                    let mut strm = TokenStream{tokens:vec![Token{text:j.1.name.clone(), file:file.clone(), line:0}], index:0};
+    let mut tnew = out.types.clone();
+    for i in &mut tnew {
+        match &mut i.1 {
+            Type::Struct { name: _, fields } => {
+                for j in fields {
+                    let mut strm = TokenStream {
+                        tokens: vec![Token {
+                            text: j.1.name.clone(),
+                            file: file.clone(),
+                            line: 0,
+                        }],
+                        index: 0,
+                    };
                     j.1 = parse_type(&mut strm, &mut out.types)?;
                 }
             }
-            _=>{
-                continue;;
+            _ => {
+                continue;
             }
         }
     }
     out.types = tnew;
     Ok(fixups(out)?)
 }
+
 pub fn parse_type(
     tokens: &mut TokenStream,
     type_table: &[(String, Type)],
@@ -249,23 +374,27 @@ pub fn parse_type(
     let Some(t) = tokens.next() else {
         todo!();
     };
-    let s = t.text;
-    if let Some(_n) = s.strip_prefix("[]") {
-        todo!()
-    } else {
-        let mut idx = 0;
-        for i in type_table {
-            if i.0 == s {
-                return Ok(ShallowType {
-                    name: s,
-                    index: idx,
-                });
-            }
-            idx += 1;
+    let mut s = t.text;
+    let mut array_count = 0;
+    while let Some(n) = s.strip_prefix("[]") {
+        s = n.to_string();
+        array_count += 1;
+    }
+    let mut idx = 0;
+    for i in type_table {
+        if i.0 == s {
+            return Ok(ShallowType {
+                name: s,
+                index: idx,
+                array_count,
+                is_ptr: !i.1.is_primitive(),
+            });
         }
+        idx += 1;
     }
     Err(format!("unkown type:{:#?}", s).into())
 }
+
 pub fn parse_fn(
     tokens: &mut TokenStream,
     type_table: &[(String, Type)],
@@ -281,7 +410,13 @@ pub fn parse_fn(
         variables.insert(i.0.clone(), (idx, i.1.clone()));
     }
     loop {
-        let n = parse_command(tokens, &mut variables, type_table, file.clone(), header.0.clone())?;
+        let n = parse_command(
+            tokens,
+            &mut variables,
+            type_table,
+            file.clone(),
+            header.0.clone(),
+        )?;
         match n {
             ParseCommandOutput::Label { name } => {
                 labels.insert(name, cmds.len());
@@ -297,7 +432,11 @@ pub fn parse_fn(
     }
     let mut arg_types = Vec::new();
     for i in variables {
-        arg_types.push(type_table[i.1.1.index as usize].1.clone());
+        if i.1.1.is_ptr {
+            arg_types.push(Type::Ptr { to: i.1.1 });
+        } else {
+            arg_types.push(type_table[i.1.1.index as usize].1.clone());
+        }
     }
     if !header.1.arguments.is_empty() {
         arg_types = arg_types[header.1.arguments.len() - 1..].to_vec();
@@ -314,22 +453,46 @@ pub fn parse_fn(
         },
     ))
 }
+
 pub fn parse_struct(
     tokens: &mut TokenStream,
     _type_table: &[(String, Type)],
 ) -> Result<(String, Type), Box<dyn Error>> {
     let name = tokens.next().unwrap().text;
     let mut v = Vec::new();
-    loop{
+    loop {
         let name1 = tokens.next().unwrap().text;
-        if name1 == "end"{
+        if name1 == "end" {
             break;
         }
         let typ1 = tokens.next().unwrap().text;
-        v.push((name1, ShallowType{index:0, name:typ1}));
+        let mut array_count = 0;
+        let mut tmp = typ1.as_str();
+        while let Some(p) = tmp.strip_prefix("[]") {
+            tmp = p;
+            array_count += 1;
+        }
+        let defaults = default_types();
+        let mut is_ptr = true;
+        for i in defaults {
+            if i.0 == tmp {
+                is_ptr = false;
+                break;
+            }
+        }
+        v.push((
+            name1,
+            ShallowType {
+                index: 0,
+                name: tmp.to_string(),
+                array_count,
+                is_ptr,
+            },
+        ));
     }
-    Ok((name.clone(),Type::Struct { name, fields: v }))
+    Ok((name.clone(), Type::Struct { name, fields: v }))
 }
+
 pub fn parse_fn_header(
     tokens: &mut TokenStream,
     type_table: &[(String, Type)],
@@ -358,6 +521,7 @@ pub fn parse_fn_header(
         },
     ))
 }
+
 pub fn parse_var(
     v: String,
     variables: &HashMap<String, (usize, ShallowType)>,
@@ -384,17 +548,49 @@ pub fn parse_var(
     } else {
         if let Some(p) = v.find('.') {
             let mut st = v.clone();
-            let bst = st.split_off(p);
+            let bst = st.split_terminator(".").next().unwrap().to_string();
+            println!("{:#?}", bst);
             let base = parse_var(bst, variables, type_table)?;
             while let Some(p) = v.find('.') {
-                let _bst = st.split_off(p);
+                let bst = st.split_off(p + 1);
                 let t = base.get_type(type_table);
                 match t {
-                    Type::Ptr { to: _ } => {
-                        todo!()
+                    Type::Ptr { to } => {
+                        let typ = type_table[to.index as usize].1.clone();
+                        match typ {
+                            Type::Struct { name: _, fields } => {
+                                let mut idx = 0;
+                                for i in &fields {
+                                    if i.0 == bst {
+                                        return Ok(Var::FieldAccess {
+                                            of: Box::new(base),
+                                            index: idx,
+                                            return_type: i.1.clone(),
+                                        });
+                                    }
+                                    idx += 1;
+                                }
+                            }
+                            _ => {}
+                        }
+                        todo!();
                     }
-                    Type::Struct { name: _, fields: _ } => {
-                        todo!()
+                    Type::Struct { name, fields } => {
+                        let mut idx = 0;
+                        for i in &fields {
+                            if i.0 == bst {
+                                return Ok(Var::FieldAccess {
+                                    of: Box::new(base),
+                                    index: idx,
+                                    return_type: i.1.clone(),
+                                });
+                            }
+                            idx += 1;
+                        }
+                        println!("type:{:#?} does not have field:{:#?}", name, bst);
+                        return Err(
+                            format!("type:{:#?} does not have field:{:#?}", name, bst).into()
+                        );
                     }
                     _ => {
                         todo!()
@@ -404,6 +600,7 @@ pub fn parse_var(
             todo!()
         }
     }
+    println!("unknown var:{}", v);
     Err(format!("unknown var:{}", v).into())
 }
 
@@ -412,7 +609,7 @@ pub fn parse_command(
     variables: &mut HashMap<String, (usize, ShallowType)>,
     type_table: &[(String, Type)],
     file: String,
-    function_name: String
+    function_name: String,
 ) -> Result<ParseCommandOutput, Box<dyn Error>> {
     let Some(base) = tokens.next() else { todo!() };
     let s = base.text.clone();
@@ -429,13 +626,13 @@ pub fn parse_command(
     }
     if s == "label" {
         return Ok(ParseCommandOutput::Label {
-            name: function_name+&tokens.next().unwrap().text,
+            name: function_name + &tokens.next().unwrap().text,
         });
     }
     if s == "goto" {
         return Ok(ParseCommandOutput::Command {
             cmd: Cmd::Jmp {
-                to: function_name+&tokens.next().unwrap().text,
+                to: function_name + &tokens.next().unwrap().text,
             },
         });
     }
@@ -449,7 +646,7 @@ pub fn parse_command(
         return Ok(ParseCommandOutput::Command {
             cmd: Cmd::JmpCond {
                 cond: v,
-                to: function_name+&to.text,
+                to: function_name + &to.text,
             },
         });
     }
@@ -592,8 +789,8 @@ pub fn parse_command(
     }
 }
 
-pub fn func_mangle(function_name: String, file: String) -> String {
-    format!("fn_{}_{}", file, function_name)
+pub fn func_mangle(function_name: String, _file: String) -> String {
+    format!("{function_name}")
 }
 pub fn fixups(p: Program) -> Result<Program, String> {
     let mut out = Program {
@@ -606,6 +803,7 @@ pub fn fixups(p: Program) -> Result<Program, String> {
     }
     Ok(out)
 }
+
 pub fn function_fixups(p: &Program, f: &Function) -> Result<Function, String> {
     let mut out = f.clone();
     out.cmds.clear();

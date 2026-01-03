@@ -4,6 +4,8 @@ use std::{collections::HashMap, error::Error};
 pub struct ShallowType {
     pub name: String,
     pub index: u64,
+    pub array_count: u64,
+    pub is_ptr: bool,
 }
 #[derive(Clone, Debug, PartialEq)]
 pub enum Type {
@@ -24,6 +26,19 @@ pub enum Type {
         to: Box<Type>,
         name: String,
     },
+}
+impl Type {
+    pub fn is_primitive(&self) -> bool {
+        match self {
+            Self::Void => true,
+            Self::Integer => true,
+            Self::Float => true,
+            Self::Bool => true,
+            Self::String => false,
+
+            _ => false,
+        }
+    }
 }
 #[derive(Clone, Debug, PartialEq)]
 pub enum Var {
@@ -52,6 +67,9 @@ pub enum Var {
     },
     FunctionLiteral {
         name: String,
+    },
+    OperatorNew {
+        new_type: ShallowType,
     },
 }
 #[derive(Clone, Debug, PartialEq)]
@@ -291,6 +309,9 @@ impl Var {
                 from: Vec::new(),
                 to: Box::new(Type::Void),
                 name: name.clone(),
+            },
+            Var::OperatorNew { new_type } => Type::Ptr {
+                to: new_type.clone(),
             },
         }
     }

@@ -1,4 +1,4 @@
-use crate::parser::link;
+//use crate::parser::link;
 
 pub mod mach;
 pub mod parser;
@@ -9,8 +9,8 @@ fn main() {
     )
     .unwrap();
     println!("{:#?}", p);
-    let mut f = link(&[p]);
-    while !f.done {
-        f.update().unwrap();
-    }
+    //    let mut f = link(&[p]);
+    //   while !f.done {
+    //      f.update().unwrap();
+    // }
 }
