@@ -34,7 +34,8 @@ fn int add x int y int:
     return tmp
 end
 fn vec2 try:
-	out:vec2
+	out:vec2 
+    out = new vec2
 	out.x = 0
 	return out
 end

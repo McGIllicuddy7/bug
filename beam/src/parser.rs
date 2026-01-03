@@ -671,9 +671,14 @@ pub fn parse_command(
             })
         } else if n.text == "=" {
             let Some(ln) = tokens.next() else { todo!() };
+            if ln.text == "new"{
+                let t = parse_type(tokens, type_table)?;
+                return Ok(ParseCommandOutput::Command { cmd: Cmd::Assign { l:v, r: Var::OperatorNew { new_type: t } } })
+            }
             let Ok(l) = parse_var(ln.text.clone(), variables, type_table) else {
                 let paren = tokens.next().unwrap();
                 if paren.text != "(" {
+                    println!("{:#?}, {:#?}", ln,paren);
                     todo!();
                 }
                 let mut args = Vec::new();
@@ -751,7 +756,10 @@ pub fn parse_command(
                         args,
                     },
                 })
-            } else {
+            } else if op.text == "new"{
+                let t = parse_type(tokens, type_table)?;
+                Ok(ParseCommandOutput::Command { cmd: Cmd::Assign { l, r: Var::OperatorNew { new_type: t } } })
+            }else {
                 Ok(ParseCommandOutput::Command {
                     cmd: Cmd::Assign { l: v, r: l },
                 })
@@ -821,6 +829,7 @@ pub fn function_fixups(p: &Program, f: &Function) -> Result<Function, String> {
             }
             Cmd::Assign { l, r } => {
                 if l.get_type(&p.types) != r.get_type(&p.types) {
+                    println!("incompatable types:{:#?}, {:#?}", l.get_type(&p.types) ,r.get_type(&p.types));
                     todo!()
                 }
             }
