@@ -468,8 +468,14 @@ impl Machine {
             }
             Var::OperatorNew { new_type }=>{
                 let vt = new_type.as_type(&self.type_table);
+                let fields = match &vt{Type::Struct { name, fields }=> {
+                    fields.clone()
+                }, _=>todo!()};
                 let sz = vt.get_size(&self.type_table);
                 let ptr = self.heap.allocate(sz as usize, new_type.index as u32).unwrap();
+                for i in 1..sz+1{
+                    *self.heap.get_mut(ptr as usize+i) = fields[i-1].1.as_type(&self.type_table).as_default(&self.type_table).unwrap();
+                }
                 return Ok(Value::Object { ptr: ptr as u64 })
             },
             _ => {
