@@ -1,5 +1,5 @@
 pub use std::collections::HashSet;
-use std::{collections::HashMap, error::Error};
+use std::{cell::UnsafeCell, collections::HashMap, error::Error, sync::Arc};
 #[derive(Clone, Debug, PartialEq)]
 pub struct ShallowType {
     pub name: String,
@@ -161,19 +161,23 @@ pub struct Program {
     pub functions: HashMap<String, Function>,
 }
 #[derive(Clone, Debug)]
-pub struct Heap {
+pub struct HeapInternal {
     pub values: Box<[Value; 65536]>,
     pub tracking: Box<[bool; 65536]>,
     pub free_list: Vec<(u32, u32)>,
     pub allocations: HashSet<(u32, u32)>,
 }
-impl Default for Heap {
+#[derive(Clone, Debug)]
+pub struct Heap{
+    pub v:Arc<UnsafeCell<HeapInternal>>,
+}
+impl Default for HeapInternal {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl Heap {
+impl HeapInternal {
     pub fn new() -> Self {
         let values = Box::new([const { Value::Integer { v: 0 } }; 65536]);
         let tracking = Box::new([false; 65536]);
@@ -269,6 +273,37 @@ impl Heap {
         Ok(())
     }
 }
+impl Heap{
+    pub fn new() -> Self {
+        Self { v: Arc::new(UnsafeCell::new(HeapInternal::new())) }
+    }
+    pub fn cleanup(&self) {
+        unsafe{
+            (*self.v.get()).cleanup();
+        }
+    }
+    pub fn allocate(&self, count: usize, typeheader: u32) -> Option<u32> {
+        unsafe{
+            (*self.v.get()).allocate(count, typeheader)
+        }
+    }
+    pub fn free(&self, start: u32) -> Result<(), u32> {
+        unsafe{
+            (*self.v.get()).free(start)
+        }
+    }
+    pub fn get(&self, ptr:usize)->Value{
+        unsafe{
+            (*self.v.get()).values[ptr].clone()
+        }
+    }
+    pub fn get_mut(&self, ptr:usize)->&mut Value{
+        unsafe{
+            &mut (*self.v.get()).values[ptr]
+        }
+
+    }
+}
 impl Type {
     pub fn as_default(&self, _types: &[(String, Type)]) -> Result<Value, Box<dyn Error>> {
         match self {
@@ -277,13 +312,25 @@ impl Type {
             Type::Float => Ok(Value::Float { v: 0.0 }),
             Type::Bool => Ok(Value::Bool { v: false }),
             Type::String => Ok(Value::String { v: "".into() }),
-            Type::Ptr { to: _ } => todo!(),
+            Type::Ptr { to: _ } => Ok(Value::Object { ptr: 0 }),
             Type::Struct { name: _, fields: _ } => todo!(),
             Type::Function {
                 from: _,
                 to: _,
                 name: _,
             } => todo!(),
+        }
+    }
+    pub fn get_size(&self, types:&[(String, Type)])->usize{
+        match self{
+            Type::Struct { name:_, fields }=>{
+                let mut out = 0;
+                for i in fields{
+                    out += i.1.as_type(types).get_size(types);
+                }
+                out
+            }
+            _=>1,
         }
     }
 }
@@ -323,7 +370,15 @@ impl Var {
                 of: _,
                 index: _,
                 return_type,
-            } => type_table[return_type.index as usize].1.clone(),
+            } => {
+                if return_type.is_ptr{
+                    let mut vt = return_type.clone();
+                    vt.is_ptr = false;
+                    Type::Ptr { to: vt }
+                }else{
+                    type_table[return_type.index as usize].1.clone()
+                }
+            }
             Var::FunctionLiteral { name } => Type::Function {
                 from: Vec::new(),
                 to: Box::new(Type::Void),
@@ -359,10 +414,10 @@ impl Machine {
                 index,
                 return_type: _,
             } => {
-                let v = self.get_l_value(*of)?;
+                let v = self.get_value(*of)?;
                 match v {
                     Value::Object { ptr } => {
-                        let var = &mut self.heap.values[*ptr as usize + index + 1];
+                        let var = self.heap.get_mut(ptr as usize + index + 1);
                         return Ok(var);
                     }
                     _ => {
@@ -404,13 +459,19 @@ impl Machine {
                 let v = self.get_value(*of)?;
                 match v {
                     Value::Object { ptr } => {
-                        return Ok(self.heap.values[ptr as usize + index + 1].clone());
+                        return Ok(self.heap.get(ptr as usize + index + 1));
                     }
                     _ => {
                         todo!();
                     }
                 }
             }
+            Var::OperatorNew { new_type }=>{
+                let vt = new_type.as_type(&self.type_table);
+                let sz = vt.get_size(&self.type_table);
+                let ptr = self.heap.allocate(sz as usize, new_type.index as u32).unwrap();
+                return Ok(Value::Object { ptr: ptr as u64 })
+            },
             _ => {
                 todo!()
             }

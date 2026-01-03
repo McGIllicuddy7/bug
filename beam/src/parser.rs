@@ -881,7 +881,7 @@ pub fn function_fixups(p: &Program, f: &Function) -> Result<Function, String> {
                         let f = &p.functions[&name];
                         let from: Vec<Type> =
                             f.arguments.iter().map(|i| i.1.as_type(&p.types)).collect();
-                        let to = p.types[f.return_type.index as usize].1.clone();
+                        let to = f.return_type.as_type(&p.types);
                         if returned.get_type(&p.types) != to {
                             todo!()
                         }

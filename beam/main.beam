@@ -1,6 +1,6 @@
 fn int main: 
     b:int = 10
-    c:int = fib(b)
+    c:int = fib(26)
     _:void = void(1 2)
     _1:int = add(1 2)
     _2:vec2 = try()
@@ -23,6 +23,7 @@ label next2
     x2:int = x0+x1
     return x2
 end
+
 
 fn void void x int y int:
 label next
