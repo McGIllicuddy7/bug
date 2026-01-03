@@ -301,7 +301,11 @@ impl Heap{
         unsafe{
             &mut (*self.v.get()).values[ptr]
         }
-
+    }
+    pub fn debug(&self){
+        unsafe{
+            println!("allocations:{:#?}\n, free_list:{:#?}", (*self.v.get()).allocations, (*self.v.get()).free_list);
+        }
     }
 }
 impl Type {
@@ -468,7 +472,7 @@ impl Machine {
             }
             Var::OperatorNew { new_type }=>{
                 let vt = new_type.as_type(&self.type_table);
-                let fields = match &vt{Type::Struct { name, fields }=> {
+                let fields = match &vt{Type::Struct { name:_, fields }=> {
                     fields.clone()
                 }, _=>todo!()};
                 let sz = vt.get_size(&self.type_table);
