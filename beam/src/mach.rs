@@ -35,11 +35,12 @@ impl Type {
             Self::Integer => true,
             Self::Float => true,
             Self::Bool => true,
-            Self::String => false,
+            Self::String => true,
             _ => false,
         }
     }
 }
+#[repr(C)]
 #[derive(Clone, Debug, PartialEq)]
 pub enum Var {
     Stack {
@@ -276,6 +277,12 @@ impl HeapInternal {
         Ok(())
     }
 }
+impl Default for Heap {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Heap {
     pub fn new() -> Self {
         Self {
@@ -344,9 +351,9 @@ impl ShallowType {
         if self.is_ptr {
             let mut tmp = self.clone();
             tmp.is_ptr = false;
-            return Type::Ptr { to: tmp };
+            Type::Ptr { to: tmp }
         } else {
-            return type_table[self.index as usize].clone().1;
+            type_table[self.index as usize].clone().1
         }
     }
 }
@@ -440,22 +447,12 @@ impl Machine {
                 vtype: _,
                 index,
                 name: _,
-            } => {
-                return Ok(self.stack[self.v_start as usize + index].clone());
-            }
-            Var::ConstInt { value } => {
-                return Ok(Value::Integer { v: value });
-            }
-            Var::ConstFloat { value } => {
-                return Ok(Value::Float { v: value });
-            }
-            Var::ConstString { value } => {
-                return Ok(Value::String { v: value });
-            }
-            Var::ConstBool { value } => return Ok(Value::Bool { v: value }),
-            Var::Unit => {
-                return Ok(Value::Unit);
-            }
+            } => Ok(self.stack[self.v_start as usize + index].clone()),
+            Var::ConstInt { value } => Ok(Value::Integer { v: value }),
+            Var::ConstFloat { value } => Ok(Value::Float { v: value }),
+            Var::ConstString { value } => Ok(Value::String { v: value }),
+            Var::ConstBool { value } => Ok(Value::Bool { v: value }),
+            Var::Unit => Ok(Value::Unit),
             Var::FieldAccess {
                 of,
                 index,
@@ -463,9 +460,7 @@ impl Machine {
             } => {
                 let v = self.get_value((*of).clone())?;
                 match v {
-                    Value::Object { ptr } => {
-                        return Ok(self.heap.get(ptr as usize + index + 1));
-                    }
+                    Value::Object { ptr } => Ok(self.heap.get(ptr as usize + index + 1)),
                     _ => {
                         todo!();
                     }
@@ -478,10 +473,7 @@ impl Machine {
                     _ => todo!(),
                 };
                 let sz = vt.get_size(&self.type_table);
-                let ptr = self
-                    .heap
-                    .allocate(sz as usize, new_type.index as u32)
-                    .unwrap();
+                let ptr = self.heap.allocate(sz, new_type.index as u32).unwrap();
                 for i in 1..sz + 1 {
                     *self.heap.get_mut(ptr as usize + i) = fields[i - 1]
                         .1
@@ -489,7 +481,7 @@ impl Machine {
                         .as_default(&self.type_table)
                         .unwrap();
                 }
-                return Ok(Value::Object { ptr: ptr as u64 });
+                Ok(Value::Object { ptr: ptr as u64 })
             }
             _ => {
                 todo!()
@@ -523,7 +515,7 @@ impl Machine {
     pub fn update(&mut self) -> Result<(), Box<dyn Error>> {
         let ins = self.cmds[self.ip as usize].clone();
         self.ip += 1;
-        //println!("{:#?}",ins);
+        println!("{:#?}", ins);
         match ins {
             Cmd::Binop { l, r, out, op } => {
                 let lt = l.get_type(&self.type_table);

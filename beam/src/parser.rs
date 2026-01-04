@@ -153,6 +153,7 @@ pub fn tokenize(s: String, file: String) -> Vec<Token> {
             }
             State::String => {
                 if c == '"' {
+                    buf = "\"".to_string() + &buf + "\"";
                     out.push(Token {
                         text: buf,
                         file: file.clone(),
@@ -245,7 +246,7 @@ pub fn import_file(
     for i in np.functions {
         prog.functions.insert(i.0, i.1);
     }
-    todo!()
+    Ok(())
 }
 pub fn preprocess_file(
     string: String,
@@ -357,7 +358,7 @@ pub fn parse_to_program(string: String, file: String) -> Result<Program, Box<dyn
                         }],
                         index: 0,
                     };
-                    j.1 = parse_type(&mut strm, &mut out.types)?;
+                    j.1 = parse_type(&mut strm, &out.types)?;
                 }
                 *fields = f.into();
             }
@@ -563,7 +564,7 @@ pub fn parse_var(
             name: v.into(),
         });
     } else {
-        if let Some(p) = v.find('.') {
+        if let Some(_p) = v.find('.') {
             let mut st = v.clone();
             let bst = st.split_terminator(".").next().unwrap().to_string();
             let base = parse_var(bst, variables, type_table)?;
@@ -830,8 +831,9 @@ pub fn parse_command(
 }
 
 pub fn func_mangle(function_name: String, _file: String) -> String {
-    format!("{function_name}")
+    function_name.to_string()
 }
+
 pub fn fixups(p: Program) -> Result<Program, String> {
     let mut out = Program {
         types: p.types.clone(),
@@ -925,7 +927,7 @@ pub fn function_fixups(p: &Program, f: &Function) -> Result<Function, String> {
                 if to_return.get_type(&p.types) != f.return_type.as_type(&p.types) {
                     println!(
                         "expected type:{:#?}, found type:{:#?}",
-                        p.types[f.return_type.index as usize].1,
+                        f.return_type.as_type(&p.types),
                         to_return.get_type(&p.types),
                     );
                     todo!()
@@ -980,14 +982,13 @@ pub fn link(progs: &[Program]) -> mach::Machine {
                 to_call,
                 returned: _,
                 args: _,
-            } => match to_call {
-                Var::FunctionLiteral { name, idx } => {
+            } => {
+                if let Var::FunctionLiteral { name, idx } = to_call {
                     if let Some(s) = out.symbol_table.get(name.as_ref()) {
                         *idx = *s;
                     }
                 }
-                _ => {}
-            },
+            }
             Cmd::Jmp { to, to_idx } => {
                 if let Some(s) = out.symbol_table.get(to.as_ref()) {
                     *to_idx = *s;

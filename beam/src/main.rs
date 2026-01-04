@@ -10,7 +10,12 @@ fn main() {
     )
     .unwrap();
     println!("{:#?}", p);
-    let mut f = parser::link(&[p]);
+    let p2 = parser::parse_to_program(
+        std::fs::read_to_string("std.beam").unwrap(),
+        "std.beam".into(),
+    )
+    .unwrap();
+    let mut f = parser::link(&[p, p2]);
     let mut count = 0;
     let start = std::time::Instant::now();
     while !f.done {

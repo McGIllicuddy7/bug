@@ -1,0 +1,3 @@
+fn int test:
+	return 1	
+end

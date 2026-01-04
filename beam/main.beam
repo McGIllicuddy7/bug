@@ -1,28 +1,11 @@
-struct box 
-    x int
-end
-fn int main: 
-    x:int = 0
-    label restart
-    x = x+1
-    cond:bool = x < 10000000
-    if cond goto restart
-    return x
+import std.beam
+fn string main: 
+    a:string = "hello"
+    b:string = " "
+    c:string = "world"
+    x:string = a+b 
+    x = x+c 
+	return x
 end
 
-fn int fib n int:
-    cond:bool = n > 0
-    if cond goto next
-    return 0
-label next
-    cond = n > 1
-    if cond goto next2
-    return 1
-label next2
-    n = n-1
-    x0:int = fib(n)
-    n1:int = n-1
-    x1:int = fib(n1)
-    x2:int = x0+x1
-    return x2
-end
+
