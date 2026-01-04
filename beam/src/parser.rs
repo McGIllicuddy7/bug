@@ -1,6 +1,7 @@
 use std::{
     collections::{HashMap, HashSet},
     error::Error,
+    rc::Rc,
 };
 
 use crate::mach::{self, Binop, Cmd, Function, Heap, Machine, Program, ShallowType, Type, Var};
@@ -190,13 +191,13 @@ pub fn tokenize(s: String, file: String) -> Vec<Token> {
     out
 }
 
-pub fn default_types() -> Vec<(String, Type)> {
+pub fn default_types() -> Vec<(Rc<str>, Type)> {
     vec![
-        ("int".to_string(), Type::Integer),
-        ("float".to_string(), Type::Float),
-        ("bool".to_string(), Type::Bool),
-        ("string".to_string(), Type::String),
-        ("void".to_string(), Type::Void),
+        ("int".into(), Type::Integer),
+        ("float".into(), Type::Float),
+        ("bool".into(), Type::Bool),
+        ("string".into(), Type::String),
+        ("void".into(), Type::Void),
     ]
 }
 pub fn skip_fn(tokens: &mut TokenStream) -> Result<(), Box<dyn Error>> {
@@ -298,7 +299,7 @@ pub fn preprocess_file(
             "fn" => {
                 let f = parse_fn_header(&mut toks, &out.types)?;
                 skip_fn(&mut toks)?;
-                out.functions.insert(f.0, f.1);
+                out.functions.insert(f.0.to_string(), f.1);
             }
             "import" => {
                 let _ = toks.next();
@@ -346,10 +347,11 @@ pub fn parse_to_program(string: String, file: String) -> Result<Program, Box<dyn
     for i in &mut tnew {
         match &mut i.1 {
             Type::Struct { name: _, fields } => {
-                for j in fields {
+                let mut f = fields.to_vec();
+                for j in &mut f {
                     let mut strm = TokenStream {
                         tokens: vec![Token {
-                            text: j.1.name.clone(),
+                            text: j.1.name.to_string(),
                             file: file.clone(),
                             line: 0,
                         }],
@@ -357,6 +359,7 @@ pub fn parse_to_program(string: String, file: String) -> Result<Program, Box<dyn
                     };
                     j.1 = parse_type(&mut strm, &mut out.types)?;
                 }
+                *fields = f.into();
             }
             _ => {
                 continue;
@@ -369,7 +372,7 @@ pub fn parse_to_program(string: String, file: String) -> Result<Program, Box<dyn
 
 pub fn parse_type(
     tokens: &mut TokenStream,
-    type_table: &[(String, Type)],
+    type_table: &[(Rc<str>, Type)],
 ) -> Result<ShallowType, Box<dyn Error>> {
     let Some(t) = tokens.next() else {
         todo!();
@@ -382,9 +385,9 @@ pub fn parse_type(
     }
     let mut idx = 0;
     for i in type_table {
-        if i.0 == s {
+        if i.0.as_ref() == s {
             return Ok(ShallowType {
-                name: s,
+                name: s.into(),
                 index: idx,
                 array_count,
                 is_ptr: !i.1.is_primitive(),
@@ -397,17 +400,19 @@ pub fn parse_type(
 
 pub fn parse_fn(
     tokens: &mut TokenStream,
-    type_table: &[(String, Type)],
+    type_table: &[(Rc<str>, Type)],
     file: String,
-) -> Result<(String, Function), Box<dyn Error>> {
+) -> Result<(Rc<str>, Function), Box<dyn Error>> {
     let header = parse_fn_header(tokens, type_table)?;
     let mut cmds = Vec::new();
-    cmds.push(Cmd::DeclareVariables { values: Vec::new() });
+    cmds.push(Cmd::DeclareVariables {
+        values: Rc::new([]),
+    });
     let mut labels = HashMap::new();
     let mut variables = HashMap::new();
-    for i in &header.1.arguments {
+    for i in header.1.arguments.iter() {
         let idx = variables.len();
-        variables.insert(i.0.clone(), (idx, i.1.clone()));
+        variables.insert(i.0.to_string(), (idx, i.1.clone()));
     }
     loop {
         let n = parse_command(
@@ -415,7 +420,7 @@ pub fn parse_fn(
             &mut variables,
             type_table,
             file.clone(),
-            header.0.clone(),
+            header.0.to_string(),
         )?;
         match n {
             ParseCommandOutput::Label { name } => {
@@ -443,7 +448,9 @@ pub fn parse_fn(
     if !header.1.arguments.is_empty() {
         arg_types = arg_types[header.1.arguments.len() - 1..].to_vec();
     }
-    cmds[0] = Cmd::DeclareVariables { values: arg_types };
+    cmds[0] = Cmd::DeclareVariables {
+        values: arg_types.into(),
+    };
     Ok((
         header.0.clone(),
         Function {
@@ -451,15 +458,15 @@ pub fn parse_fn(
             return_type: header.1.return_type,
             cmds,
             labels,
-            display_name: header.0.clone(),
+            display_name: header.0.to_string(),
         },
     ))
 }
 
 pub fn parse_struct(
     tokens: &mut TokenStream,
-    _type_table: &[(String, Type)],
-) -> Result<(String, Type), Box<dyn Error>> {
+    _type_table: &[(Rc<str>, Type)],
+) -> Result<(Rc<str>, Type), Box<dyn Error>> {
     let name = tokens.next().unwrap().text;
     let mut v = Vec::new();
     loop {
@@ -477,28 +484,35 @@ pub fn parse_struct(
         let defaults = default_types();
         let mut is_ptr = true;
         for i in defaults {
-            if i.0 == tmp {
+            if i.0.as_ref() == tmp {
                 is_ptr = false;
                 break;
             }
         }
         v.push((
-            name1,
+            name1.into(),
             ShallowType {
                 index: 0,
-                name: tmp.to_string(),
+                name: tmp.into(),
                 array_count,
                 is_ptr,
             },
         ));
     }
-    Ok((name.clone(), Type::Struct { name, fields: v }))
+    let t: Rc<str> = name.into();
+    Ok((
+        t.clone(),
+        Type::Struct {
+            name: t,
+            fields: v.into(),
+        },
+    ))
 }
 
 pub fn parse_fn_header(
     tokens: &mut TokenStream,
-    type_table: &[(String, Type)],
-) -> Result<(String, Function), Box<dyn Error>> {
+    type_table: &[(Rc<str>, Type)],
+) -> Result<(Rc<str>, Function), Box<dyn Error>> {
     let tp = parse_type(tokens, type_table)?;
     let Some(name) = tokens.next().map(|i| i.text) else {
         todo!()
@@ -510,16 +524,17 @@ pub fn parse_fn_header(
         }
         let name = t.text;
         let tp = parse_type(tokens, type_table)?;
-        args.push((name, tp));
+        args.push((name.into(), tp));
     }
+    let t: Rc<str> = name.into();
     Ok((
-        name.clone(),
+        t.clone(),
         Function {
-            arguments: args,
+            arguments: args.into(),
             return_type: tp,
             cmds: Vec::new(),
             labels: HashMap::new(),
-            display_name: name,
+            display_name: t.to_string(),
         },
     ))
 }
@@ -527,13 +542,13 @@ pub fn parse_fn_header(
 pub fn parse_var(
     v: String,
     variables: &HashMap<String, (usize, ShallowType)>,
-    type_table: &[(String, Type)],
+    type_table: &[(Rc<str>, Type)],
 ) -> Result<Var, Box<dyn Error>> {
     if v == "unit" {
         return Ok(Var::Unit);
     } else if v.starts_with('"') {
         return Ok(Var::ConstString {
-            value: v.trim_matches('"').to_string(),
+            value: v.trim_matches('"').into(),
         });
     } else if let Ok(s) = v.parse::<i64>() {
         return Ok(Var::ConstInt { value: s });
@@ -545,7 +560,7 @@ pub fn parse_var(
         return Ok(Var::Stack {
             vtype: s.1.clone(),
             index: s.0,
-            name: v,
+            name: v.into(),
         });
     } else {
         if let Some(p) = v.find('.') {
@@ -561,10 +576,10 @@ pub fn parse_var(
                         match typ {
                             Type::Struct { name: _, fields } => {
                                 let mut idx = 0;
-                                for i in &fields {
-                                    if i.0 == bst {
+                                for i in fields.iter() {
+                                    if i.0.as_ref() == bst {
                                         return Ok(Var::FieldAccess {
-                                            of: Box::new(base),
+                                            of: Rc::new(base),
                                             index: idx,
                                             return_type: i.1.clone(),
                                         });
@@ -580,10 +595,10 @@ pub fn parse_var(
                     }
                     Type::Struct { name, fields } => {
                         let mut idx = 0;
-                        for i in &fields {
-                            if i.0 == bst {
+                        for i in fields.iter() {
+                            if i.0.as_ref() == bst {
                                 return Ok(Var::FieldAccess {
-                                    of: Box::new(base),
+                                    of: Rc::new(base),
                                     index: idx,
                                     return_type: i.1.clone(),
                                 });
@@ -610,7 +625,7 @@ pub fn parse_var(
 pub fn parse_command(
     tokens: &mut TokenStream,
     variables: &mut HashMap<String, (usize, ShallowType)>,
-    type_table: &[(String, Type)],
+    type_table: &[(Rc<str>, Type)],
     file: String,
     function_name: String,
 ) -> Result<ParseCommandOutput, Box<dyn Error>> {
@@ -635,7 +650,8 @@ pub fn parse_command(
     if s == "goto" {
         return Ok(ParseCommandOutput::Command {
             cmd: Cmd::Jmp {
-                to: function_name + &tokens.next().unwrap().text,
+                to: (function_name + &tokens.next().unwrap().text).into(),
+                to_idx: 0,
             },
         });
     }
@@ -649,7 +665,8 @@ pub fn parse_command(
         return Ok(ParseCommandOutput::Command {
             cmd: Cmd::JmpCond {
                 cond: v,
-                to: function_name + &to.text,
+                to: (function_name + &to.text).into(),
+                to_idx: 0,
             },
         });
     }
@@ -669,7 +686,7 @@ pub fn parse_command(
                 cmd: Cmd::Call {
                     to_call: v,
                     returned: Var::Unit,
-                    args,
+                    args: args.into(),
                 },
             })
         } else if n.text == "=" {
@@ -702,10 +719,11 @@ pub fn parse_command(
                 return Ok(ParseCommandOutput::Command {
                     cmd: Cmd::Call {
                         to_call: Var::FunctionLiteral {
-                            name: func_mangle(ln.text.clone(), file.clone()),
+                            name: func_mangle(ln.text.clone(), file.clone()).into(),
+                            idx: 0,
                         },
                         returned: v,
-                        args,
+                        args: args.into(),
                     },
                 });
             };
@@ -762,7 +780,7 @@ pub fn parse_command(
                     cmd: Cmd::Call {
                         to_call: l,
                         returned: v,
-                        args,
+                        args: args.into(),
                     },
                 })
             } else if op.text == "new" {
@@ -851,16 +869,20 @@ pub fn function_fixups(p: &Program, f: &Function) -> Result<Function, String> {
                     todo!()
                 }
             }
-            Cmd::Jmp { to } => {
-                if !f.labels.contains_key(to) {
+            Cmd::Jmp { to, to_idx: _ } => {
+                if !f.labels.contains_key(to.as_ref()) {
                     todo!()
                 }
             }
-            Cmd::JmpCond { cond, to } => {
+            Cmd::JmpCond {
+                cond,
+                to,
+                to_idx: _,
+            } => {
                 if cond.get_type(&p.types) != Type::Bool {
                     todo!()
                 }
-                if !f.labels.contains_key(to) {
+                if !f.labels.contains_key(to.as_ref()) {
                     todo!()
                 }
             }
@@ -878,7 +900,7 @@ pub fn function_fixups(p: &Program, f: &Function) -> Result<Function, String> {
                         name,
                     } => {
                         println!("{:#?}", name);
-                        let f = &p.functions[&name];
+                        let f = &p.functions[name.as_ref()];
                         let from: Vec<Type> =
                             f.arguments.iter().map(|i| i.1.as_type(&p.types)).collect();
                         let to = f.return_type.as_type(&p.types);
@@ -928,6 +950,12 @@ pub fn link(progs: &[Program]) -> mach::Machine {
         stack: Vec::new(),
         done: false,
     };
+    for _ in 0..8 {
+        out.cmds.push(Cmd::Jmp {
+            to: "__failed".into(),
+            to_idx: 0,
+        })
+    }
     for i in progs {
         for j in &i.functions {
             if j.1.display_name == "main" {
@@ -943,7 +971,38 @@ pub fn link(progs: &[Program]) -> mach::Machine {
             }
         }
         for j in &i.types {
-            out.type_table.push(j.clone());
+            out.type_table.push((j.0.clone(), j.1.clone()));
+        }
+    }
+    for i in &mut out.cmds {
+        match i {
+            Cmd::Call {
+                to_call,
+                returned: _,
+                args: _,
+            } => match to_call {
+                Var::FunctionLiteral { name, idx } => {
+                    if let Some(s) = out.symbol_table.get(name.as_ref()) {
+                        *idx = *s;
+                    }
+                }
+                _ => {}
+            },
+            Cmd::Jmp { to, to_idx } => {
+                if let Some(s) = out.symbol_table.get(to.as_ref()) {
+                    *to_idx = *s;
+                }
+            }
+            Cmd::JmpCond {
+                to,
+                to_idx,
+                cond: _,
+            } => {
+                if let Some(s) = out.symbol_table.get(to.as_ref()) {
+                    *to_idx = *s;
+                }
+            }
+            _ => continue,
         }
     }
     out

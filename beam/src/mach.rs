@@ -1,8 +1,9 @@
 pub use std::collections::HashSet;
+pub use std::rc::Rc;
 use std::{cell::UnsafeCell, collections::HashMap, error::Error, sync::Arc};
 #[derive(Clone, Debug, PartialEq)]
 pub struct ShallowType {
-    pub name: String,
+    pub name: Rc<str>,
     pub index: u64,
     pub array_count: u64,
     pub is_ptr: bool,
@@ -18,13 +19,13 @@ pub enum Type {
         to: ShallowType,
     },
     Struct {
-        name: String,
-        fields: Vec<(String, ShallowType)>,
+        name: Rc<str>,
+        fields: Rc<[(Rc<str>, ShallowType)]>,
     },
     Function {
         from: Vec<Type>,
         to: Box<Type>,
-        name: String,
+        name: Rc<str>,
     },
 }
 impl Type {
@@ -35,7 +36,6 @@ impl Type {
             Self::Float => true,
             Self::Bool => true,
             Self::String => false,
-
             _ => false,
         }
     }
@@ -45,7 +45,7 @@ pub enum Var {
     Stack {
         vtype: ShallowType,
         index: usize,
-        name: String,
+        name: Rc<str>,
     },
     ConstInt {
         value: i64,
@@ -54,19 +54,20 @@ pub enum Var {
         value: f64,
     },
     ConstString {
-        value: String,
+        value: Rc<str>,
     },
     ConstBool {
         value: bool,
     },
     Unit,
     FieldAccess {
-        of: Box<Var>,
+        of: Rc<Var>,
         index: usize,
         return_type: ShallowType,
     },
     FunctionLiteral {
-        name: String,
+        name: Rc<str>,
+        idx: usize,
     },
     OperatorNew {
         new_type: ShallowType,
@@ -98,19 +99,21 @@ pub enum Cmd {
         r: Var,
     },
     Jmp {
-        to: String,
+        to: Rc<str>,
+        to_idx: usize,
     },
     JmpCond {
         cond: Var,
-        to: String,
+        to: Rc<str>,
+        to_idx: usize,
     },
     DeclareVariables {
-        values: Vec<Type>,
+        values: Rc<[Type]>,
     },
     Call {
         to_call: Var,
         returned: Var,
-        args: Vec<Var>,
+        args: Rc<[Var]>,
     },
     Return {
         to_return: Var,
@@ -121,7 +124,7 @@ pub enum Value {
     Unit,
     Integer { v: i64 },
     Float { v: f64 },
-    String { v: String },
+    String { v: Rc<str> },
     Bool { v: bool },
     Object { ptr: u64 },
     ObjectHeader { information: u32, size: u32 },
@@ -142,14 +145,14 @@ pub struct Machine {
     pub frames: Vec<Frame>,
     pub to_return: Option<Var>,
     pub heap: Heap,
-    pub type_table: Vec<(String, Type)>,
+    pub type_table: Vec<(Rc<str>, Type)>,
     pub symbol_table: HashMap<String, usize>,
     pub stack: Vec<Value>,
     pub done: bool,
 }
 #[derive(Clone, Debug)]
 pub struct Function {
-    pub arguments: Vec<(String, ShallowType)>,
+    pub arguments: Rc<[(Rc<str>, ShallowType)]>,
     pub return_type: ShallowType,
     pub cmds: Vec<Cmd>,
     pub labels: HashMap<String, usize>,
@@ -157,7 +160,7 @@ pub struct Function {
 }
 #[derive(Clone, Debug)]
 pub struct Program {
-    pub types: Vec<(String, Type)>,
+    pub types: Vec<(Rc<str>, Type)>,
     pub functions: HashMap<String, Function>,
 }
 #[derive(Clone, Debug)]
@@ -168,8 +171,8 @@ pub struct HeapInternal {
     pub allocations: HashSet<(u32, u32)>,
 }
 #[derive(Clone, Debug)]
-pub struct Heap{
-    pub v:Arc<UnsafeCell<HeapInternal>>,
+pub struct Heap {
+    pub v: Arc<UnsafeCell<HeapInternal>>,
 }
 impl Default for HeapInternal {
     fn default() -> Self {
@@ -273,43 +276,41 @@ impl HeapInternal {
         Ok(())
     }
 }
-impl Heap{
+impl Heap {
     pub fn new() -> Self {
-        Self { v: Arc::new(UnsafeCell::new(HeapInternal::new())) }
+        Self {
+            v: Arc::new(UnsafeCell::new(HeapInternal::new())),
+        }
     }
     pub fn cleanup(&self) {
-        unsafe{
+        unsafe {
             (*self.v.get()).cleanup();
         }
     }
     pub fn allocate(&self, count: usize, typeheader: u32) -> Option<u32> {
-        unsafe{
-            (*self.v.get()).allocate(count, typeheader)
-        }
+        unsafe { (*self.v.get()).allocate(count, typeheader) }
     }
     pub fn free(&self, start: u32) -> Result<(), u32> {
-        unsafe{
-            (*self.v.get()).free(start)
-        }
+        unsafe { (*self.v.get()).free(start) }
     }
-    pub fn get(&self, ptr:usize)->Value{
-        unsafe{
-            (*self.v.get()).values[ptr].clone()
-        }
+    pub fn get(&self, ptr: usize) -> Value {
+        unsafe { (*self.v.get()).values[ptr].clone() }
     }
-    pub fn get_mut(&self, ptr:usize)->&mut Value{
-        unsafe{
-            &mut (*self.v.get()).values[ptr]
-        }
+    pub fn get_mut(&self, ptr: usize) -> &mut Value {
+        unsafe { &mut (*self.v.get()).values[ptr] }
     }
-    pub fn debug(&self){
-        unsafe{
-            println!("allocations:{:#?}\n, free_list:{:#?}", (*self.v.get()).allocations, (*self.v.get()).free_list);
+    pub fn debug(&self) {
+        unsafe {
+            println!(
+                "allocations:{:#?}\n, free_list:{:#?}",
+                (*self.v.get()).allocations,
+                (*self.v.get()).free_list
+            );
         }
     }
 }
 impl Type {
-    pub fn as_default(&self, _types: &[(String, Type)]) -> Result<Value, Box<dyn Error>> {
+    pub fn as_default(&self, _types: &[(Rc<str>, Type)]) -> Result<Value, Box<dyn Error>> {
         match self {
             Type::Void => Ok(Value::Unit),
             Type::Integer => Ok(Value::Integer { v: 0 }),
@@ -325,21 +326,21 @@ impl Type {
             } => todo!(),
         }
     }
-    pub fn get_size(&self, types:&[(String, Type)])->usize{
-        match self{
-            Type::Struct { name:_, fields }=>{
+    pub fn get_size(&self, types: &[(Rc<str>, Type)]) -> usize {
+        match self {
+            Type::Struct { name: _, fields } => {
                 let mut out = 0;
-                for i in fields{
+                for i in fields.iter() {
                     out += i.1.as_type(types).get_size(types);
                 }
                 out
             }
-            _=>1,
+            _ => 1,
         }
     }
 }
 impl ShallowType {
-    pub fn as_type(&self, type_table: &[(String, Type)]) -> Type {
+    pub fn as_type(&self, type_table: &[(Rc<str>, Type)]) -> Type {
         if self.is_ptr {
             let mut tmp = self.clone();
             tmp.is_ptr = false;
@@ -350,7 +351,7 @@ impl ShallowType {
     }
 }
 impl Var {
-    pub fn get_type(&self, type_table: &[(String, Type)]) -> Type {
+    pub fn get_type(&self, type_table: &[(Rc<str>, Type)]) -> Type {
         match self {
             Var::Stack {
                 vtype,
@@ -375,15 +376,15 @@ impl Var {
                 index: _,
                 return_type,
             } => {
-                if return_type.is_ptr{
+                if return_type.is_ptr {
                     let mut vt = return_type.clone();
                     vt.is_ptr = false;
                     Type::Ptr { to: vt }
-                }else{
+                } else {
                     type_table[return_type.index as usize].1.clone()
                 }
             }
-            Var::FunctionLiteral { name } => Type::Function {
+            Var::FunctionLiteral { name, idx: _ } => Type::Function {
                 from: Vec::new(),
                 to: Box::new(Type::Void),
                 name: name.clone(),
@@ -418,7 +419,7 @@ impl Machine {
                 index,
                 return_type: _,
             } => {
-                let v = self.get_value(*of)?;
+                let v = self.get_value((*of).clone())?;
                 match v {
                     Value::Object { ptr } => {
                         let var = self.heap.get_mut(ptr as usize + index + 1);
@@ -460,7 +461,7 @@ impl Machine {
                 index,
                 return_type: _,
             } => {
-                let v = self.get_value(*of)?;
+                let v = self.get_value((*of).clone())?;
                 match v {
                     Value::Object { ptr } => {
                         return Ok(self.heap.get(ptr as usize + index + 1));
@@ -470,18 +471,26 @@ impl Machine {
                     }
                 }
             }
-            Var::OperatorNew { new_type }=>{
+            Var::OperatorNew { new_type } => {
                 let vt = new_type.as_type(&self.type_table);
-                let fields = match &vt{Type::Struct { name:_, fields }=> {
-                    fields.clone()
-                }, _=>todo!()};
+                let fields = match &vt {
+                    Type::Struct { name: _, fields } => fields.clone(),
+                    _ => todo!(),
+                };
                 let sz = vt.get_size(&self.type_table);
-                let ptr = self.heap.allocate(sz as usize, new_type.index as u32).unwrap();
-                for i in 1..sz+1{
-                    *self.heap.get_mut(ptr as usize+i) = fields[i-1].1.as_type(&self.type_table).as_default(&self.type_table).unwrap();
+                let ptr = self
+                    .heap
+                    .allocate(sz as usize, new_type.index as u32)
+                    .unwrap();
+                for i in 1..sz + 1 {
+                    *self.heap.get_mut(ptr as usize + i) = fields[i - 1]
+                        .1
+                        .as_type(&self.type_table)
+                        .as_default(&self.type_table)
+                        .unwrap();
                 }
-                return Ok(Value::Object { ptr: ptr as u64 })
-            },
+                return Ok(Value::Object { ptr: ptr as u64 });
+            }
             _ => {
                 todo!()
             }
@@ -505,7 +514,7 @@ impl Machine {
             _ => Err("accessed non int as int".into()),
         }
     }
-    pub fn get_string(&self, var: Var) -> Result<String, String> {
+    pub fn get_string(&self, var: Var) -> Result<Rc<str>, String> {
         match self.get_value(var)? {
             Value::String { v } => Ok(v),
             _ => Err("accessed non string as string".into()),
@@ -677,7 +686,9 @@ impl Machine {
                             if ot != Type::String {
                                 todo!()
                             }
-                            *output = Value::String { v: lv + &rv };
+                            *output = Value::String {
+                                v: (lv.to_string() + &rv).into(),
+                            };
                         }
                         Binop::Mul => {
                             let lv = self.get_string(l)?;
@@ -693,7 +704,7 @@ impl Machine {
                             if ot != Type::String {
                                 todo!()
                             }
-                            *output = Value::String { v: out };
+                            *output = Value::String { v: out.into() };
                         }
                         Binop::Equal => {
                             let lv = self.get_string(l)?;
@@ -743,25 +754,22 @@ impl Machine {
                 let lv = self.get_l_value(l)?;
                 *lv = rv;
             }
-            Cmd::Jmp { to } => {
-                if let Some(loc) = self.symbol_table.get(&to) {
-                    self.ip = (*loc) as u64;
-                } else {
-                    return Err(format!("undefined symbol:{}", to).into());
-                }
+            Cmd::Jmp { to: _, to_idx } => {
+                self.ip = (to_idx) as u64;
             }
-            Cmd::JmpCond { cond, to } => {
+            Cmd::JmpCond {
+                cond,
+                to: _,
+                to_idx,
+            } => {
                 let b = self.get_bool(cond)?;
-                if let Some(loc) = self.symbol_table.get(&to) {
-                    if b {
-                        self.ip = (*loc) as u64;
-                    }
-                } else {
-                    return Err(format!("undefined symbol:{}", to).into());
+                let loc = to_idx;
+                if b {
+                    self.ip = (loc) as u64;
                 }
             }
             Cmd::DeclareVariables { values } => {
-                for i in values {
+                for i in values.iter() {
                     if self.stack.len() as u64 > self.v_end + 1 {
                         self.stack[self.v_end as usize] = i.as_default(&self.type_table)?;
                     } else {
@@ -783,24 +791,22 @@ impl Machine {
                     to_return: self.to_return.take(),
                 };
                 let loc = match to_call {
-                    Var::FunctionLiteral { name } => self.symbol_table.get(&name),
+                    Var::FunctionLiteral { name: _, idx } => idx,
                     _ => {
                         todo!()
                     }
                 };
-                if let Some(loc) = loc {
-                    let old = self.v_end;
-                    for i in args {
-                        if self.stack.len() as u64 > self.v_end + 1 {
-                            self.stack[self.v_end as usize] = self.get_value(i)?;
-                        } else {
-                            self.stack.push(self.get_value(i)?);
-                        }
-                        self.v_end += 1;
+                let old = self.v_end;
+                for i in args.iter() {
+                    if self.stack.len() as u64 > self.v_end + 1 {
+                        self.stack[self.v_end as usize] = self.get_value(i.clone())?;
+                    } else {
+                        self.stack.push(self.get_value(i.clone())?);
                     }
-                    self.ip = *loc as u64;
-                    self.v_start = old;
+                    self.v_end += 1;
                 }
+                self.ip = loc as u64;
+                self.v_start = old;
                 self.frames.push(f);
                 self.to_return = if returned != Var::Unit {
                     Some(returned)
