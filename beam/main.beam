@@ -1,10 +1,6 @@
 import std.beam
 fn string main: 
-    a:string = "hello"
-    b:string = " "
-    c:string = "world"
-    x:string = a+b 
-    x = x+c 
+	x:string = "hello " + "world"
 	return x
 end
 
