@@ -1,7 +1,20 @@
-import std.beam
-fn string main: 
-	x:string = "hello " + "world"
+
+fn int main: 
+	
+	x:int = fib(32)
 	return x
 end
 
 
+fn int fib n int:
+	cond:bool = n > 1
+	if cond goto done
+	return 1
+	label done
+	n = n-1
+	x:int = fib(n)
+	n = n-1 
+	y:int = fib(n)
+	out:int = x+y;
+	return out
+end

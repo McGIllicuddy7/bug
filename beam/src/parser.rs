@@ -188,7 +188,7 @@ pub fn tokenize(s: String, file: String) -> Vec<Token> {
             line,
         });
     }
-    println!("{:#?}", out);
+    //println!("{:#?}", out);
     out
 }
 
@@ -272,6 +272,7 @@ pub fn preprocess_file(
                 skip_struct(&mut toks)?;
             }
             _ => {
+                println!("{:#?}", n);
                 todo!();
             }
         }
@@ -411,6 +412,7 @@ pub fn parse_fn(
     });
     let mut labels = HashMap::new();
     let mut variables = HashMap::new();
+    let mut vt_stack = Vec::new();
     for i in header.1.arguments.iter() {
         let idx = variables.len();
         variables.insert(i.0.to_string(), (idx, i.1.clone()));
@@ -432,25 +434,13 @@ pub fn parse_fn(
             }
             ParseCommandOutput::Done => break,
             ParseCommandOutput::Declared { name, vt } => {
+                vt_stack.push(vt.as_type(&type_table));
                 variables.insert(name, (variables.len(), vt));
             }
         }
     }
-    let mut arg_types = Vec::new();
-    for i in variables {
-        if i.1.1.is_ptr {
-            let mut tmp = i.1.1.clone();
-            tmp.is_ptr = false;
-            arg_types.push(Type::Ptr { to: tmp });
-        } else {
-            arg_types.push(type_table[i.1.1.index as usize].1.clone());
-        }
-    }
-    if !header.1.arguments.is_empty() {
-        arg_types = arg_types[header.1.arguments.len() - 1..].to_vec();
-    }
     cmds[0] = Cmd::DeclareVariables {
-        values: arg_types.into(),
+        values: vt_stack.into()
     };
     Ok((
         header.0.clone(),
@@ -619,7 +609,7 @@ pub fn parse_var(
             todo!()
         }
     }
-    println!("unknown var:{}", v);
+   // println!("unknown var:{}", v);
     Err(format!("unknown var:{}", v).into())
 }
 
@@ -901,7 +891,6 @@ pub fn function_fixups(p: &Program, f: &Function) -> Result<Function, String> {
                         to: _,
                         name,
                     } => {
-                        println!("{:#?}", name);
                         let f = &p.functions[name.as_ref()];
                         let from: Vec<Type> =
                             f.arguments.iter().map(|i| i.1.as_type(&p.types)).collect();
