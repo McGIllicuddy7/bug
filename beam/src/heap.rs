@@ -6,13 +6,19 @@ pub struct Allocation {
     pub reachable: u16,
     pub type_idx: u16,
     pub num_objects: u16,
-    pub next: *mut Allocation,
 }
 
 #[repr(C)]
 #[derive(Clone)]
 pub struct RtHeap {
-    pub allocations: *mut Allocation,
+    allocations: Vec<*mut Allocation>,
+}
+impl RtHeap {
+    pub fn new() -> Self {
+        Self {
+            allocations: Vec::new(),
+        }
+    }
 }
 #[unsafe(no_mangle)]
 pub fn rt_heap_allocate(
@@ -25,43 +31,28 @@ pub fn rt_heap_allocate(
         let out = libc::malloc(size + size_of::<Allocation>()) as *mut Allocation;
         (*out).reachable = 0;
         (*out).num_objects = num_objects;
-        (*out).next = heap.allocations;
         (*out).type_idx = type_ptr;
-        heap.allocations = out;
+        heap.allocations.push(out);
         return out as *mut c_void;
     }
 }
 #[unsafe(no_mangle)]
 pub fn rt_heap_mark_all_unreachable(heap: &mut RtHeap) {
     unsafe {
-        let mut a = heap.allocations;
-        while a != null_mut() {
-            //println!("marking:3 {:#?}", a);
-            (*a).reachable = 0;
-            a = (*a).next;
+        for i in &heap.allocations {
+            (**i).reachable = 0;
         }
     }
 }
 #[unsafe(no_mangle)]
 pub fn rt_heap_free_all_unreachable(heap: &mut RtHeap) {
     unsafe {
-        let mut prev: *mut Allocation = null_mut();
-        let mut a = heap.allocations;
-        while a != null_mut() {
-            //println!("checking:{:#?}", a);
-            if (*a).reachable == 0 {
-                if prev != null_mut() {
-                    (*prev).next = (*a).next;
-                } else {
-                    heap.allocations = (*a).next;
-                }
-                let old = a;
-                a = (*a).next;
-                println!("freeing:{:#?}", old);
-                libc::free(old as *mut c_void);
+        let mut new_allocs = Vec::new();
+        for i in &heap.allocations {
+            if (**i).reachable == 0 {
+                libc::free(*i as *mut c_void);
             } else {
-                prev = a;
-                a = (*a).next;
+                new_allocs.push(*i);
             }
         }
     }

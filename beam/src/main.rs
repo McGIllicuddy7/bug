@@ -1,4 +1,4 @@
-//use crate::parser::link;
+use crate::fast::IntermediateRt;
 
 pub mod fast;
 pub mod heap;
@@ -22,29 +22,40 @@ impl Drop for Timer {
         println!("took:{:#?}", dr);
     }
 }
+pub fn compile() -> IntermediateRt {
+    let s = include_str!("../main.beam");
+    let p = parser::parse_to_program(s.to_string(), "main.beam".into()).unwrap();
+    println!("{:#?}", p);
+    let std = include_str!("../std.beam");
+    let p2 = parser::parse_to_program(std.to_string(), "std.beam".into()).unwrap();
+    let f = fast::compile_mach_to_ir(&[p, p2]);
+    f
+}
+pub fn fast() {
+    let run = true;
+    let comp = false;
+    if comp {
+        let rt = compile();
+        let v = rmp_serde::to_vec(&rt).unwrap();
+        std::fs::write("test.bin", v).unwrap();
+    }
+    if run {
+        let s = include_bytes!("../test.bin");
+        let rt: IntermediateRt = rmp_serde::from_slice(s).unwrap();
+        let mut f = fast::rt_from_intermediate_rt(rt);
+        while !f.halted {
+            f.step().unwrap();
+        }
+    }
+}
 fn main() {
     let s = include_str!("../main.beam");
     let p = parser::parse_to_program(s.to_string(), "main.beam".into()).unwrap();
     println!("{:#?}", p);
     let std = include_str!("../std.beam");
     let p2 = parser::parse_to_program(std.to_string(), "std.beam".into()).unwrap();
-    /*let mut machine = parser::link(&[p.clone(), p2.clone()]);
-    let t2 = Timer::new();
-    let mut count: usize = 0;
+    let mut machine = parser::link(&[p, p2]);
     while !machine.done {
-        count += 1;
         machine.update().unwrap();
     }
-    drop(t2);*/
-    //println!("{} instructions", count);
-    let mut count: usize = 0;
-    let mut f = fast::compile_mach_to_rt(&[p, p2]);
-    f.debug_instrs();
-    let t = Timer::new();
-    while !f.halted {
-        count += 1;
-        f.step().unwrap();
-    }
-    println!("{} instructions", count);
-    drop(t);
 }

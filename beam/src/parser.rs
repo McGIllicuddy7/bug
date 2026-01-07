@@ -320,6 +320,30 @@ pub fn preprocess_file(
 pub fn parse_to_program(string: String, file: String) -> Result<Program, Box<dyn Error>> {
     let mut imports = HashSet::new();
     let mut out = preprocess_file(string.clone(), file.clone(), &mut imports)?;
+    let mut tnew = out.types.clone();
+    for i in &mut tnew {
+        match &mut i.1 {
+            Type::Struct { name: _, fields } => {
+                let mut f = fields.to_vec();
+                for j in &mut f {
+                    let mut strm = TokenStream {
+                        tokens: vec![Token {
+                            text: j.1.name.to_string(),
+                            file: file.clone(),
+                            line: 0,
+                        }],
+                        index: 0,
+                    };
+                    j.1 = parse_type(&mut strm, &out.types)?;
+                }
+                *fields = f.into();
+            }
+            _ => {
+                continue;
+            }
+        }
+    }
+    out.types = tnew;
     let prefix = "".to_string();
     let mut tokens = TokenStream::from_string(string, file.clone());
     while let Some(n) = tokens.next() {
@@ -345,30 +369,7 @@ pub fn parse_to_program(string: String, file: String) -> Result<Program, Box<dyn
             }
         }
     }
-    let mut tnew = out.types.clone();
-    for i in &mut tnew {
-        match &mut i.1 {
-            Type::Struct { name: _, fields } => {
-                let mut f = fields.to_vec();
-                for j in &mut f {
-                    let mut strm = TokenStream {
-                        tokens: vec![Token {
-                            text: j.1.name.to_string(),
-                            file: file.clone(),
-                            line: 0,
-                        }],
-                        index: 0,
-                    };
-                    j.1 = parse_type(&mut strm, &out.types)?;
-                }
-                *fields = f.into();
-            }
-            _ => {
-                continue;
-            }
-        }
-    }
-    out.types = tnew;
+    println!("{:#?}", out);
     Ok(fixups(out)?)
 }
 

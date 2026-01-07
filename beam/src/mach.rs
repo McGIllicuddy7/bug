@@ -253,8 +253,8 @@ impl HeapInternal {
             information: typeheader,
             size: count as u32,
         };
-        self.allocations.insert((base + 1, count as u32));
-        Some(base + 1)
+        self.allocations.insert((base, count as u32));
+        Some(base)
     }
     pub fn free(&mut self, start: u32) -> Result<(), u32> {
         let base = start - 1;
@@ -515,7 +515,6 @@ impl Machine {
     pub fn update(&mut self) -> Result<(), Box<dyn Error>> {
         let ins = self.cmds[self.ip as usize].clone();
         self.ip += 1;
-        // println!("{:#?}", ins);
         match ins {
             Cmd::Binop { l, r, out, op } => {
                 let lt = l.get_type(&self.type_table);
@@ -829,6 +828,70 @@ impl Machine {
                 }
             }
         }
+        self.gc_check();
         Ok(())
+    }
+    pub fn gc_mark(&mut self, var: Value, reachable: &mut HashSet<u32>) {
+        match var {
+            Value::Object { ptr } => {
+                if reachable.contains(&(ptr as u32)) {
+                    return;
+                }
+                if ptr != 0 {
+                    reachable.insert(ptr as u32);
+                    let v = self.heap.get(ptr as usize);
+                    match v {
+                        Value::ObjectHeader {
+                            information: _,
+                            size,
+                        } => {
+                            for i in 1..size + 1 {
+                                let old = ptr;
+                                let x = self.heap.get(ptr as usize + i as usize);
+                                match x {
+                                    Value::Object { ptr } => {
+                                        self.gc_mark(
+                                            self.heap.get((old + i as u64) as usize),
+                                            reachable,
+                                        );
+                                    }
+                                    _ => {
+                                        continue;
+                                    }
+                                }
+                            }
+                        }
+
+                        _ => {
+                            println!("{:#?}", v);
+                            todo!();
+                        }
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+    pub fn gc_collect(&mut self) {
+        let mut reachable_list: HashSet<u32> = HashSet::new();
+        for i in self.stack.clone() {
+            self.gc_mark(i, &mut reachable_list);
+        }
+        for i in self.stack.clone() {
+            self.gc_mark(i, &mut reachable_list);
+        }
+        let m = unsafe { &*self.heap.v.get() };
+        let mut to_free_list = Vec::new();
+        for i in &m.allocations {
+            if !reachable_list.contains(&i.0) {
+                to_free_list.push(i.0);
+            }
+        }
+        for i in to_free_list {
+            self.heap.free(i).unwrap();
+        }
+    }
+    pub fn gc_check(&mut self) {
+        self.gc_collect();
     }
 }

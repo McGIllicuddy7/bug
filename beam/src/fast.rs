@@ -89,6 +89,7 @@ pub enum Tag {
 #[repr(C)]
 #[derive(Clone)]
 pub struct BStr {
+    allocation: *const u8,
     start: *const u8,
     len: usize,
 }
@@ -125,6 +126,7 @@ impl Clone for Var {
     }
 }
 
+use serde::{Deserialize, Serialize};
 use Instr::*;
 use Tag::*;
 
@@ -511,16 +513,28 @@ impl RT {
         unsafe {
             let al = ptr as *mut Allocation;
             let atm = &mut (*al).in_use;
+            let mut idx = 0;
             while let Err(_) = atm.compare_exchange_weak(
                 0,
                 1,
                 std::sync::atomic::Ordering::Acquire,
                 std::sync::atomic::Ordering::Acquire,
-            ) {}
+            ) {
+                idx += 1;
+                if idx > 1000 {
+                    return false;
+                }
+            }
         }
-        false
+        true
     }
-    pub fn release_ptr(&mut self, ptr: *mut Var) {}
+    pub fn release_ptr(&mut self, ptr: *mut Var) {
+        unsafe {
+            let al = ptr as *mut Allocation;
+            let atm = &mut (*al).in_use;
+            atm.store(0, std::sync::atomic::Ordering::Release);
+        }
+    }
     pub fn step(&mut self) -> Option<bool> {
         let n = self.next_instruction();
         //        println!("{:#?}", n);
@@ -560,6 +574,7 @@ impl RT {
                     let s = self.op_pop();
                     println!("returned: {:#?}", s);
                     self.halted = true;
+                    self.gc_collect();
                     return Some(true);
                 }
             }
@@ -1018,7 +1033,8 @@ impl RT {
         println!("]")
     }
     pub fn gc_update(&mut self) {
-        self.gc_collect();
+        return;
+        //self.gc_collect();
     }
     pub fn gc_mark(&mut self, ptr: *mut Var) {
         unsafe {
@@ -1077,13 +1093,16 @@ impl RT {
         crate::heap::rt_heap_free_all_unreachable(&mut self.heap);
     }
 }
+#[derive(Serialize, Deserialize)]
 pub struct InstructionList {
     pub iv: Vec<u8>,
 }
+#[derive(Serialize, Deserialize)]
 pub struct IntermediateRt {
     pub strings: Vec<string::String>,
     pub symbol_table: HashMap<string::String, usize>,
     pub data: InstructionList,
+    pub ip: u64,
 }
 impl InstructionList {
     pub fn new() -> Self {
@@ -1246,11 +1265,12 @@ pub fn compile_l_var(rt: &mut IntermediateRt, v: &crate::mach::Var, prg: &Progra
         }
     }
 }
-pub fn compile_mach_to_rt(progs: &[Program]) -> RT {
+pub fn compile_mach_to_ir(progs: &[Program]) -> IntermediateRt {
     let mut out = IntermediateRt {
         symbol_table: HashMap::new(),
         data: InstructionList::new(),
         strings: Vec::new(),
+        ip: 0,
     };
     let mut fixup_table: HashMap<usize, string::String> = HashMap::new();
     let mut idx = 0;
@@ -1615,11 +1635,16 @@ pub fn compile_mach_to_rt(progs: &[Program]) -> RT {
             out.data.iv[i.0 + j] = unsafe { std::mem::transmute(ix[j]) };
         }
     }
+    out.ip = start_ptr as u64;
+    out
+}
+pub fn rt_from_intermediate_rt(prg: IntermediateRt) -> RT {
+    let out = prg;
     let tmp = RT {
         op_stack: OwnedSlice::new([const { Var::new() }; 4096 * 16]),
         op_stack_ptr: 0,
         instructions: OwnedSlice::from_vec(out.data.iv),
-        ip: start_ptr,
+        ip: out.ip as usize,
         var_stack: OwnedSlice::new([const { Var::new() }; 4096 * 16]),
         var_stack_ptr: 0,
         var_base_ptr: 0,
@@ -1636,9 +1661,7 @@ pub fn compile_mach_to_rt(progs: &[Program]) -> RT {
         halted: false,
         symbol_table: out.symbol_table,
         strings: OwnedSlice::from_vec(out.strings),
-        heap: RtHeap {
-            allocations: std::ptr::null_mut(),
-        },
+        heap: RtHeap::new(),
         gc_info: GcInfo::new(),
     };
     tmp
