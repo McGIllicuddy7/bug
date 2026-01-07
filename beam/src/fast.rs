@@ -1,7 +1,19 @@
+use crate::heap::{Allocation, RtHeap};
 use core::slice;
 use std::{
-    cell::UnsafeCell, clone, collections::{HashMap, HashSet}, fmt::Debug, mem::MaybeUninit, ops::{Index, IndexMut, Range}, ptr::NonNull, string
+    cell::UnsafeCell,
+    collections::HashMap,
+    fmt::Debug,
+    mem::MaybeUninit,
+    ops::{Index, IndexMut, Range},
+    ptr::NonNull,
+    string,
 };
+#[repr(C)]
+pub struct AllocInfo {
+    pub field_count: u32,
+    pub type_info: u32,
+}
 #[repr(u8)]
 #[derive(Clone, Copy, Debug)]
 #[non_exhaustive]
@@ -64,7 +76,7 @@ pub enum Instr {
     New,
 }
 #[repr(u64)]
-#[derive(PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Tag {
     Void,
     Integer,
@@ -75,12 +87,20 @@ pub enum Tag {
     LValue,
 }
 #[repr(C)]
-#[derive(Clone, Copy)]
-pub struct BStr{
-    start:*const u8, 
-    len:usize,
+#[derive(Clone)]
+pub struct BStr {
+    start: *const u8,
+    len: usize,
 }
-pub struct TypeInfo {}
+impl BStr {
+    pub fn as_str(&self) -> &str {
+        unsafe {
+            let slice = std::slice::from_raw_parts(self.start, self.len);
+            return str::from_utf8(slice).unwrap();
+        }
+    }
+}
+
 #[derive(Clone, Copy)]
 pub union Value {
     pub void: (),
@@ -90,9 +110,7 @@ pub union Value {
     pub string: *const BStr,
     pub ptr: *const Var,
     pub lvalue: *const Var,
-    pub type_info: *const TypeInfo,
 }
-
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct InternalVar {
@@ -110,7 +128,7 @@ impl Clone for Var {
 use Instr::*;
 use Tag::*;
 
-use crate::mach::{Binop, Machine, Program, Type};
+use crate::mach::{Binop, Program, Type};
 
 impl Var {
     pub const fn new() -> Self {
@@ -143,7 +161,6 @@ impl Var {
             value: Value { string: v },
         }))
     }
-
     pub fn ptr(v: *mut Var) -> Self {
         Var(UnsafeCell::new(InternalVar {
             tag: Ptr,
@@ -198,11 +215,11 @@ impl Var {
             if self.get().tag == Bool {
                 self.get().value.boolean
             } else {
-               todo!()
+                todo!()
             }
         }
     }
-    pub fn get_string(&self) ->*const BStr {
+    pub fn get_string(&self) -> *const BStr {
         unsafe {
             if self.get().tag == String {
                 self.get().value.string
@@ -216,6 +233,7 @@ impl Var {
             if self.get().tag == Ptr {
                 self.get().value.ptr
             } else {
+                println!("error expected pointer instead found:{:#?}", self);
                 todo!()
             }
         }
@@ -230,13 +248,13 @@ impl Var {
         }
     }
 }
-impl Debug for Var{
+impl Debug for Var {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let s = self.get();
-        match s.tag{
+        match s.tag {
             Void => {
-                write!(f,"void")
-            },
+                write!(f, "void")
+            }
             Integer => {
                 write!(f, "int:{:#?}", self.get_int())
             }
@@ -244,12 +262,27 @@ impl Debug for Var{
                 write!(f, "float:{:#?}", self.get_float())
             }
             Bool => {
-                write!(f, "bool:{:#?}", self.get_bool())  
+                write!(f, "bool:{:#?}", self.get_bool())
             }
-            String => todo!(),
-            Ptr => todo!(),
-            LValue =>{
-                write!(f,"{:#?}", self.get_l_value())
+            String => unsafe {
+                let tmp = &*self.get_string();
+                write!(f, "string:{:#?}", tmp.as_str())
+            },
+            Ptr => unsafe {
+                let ptr = self.get_ptr();
+                if ptr == std::ptr::null() {
+                    write!(f, "ptr:null")
+                } else {
+                    let header = ptr as *const crate::heap::Allocation;
+                    let len = (*header).num_objects;
+                    for i in 0..len as usize {
+                        write!(f, "{:#?}", &*(ptr.add(i)))?;
+                    }
+                    Ok(())
+                }
+            },
+            LValue => {
+                write!(f, "{:#?}", self.get_l_value())
             }
         }
     }
@@ -263,13 +296,12 @@ impl<T> OwnedSlice<T> {
     pub fn new<const COUNT: usize>(values: [T; COUNT]) -> Self {
         let v = Box::new(values);
         let ptr = NonNull::new(Box::leak(v).as_mut_ptr()).unwrap();
-       // println!("slice created at {:#?}", ptr);
         Self { ptr, len: COUNT }
     }
     pub fn from_vec(v: Vec<T>) -> Self {
         let len = v.len();
-        let ptr = NonNull::new(Vec::leak(v).as_mut_ptr()).unwrap();
-       // println!("slice created at {:#?}", ptr);
+        let ptr = NonNull::new(Box::leak(v.into_boxed_slice()).as_mut_ptr()).unwrap();
+        // println!("slice created at {:#?}", ptr);
         Self { ptr, len }
     }
     pub fn from_box(v: Box<[T]>) -> Self {
@@ -295,7 +327,7 @@ impl<T> OwnedSlice<T> {
         unsafe { Some(self.ptr.add(idx).as_ref()).unwrap_unchecked() }
     }
     pub unsafe fn get_mut_unchecked(&mut self, idx: usize) -> &mut T {
-            unsafe { Some(self.ptr.add(idx).as_mut()).unwrap_unchecked() }
+        unsafe { Some(self.ptr.add(idx).as_mut()).unwrap_unchecked() }
     }
     pub fn as_slice(&self) -> &[T] {
         unsafe { slice::from_raw_parts(self.ptr.as_ptr(), self.len) }
@@ -307,7 +339,7 @@ impl<T> OwnedSlice<T> {
 impl<T> Drop for OwnedSlice<T> {
     fn drop(&mut self) {
         unsafe {
-          //  println!("slice freed at {:#?}", self.ptr);
+            //  println!("slice freed at {:#?}", self.ptr);
             let b = self.as_slice_mut();
             _ = Box::from_raw(b);
         }
@@ -360,8 +392,17 @@ impl<T> AsMut<[T]> for OwnedSlice<T> {
 pub struct RetInfo {
     pub ip: usize,
     pub var_sp: usize,
-    pub var_bp:usize,
+    pub var_bp: usize,
 }
+#[repr(C)]
+#[derive(Clone)]
+pub struct GcInfo {}
+impl GcInfo {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
 #[repr(C)]
 #[derive(Clone)]
 pub struct RT {
@@ -371,18 +412,27 @@ pub struct RT {
     pub ip: usize,
     pub var_stack: OwnedSlice<Var>,
     pub var_stack_ptr: usize,
-    pub var_base_ptr:usize,
+    pub var_base_ptr: usize,
     pub ret_info: OwnedSlice<RetInfo>,
     pub ret_info_ptr: usize,
     pub halted: bool,
     pub symbol_table: HashMap<string::String, usize>,
+    pub heap: RtHeap,
+    pub strings: OwnedSlice<string::String>,
+    pub gc_info: GcInfo,
+}
+impl Drop for RT {
+    fn drop(&mut self) {
+        crate::heap::rt_heap_mark_all_unreachable(&mut self.heap);
+        crate::heap::rt_heap_free_all_unreachable(&mut self.heap);
+    }
 }
 impl RT {
     pub fn next_instruction(&mut self) -> Instr {
-        unsafe{
+        unsafe {
             let i = self.instructions.get_unchecked(self.ip).clone();
             self.ip += 1;
-            std::mem::transmute(i)  
+            std::mem::transmute(i)
         }
     }
     pub fn next_var(&mut self) -> Var {
@@ -394,23 +444,25 @@ impl RT {
         unsafe { std::mem::transmute(bytes) }
     }
     pub fn next_u64(&mut self) -> u64 {
-        unsafe{
-            let mut bytes:MaybeUninit<[u8;8]> = MaybeUninit::uninit();
-            std::ptr::copy_nonoverlapping(self.instructions.get_unchecked(self.ip), (&mut bytes)as *mut _ as *mut u8, 8);
-            self.ip += size_of::<u64>();
-            u64::from_le_bytes(bytes.assume_init())
+        unsafe {
+            let bytes0: MaybeUninit<[u8; 8]> = MaybeUninit::zeroed();
+            let mut bytes = bytes0.assume_init();
+            for i in 0..8 {
+                bytes[i] = std::mem::transmute(*self.instructions.get_unchecked(self.ip));
+                self.ip += 1;
+            }
+            u64::from_le_bytes(bytes)
         }
-
     }
     pub fn op_pop(&mut self) -> Var {
         self.op_stack_ptr -= 1;
-        unsafe{
-            self.op_stack.get_unchecked(self.op_stack_ptr).clone()
-        }
+        unsafe { self.op_stack.get_unchecked(self.op_stack_ptr).clone() }
     }
     pub fn op_push(&mut self, var: Var) {
-        unsafe{*self.op_stack.get_mut_unchecked(self.op_stack_ptr) = var;
-        self.op_stack_ptr += 1;}
+        unsafe {
+            *self.op_stack.get_mut_unchecked(self.op_stack_ptr) = var;
+            self.op_stack_ptr += 1;
+        }
     }
     pub fn ret_push(&mut self, r: RetInfo) {
         self.ret_info[self.ret_info_ptr] = r;
@@ -439,9 +491,39 @@ impl RT {
         let x = &mut self.var_stack[self.var_base_ptr + idx] as *mut Var;
         Var::l_value(x)
     }
+    pub fn allocate_str(&mut self, s: &str) -> Var {
+        unsafe {
+            let slen = s.as_bytes().len();
+            let s_h_ptr = crate::heap::rt_heap_allocate(&mut self.heap, slen, 0, 4) as *mut u8;
+            let s_ptr = s_h_ptr.add(size_of::<crate::heap::Allocation>());
+            for i in 0..slen {
+                (*s_ptr.add(i)) = s.as_bytes()[i];
+            }
+            let bx_ptr = crate::heap::rt_heap_allocate(&mut self.heap, size_of::<BStr>(), 0, 3)
+                as *mut crate::heap::Allocation;
+            let bstr = bx_ptr.add(1) as *mut BStr;
+            (*bstr).start = s_ptr;
+            (*bstr).len = slen;
+            return Var::string(bstr);
+        }
+    }
+    pub fn try_take_ptr(&mut self, ptr: *mut Var) -> bool {
+        unsafe {
+            let al = ptr as *mut Allocation;
+            let atm = &mut (*al).in_use;
+            while let Err(_) = atm.compare_exchange_weak(
+                0,
+                1,
+                std::sync::atomic::Ordering::Acquire,
+                std::sync::atomic::Ordering::Acquire,
+            ) {}
+        }
+        false
+    }
+    pub fn release_ptr(&mut self, ptr: *mut Var) {}
     pub fn step(&mut self) -> Option<bool> {
         let n = self.next_instruction();
-    //    println!("{:#?}", n);
+        //        println!("{:#?}", n);
         match n {
             Jmp => {
                 self.ip = self.next_u64() as usize;
@@ -461,7 +543,7 @@ impl RT {
                 self.ret_push(RetInfo {
                     ip: old,
                     var_sp: old_var_ptr,
-                    var_bp:old_var_bp,
+                    var_bp: old_var_bp,
                 });
                 self.var_base_ptr = self.var_stack_ptr;
                 self.ip = rst;
@@ -476,7 +558,7 @@ impl RT {
                     self.var_base_ptr = r.var_bp;
                 } else {
                     let s = self.op_pop();
-                    println!("{:#?}",s);
+                    println!("returned: {:#?}", s);
                     self.halted = true;
                     return Some(true);
                 }
@@ -501,31 +583,31 @@ impl RT {
             }
             LoadVoid => {
                 let idx = self.next_u64() as usize;
-               // println!("{:#?} {idx}",n);
+                // println!("{:#?} {idx}",n);
                 let tmp = self.get_local_var(idx);
                 self.op_push(tmp);
             }
             LoadInt => {
                 let idx = self.next_u64() as usize;
                 let tmp = self.get_local_var(idx);
-               // println!("{:#?} {idx}",n);
+                // println!("{:#?} {idx}",n);
                 self.op_push(tmp);
             }
             LoadFloat => {
                 let idx = self.next_u64() as usize;
-               // println!("{:#?} {idx}",n);
+                // println!("{:#?} {idx}",n);
                 let tmp = self.get_local_var(idx);
                 self.op_push(tmp);
             }
             LoadBool => {
                 let idx = self.next_u64() as usize;
-               // println!("{:#?} {idx}",n);
+                // println!("{:#?} {idx}",n);
                 let tmp = self.get_local_var(idx);
                 self.op_push(tmp);
             }
             LoadPtr => {
                 let idx = self.next_u64() as usize;
-               // println!("{:#?} {idx}",n);
+                // println!("{:#?} {idx}",n);
                 let tmp = self.get_local_var(idx);
                 self.op_push(tmp);
             }
@@ -536,17 +618,26 @@ impl RT {
                 self.op_push(tmp);
             }
             LoadMember => {
-                todo!();
+                let s = self.op_pop();
+                let offset = self.next_u64() as usize;
+                unsafe {
+                    let ptr = s.get_ptr().add(offset + 1);
+                    self.op_push((*ptr).clone());
+                }
             }
             LoadVarAddr => {
                 let idx = self.next_u64() as usize;
-               // println!("{:#?} {idx}",n);
                 let tmp = self.get_local_var_lvalue(idx);
                 self.op_push(tmp);
-              //  self.debug_op_stack();
             }
             LoadMemberAddr => {
-                todo!();
+                let s = self.op_pop();
+                let offset = self.next_u64() as usize;
+                unsafe {
+                    let ptr = s.get_ptr().add(offset + 1);
+                    let v = Var::l_value(ptr as *mut Var);
+                    self.op_push(v);
+                }
             }
             StoreVoid => {
                 let ptr = self.op_pop();
@@ -564,7 +655,7 @@ impl RT {
                 let other = self.op_pop();
                 let f = ptr.get_l_value();
                 if f.get().tag != Integer || other.get().tag != Integer {
-                    println!("{:#?},{:#?}", f,other);
+                    println!("{:#?},{:#?}", f, other);
                     self.debug_op_stack();
                     todo!();
                 }
@@ -577,7 +668,7 @@ impl RT {
                 let other = self.op_pop();
                 let f = ptr.get_l_value();
                 if f.get().tag != Float || other.get().tag != Float {
-                    println!("{:#?},{:#?}", f,other);
+                    println!("{:#?},{:#?}", f, other);
                     self.debug_op_stack();
                     todo!();
                 }
@@ -590,7 +681,7 @@ impl RT {
                 let other = self.op_pop();
                 let f = ptr.get_l_value();
                 if f.get().tag != Bool || other.get().tag != Bool {
-                    println!("{:#?},{:#?}", f,other);
+                    println!("{:#?},{:#?}", f, other);
                     self.debug_op_stack();
                     todo!();
                 }
@@ -640,7 +731,10 @@ impl RT {
                 todo!()
             }
             ConstStr => {
-                todo!()
+                let idx = self.next_u64() as usize;
+                let s = self.strings[idx].clone();
+                let st = self.allocate_str(&s);
+                self.op_push(st);
             }
             IntAdd => {
                 let r = self.op_pop();
@@ -715,7 +809,7 @@ impl RT {
             FloatLess => {
                 let r = self.op_pop();
                 let l = self.op_pop();
-                self.op_push(Var::boolean(l.get_float()< r.get_float()));
+                self.op_push(Var::boolean(l.get_float() < r.get_float()));
             }
             FloatGreater => {
                 let r = self.op_pop();
@@ -743,207 +837,251 @@ impl RT {
                 self.op_push(Var::boolean(l.get_bool() && r.get_bool()));
             }
             StrAdd => {
-                todo!()
+                let r = self.op_pop();
+                let l = self.op_pop();
+                let sr = unsafe { (*r.get_string()).clone() };
+                let sl = unsafe { (*l.get_string()).clone() };
+                let s0 = sl.as_str().to_string() + sr.as_str();
+                let ts = self.allocate_str(&s0);
+                self.op_push(ts);
             }
             StrEq => {
-                todo!()
+                let r = self.op_pop();
+                let l = self.op_pop();
+                let sr = unsafe { (*r.get_string()).clone() };
+                let sl = unsafe { (*l.get_string()).clone() };
+                let b = sr.as_str() == sl.as_str();
+                self.op_push(Var::boolean(b));
             }
             StrNeq => {
-                todo!()
+                let r = self.op_pop();
+                let l = self.op_pop();
+                let sr = unsafe { (*r.get_string()).clone() };
+                let sl = unsafe { (*l.get_string()).clone() };
+                let b = sr.as_str() != sl.as_str();
+                self.op_push(Var::boolean(b))
             }
-            New => {
-                todo!()
-            }
-            _ => {
-                todo!()
-            }
+            New => unsafe {
+                let info: AllocInfo = std::mem::transmute(self.next_u64());
+                let ptr = crate::heap::rt_heap_allocate(
+                    &mut self.heap,
+                    info.field_count as usize * size_of::<Var>(),
+                    info.field_count as u16,
+                    info.type_info as u16,
+                ) as *mut Var;
+                for i in 0..info.field_count as usize {
+                    (*ptr.add(i)) = Var::new()
+                }
+                self.op_push(Var::ptr(ptr));
+            },
         }
+        self.gc_update();
         Some(self.halted)
     }
-    pub fn debug_instrs(&self){
+    pub fn debug_instrs(&self) {
         let mut tmp = self.clone();
-        tmp.ip =0;
-        while tmp.ip< tmp.instructions.len{
+        tmp.ip = 0;
+        while tmp.ip < tmp.instructions.len {
             print!("{}:", tmp.ip);
             let i = tmp.next_instruction();
-            print!("{:#?} ",i);
-            match i{
-            Jmp => {
-                print!("{:#?}",tmp.next_u64() as usize);
-            }
-            JmpCond => {
-                let to = tmp.next_u64();
-                print!("{:#?}",to)
-            }
-            Call => {
-                let rst = tmp.next_u64() as usize;
-                print!("{:#?}", rst);
-            }
-            CallObj => {
-                todo!()
-            }
-            Ret => {
-                
-            }
-            DefLocalVoid => {
-            }
-            DefLocalInt => {
-            }
-            DefLocalFloat => {
-            }
-            DefLocalBool => {
-            }
-            DefLocalPtr => {
-            }
-            DefLocalStr => {
-            }
-            LoadVoid => {
-                let idx = tmp.next_u64() as usize;
-                print!("{:#?}",idx);
-            }
-            LoadInt => {
-                let idx = tmp.next_u64() as usize;
-                print!("{:#?}",idx);
-            }
-            LoadFloat => {
-                let idx = tmp.next_u64() as usize;
-                print!("{:#?}",idx);
-            }
-            LoadBool => {
-                let idx = tmp.next_u64() as usize;
-                print!("{:#?}",idx);
-            }
-            LoadPtr => {
-                let idx = tmp.next_u64() as usize;
-                print!("{:#?}",idx);
-            }
-            LoadStr => {
-                let idx = tmp.next_u64() as usize;
-                print!("{:#?}",idx);
-            }
-            LoadMember => {
-                todo!();
-            }
-            LoadVarAddr => {
-                let idx = tmp.next_u64() as usize;
-                print!("{:#?}",idx);
-            }
-            LoadMemberAddr => {
-                todo!();
-            }
-            StoreVoid => {
-            }
-            StoreInt => {
-            }
-            StoreFloat => {
-            }
-            StoreBool => {
-            }
-            StorePtr => {
-            }
-            StoreStr => {
-            }
-            ConstVoid => {
-                let idx = tmp.next_u64() as usize;
-                print!("{:#?}",idx);
-            }
-            ConstInt => {
-                let idx =u64::cast_signed( tmp.next_u64());
-                print!("{:#?}",idx);
-            }
-            ConstFloat => {
-                let idx:f64 =f64::from_bits(tmp.next_u64());
-                print!("{:#?}",idx);
-            }
-            ConstBool => {
-                let idx = tmp.next_u64() as usize;
-                print!("{:#?}",idx);
-            }
-            ConstPtr => {
-                todo!()
-            }
-            ConstStr => {
-                todo!()
-            }
-            IntAdd => {
-            }
-            IntSub => {
-            }
-            IntMul => {
-            }
-            IntDiv => {
-            }
-            IntEq => {
-            }
-            IntNEq => {
-            }
-            IntLess => {
-
-            }
-            IntGreater => {
-            }
-            FloatAdd => {
-            }
-            FloatSub => {
-            }
-            FloatMul => {
-            }
-            FloatDiv => {
-            }
-            FloatEq => {
-            }
-            FloatNeq => {
-            }
-            FloatLess => {
-            }
-            FloatGreater => {
-            }
-            BoolEq => {
-            }
-            BoolNeq => {
-            }
-            BoolAnd => {
-            }
-            BoolOr => {
-            }
-            StrAdd => {
-                todo!()
-            }
-            StrEq => {
-                todo!()
-            }
-            StrNeq => {
-                todo!()
-            }
-            New => {
-                todo!()
-            }
-            _ => {
-                todo!()
-            }
+            print!("{:#?} ", i);
+            match i {
+                Jmp => {
+                    print!("{:#?}", tmp.next_u64() as usize);
+                }
+                JmpCond => {
+                    let to = tmp.next_u64();
+                    print!("{:#?}", to)
+                }
+                Call => {
+                    let rst = tmp.next_u64() as usize;
+                    print!("{:#?}", rst);
+                }
+                CallObj => {
+                    todo!()
+                }
+                Ret => {}
+                DefLocalVoid => {}
+                DefLocalInt => {}
+                DefLocalFloat => {}
+                DefLocalBool => {}
+                DefLocalPtr => {}
+                DefLocalStr => {}
+                LoadVoid => {
+                    let idx = tmp.next_u64() as usize;
+                    print!("{:#?}", idx);
+                }
+                LoadInt => {
+                    let idx = tmp.next_u64() as usize;
+                    print!("{:#?}", idx);
+                }
+                LoadFloat => {
+                    let idx = tmp.next_u64() as usize;
+                    print!("{:#?}", idx);
+                }
+                LoadBool => {
+                    let idx = tmp.next_u64() as usize;
+                    print!("{:#?}", idx);
+                }
+                LoadPtr => {
+                    let idx = tmp.next_u64() as usize;
+                    print!("{:#?}", idx);
+                }
+                LoadStr => {
+                    let idx = tmp.next_u64() as usize;
+                    print!("{:#?}", idx);
+                }
+                LoadMember => {
+                    let idx = tmp.next_u64() as usize;
+                    print!("{:#?}", idx);
+                }
+                LoadVarAddr => {
+                    let idx = tmp.next_u64() as usize;
+                    print!("{:#?}", idx);
+                }
+                LoadMemberAddr => {
+                    let idx = tmp.next_u64() as usize;
+                    print!("{:#?}", idx);
+                }
+                StoreVoid => {}
+                StoreInt => {}
+                StoreFloat => {}
+                StoreBool => {}
+                StorePtr => {}
+                StoreStr => {}
+                ConstVoid => {
+                    let idx = tmp.next_u64() as usize;
+                    print!("{:#?}", idx);
+                }
+                ConstInt => {
+                    let idx = u64::cast_signed(tmp.next_u64());
+                    print!("{:#?}", idx);
+                }
+                ConstFloat => {
+                    let idx: f64 = f64::from_bits(tmp.next_u64());
+                    print!("{:#?}", idx);
+                }
+                ConstBool => {
+                    let idx = tmp.next_u64() as usize;
+                    print!("{:#?}", idx);
+                }
+                ConstPtr => {
+                    todo!()
+                }
+                ConstStr => {
+                    let idx = tmp.next_u64() as usize;
+                    println!("{:#?}", tmp.strings[idx]);
+                }
+                IntAdd => {}
+                IntSub => {}
+                IntMul => {}
+                IntDiv => {}
+                IntEq => {}
+                IntNEq => {}
+                IntLess => {}
+                IntGreater => {}
+                FloatAdd => {}
+                FloatSub => {}
+                FloatMul => {}
+                FloatDiv => {}
+                FloatEq => {}
+                FloatNeq => {}
+                FloatLess => {}
+                FloatGreater => {}
+                BoolEq => {}
+                BoolNeq => {}
+                BoolAnd => {}
+                BoolOr => {}
+                StrAdd => {}
+                StrEq => {}
+                StrNeq => {}
+                New => {
+                    let sz = tmp.next_u64();
+                    println!("{:#?}", sz);
+                }
             }
             println!("");
         }
     }
-    pub fn debug_op_stack(&self){
+    pub fn debug_op_stack(&self) {
         println!("[");
-        for i in 0..self.op_stack_ptr{
+        for i in 0..self.op_stack_ptr {
             println!("  {:#?}", self.op_stack[i]);
         }
         println!("]")
     }
-    pub fn debug_var_stack(&self){
+    pub fn debug_var_stack(&self) {
         println!("[");
-        for i in self.var_base_ptr..self.var_stack_ptr{
+        for i in self.var_base_ptr..self.var_stack_ptr {
             println!("  {:#?}", self.op_stack[i]);
         }
         println!("]")
+    }
+    pub fn gc_update(&mut self) {
+        self.gc_collect();
+    }
+    pub fn gc_mark(&mut self, ptr: *mut Var) {
+        unsafe {
+            let al = ptr as *mut Allocation;
+            if al == std::ptr::null_mut() {
+                return;
+            }
+            if (*al).reachable != 0 {
+                return;
+            }
+            (*al).reachable = 1;
+            for i in 1..(*al).num_objects as usize + 1 {
+                let f = ptr.add(i);
+                let v = &mut *f;
+                match v.get().tag {
+                    Ptr => self.gc_mark(v.get_ptr() as *mut Var),
+                    String => self.gc_mark_string(v.get_string() as *mut BStr),
+                    _ => {}
+                }
+            }
+        }
+    }
+
+    pub fn gc_mark_string(&mut self, ptr: *mut BStr) {
+        unsafe {
+            if ptr == std::ptr::null_mut() {
+                return;
+            }
+            let al = (ptr as *mut Allocation).sub(1);
+            if (*al).reachable != 0 {
+                return;
+            }
+            (*al).reachable = 1;
+            let al_ptr = ((*ptr).start as *mut Allocation).sub(1);
+            (*al_ptr).reachable = 1;
+        }
+    }
+    pub fn gc_collect(&mut self) {
+        crate::heap::rt_heap_mark_all_unreachable(&mut self.heap);
+        for i in 0..self.var_stack_ptr {
+            let obj = self.var_stack[i].clone();
+            match obj.get().tag {
+                Ptr => self.gc_mark(obj.get_ptr() as *mut Var),
+                String => self.gc_mark_string(obj.get_string() as *mut BStr),
+                _ => {}
+            }
+        }
+        for i in 0..self.op_stack_ptr {
+            let obj = self.op_stack[i].clone();
+            match obj.get().tag {
+                Ptr => self.gc_mark(obj.get_ptr() as *mut Var),
+                String => self.gc_mark_string(obj.get_string() as *mut BStr),
+                _ => {}
+            }
+        }
+        crate::heap::rt_heap_free_all_unreachable(&mut self.heap);
     }
 }
 pub struct InstructionList {
     pub iv: Vec<u8>,
 }
 pub struct IntermediateRt {
+    pub strings: Vec<string::String>,
     pub symbol_table: HashMap<string::String, usize>,
     pub data: InstructionList,
 }
@@ -952,7 +1090,7 @@ impl InstructionList {
         Self { iv: Vec::new() }
     }
     pub fn push_instr(&mut self, ins: Instr) {
-        self.iv.push(unsafe{std::mem::transmute(ins)});
+        self.iv.push(unsafe { std::mem::transmute(ins) });
     }
     pub fn push_bool(&mut self, v: bool) {
         let vs = if v { 1 } else { 0 };
@@ -990,7 +1128,11 @@ impl InstructionList {
 }
 pub fn compile_var(rt: &mut IntermediateRt, v: &crate::mach::Var, prg: &Program) {
     match v {
-        crate::mach::Var::Stack { vtype, index, name:_ } => match vtype.as_type(&prg.types) {
+        crate::mach::Var::Stack {
+            vtype,
+            index,
+            name: _,
+        } => match vtype.as_type(&prg.types) {
             crate::mach::Type::Void => {
                 rt.data.push_instr(LoadVoid);
                 rt.data.push_u64(*index as u64);
@@ -1008,16 +1150,21 @@ pub fn compile_var(rt: &mut IntermediateRt, v: &crate::mach::Var, prg: &Program)
                 rt.data.push_u64(*index as u64);
             }
             crate::mach::Type::String => {
-                todo!()
+                rt.data.push_instr(LoadStr);
+                rt.data.push_u64(*index as u64);
             }
-            crate::mach::Type::Ptr { to:_ } => {
+            crate::mach::Type::Ptr { to: _ } => {
                 rt.data.push_instr(LoadPtr);
                 rt.data.push_u64(*index as u64);
             }
-            crate::mach::Type::Struct { name:_, fields:_ } => {
+            crate::mach::Type::Struct { name: _, fields: _ } => {
                 todo!()
             }
-            crate::mach::Type::Function { from:_, to:_, name:_ } => {
+            crate::mach::Type::Function {
+                from: _,
+                to: _,
+                name: _,
+            } => {
                 todo!()
             }
         },
@@ -1026,11 +1173,14 @@ pub fn compile_var(rt: &mut IntermediateRt, v: &crate::mach::Var, prg: &Program)
             rt.data.push_i64(*value);
         }
         crate::mach::Var::ConstFloat { value } => {
-            rt.data.push_instr(ConstInt);
+            rt.data.push_instr(ConstFloat);
             rt.data.push_float(*value);
         }
         crate::mach::Var::ConstString { value } => {
-            todo!()
+            let idx = rt.strings.len();
+            rt.strings.push(value.to_string());
+            rt.data.push_instr(ConstStr);
+            rt.data.push_u64(idx as u64);
         }
         crate::mach::Var::ConstBool { value } => {
             rt.data.push_instr(ConstBool);
@@ -1043,32 +1193,51 @@ pub fn compile_var(rt: &mut IntermediateRt, v: &crate::mach::Var, prg: &Program)
         crate::mach::Var::FieldAccess {
             of,
             index,
-            return_type,
+            return_type: _,
         } => {
             compile_var(rt, of, prg);
             rt.data.push_instr(LoadMember);
             rt.data.push_u64(*index as u64);
         }
-        crate::mach::Var::FunctionLiteral { name:_, idx:_ } => {
+        crate::mach::Var::FunctionLiteral { name: _, idx: _ } => {
             todo!()
         }
-        crate::mach::Var::OperatorNew { new_type:_ } => {
-            todo!()
+        crate::mach::Var::OperatorNew { new_type } => {
+            let t = new_type.as_type(&prg.types);
+            match t {
+                Type::Struct { name: _, fields } => {
+                    let info = AllocInfo {
+                        field_count: fields.len() as u32,
+                        type_info: new_type.index as u32,
+                    };
+                    rt.data.push_instr(New);
+                    unsafe {
+                        rt.data.push_u64(std::mem::transmute(info));
+                    }
+                }
+                _ => {
+                    todo!()
+                }
+            }
         }
     }
 }
 pub fn compile_l_var(rt: &mut IntermediateRt, v: &crate::mach::Var, prg: &Program) {
     match v {
-        crate::mach::Var::Stack { vtype:_, index, name:_ } => {
+        crate::mach::Var::Stack {
+            vtype: _,
+            index,
+            name: _,
+        } => {
             rt.data.push_instr(Instr::LoadVarAddr);
             rt.data.push_u64(*index as u64);
         }
         crate::mach::Var::FieldAccess {
             of,
             index,
-            return_type:_,
+            return_type: _,
         } => {
-            compile_l_var(rt, of, prg);
+            compile_var(rt, of, prg);
             rt.data.push_instr(Instr::LoadMemberAddr);
             rt.data.push_u64(*index as u64);
         }
@@ -1081,6 +1250,7 @@ pub fn compile_mach_to_rt(progs: &[Program]) -> RT {
     let mut out = IntermediateRt {
         symbol_table: HashMap::new(),
         data: InstructionList::new(),
+        strings: Vec::new(),
     };
     let mut fixup_table: HashMap<usize, string::String> = HashMap::new();
     let mut idx = 0;
@@ -1092,13 +1262,13 @@ pub fn compile_mach_to_rt(progs: &[Program]) -> RT {
             }
             let mut labels = HashMap::new();
             for j in &i.1.labels {
-                labels.insert(*j.1 + idx+1, j.0.clone());
+                labels.insert(*j.1 + idx + 1, j.0.clone());
             }
-            if out.symbol_table.contains_key(i.0){
+            if out.symbol_table.contains_key(i.0) {
                 todo!();
             }
             out.symbol_table.insert(i.0.clone(), out.data.iv.len());
-        //    println!("inserted:{:#?} at {}", i.0, out.data.iv.len());
+            //    println!("inserted:{:#?} at {}", i.0, out.data.iv.len());
             for j in &*i.1.arguments {
                 match j.1.as_type(&p.types) {
                     crate::mach::Type::Bool => {
@@ -1169,9 +1339,9 @@ pub fn compile_mach_to_rt(progs: &[Program]) -> RT {
             for j in &i.1.cmds {
                 let rt = &mut out;
                 if labels.contains_key(&idx) {
-          //          println!("inserted:{:#?} at {}", labels[&idx], rt.data.iv.len());
+                    //          println!("inserted:{:#?} at {}", labels[&idx], rt.data.iv.len());
                     rt.symbol_table
-                    .insert(labels[&idx].clone(), rt.data.iv.len());
+                        .insert(labels[&idx].clone(), rt.data.iv.len());
                 }
                 match j {
                     crate::mach::Cmd::Binop { l, r, out, op } => {
@@ -1362,7 +1532,7 @@ pub fn compile_mach_to_rt(progs: &[Program]) -> RT {
                     }
                     crate::mach::Cmd::DeclareVariables { values } => {
                         for i in values.iter() {
-            //               println!("type dec:{:#?}", i);
+                            //               println!("type dec:{:#?}", i);
                             match i {
                                 Type::Bool => {
                                     rt.data.push_instr(DefLocalBool);
@@ -1446,17 +1616,30 @@ pub fn compile_mach_to_rt(progs: &[Program]) -> RT {
         }
     }
     let tmp = RT {
-        op_stack: OwnedSlice::new([const { Var::new() }; 4096*16]),
+        op_stack: OwnedSlice::new([const { Var::new() }; 4096 * 16]),
         op_stack_ptr: 0,
         instructions: OwnedSlice::from_vec(out.data.iv),
         ip: start_ptr,
-        var_stack: OwnedSlice::new([const { Var::new() }; 4096*16]),
+        var_stack: OwnedSlice::new([const { Var::new() }; 4096 * 16]),
         var_stack_ptr: 0,
-        var_base_ptr:0,
-        ret_info: OwnedSlice::new([const { RetInfo { ip: 0, var_sp: 0 , var_bp:0} }; 4096*16]),
+        var_base_ptr: 0,
+        ret_info: OwnedSlice::new(
+            [const {
+                RetInfo {
+                    ip: 0,
+                    var_sp: 0,
+                    var_bp: 0,
+                }
+            }; 4096 * 16],
+        ),
         ret_info_ptr: 0,
         halted: false,
         symbol_table: out.symbol_table,
+        strings: OwnedSlice::from_vec(out.strings),
+        heap: RtHeap {
+            allocations: std::ptr::null_mut(),
+        },
+        gc_info: GcInfo::new(),
     };
     tmp
 }

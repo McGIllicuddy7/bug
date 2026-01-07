@@ -515,7 +515,7 @@ impl Machine {
     pub fn update(&mut self) -> Result<(), Box<dyn Error>> {
         let ins = self.cmds[self.ip as usize].clone();
         self.ip += 1;
-       // println!("{:#?}", ins);
+        // println!("{:#?}", ins);
         match ins {
             Cmd::Binop { l, r, out, op } => {
                 let lt = l.get_type(&self.type_table);

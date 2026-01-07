@@ -440,7 +440,7 @@ pub fn parse_fn(
         }
     }
     cmds[0] = Cmd::DeclareVariables {
-        values: vt_stack.into()
+        values: vt_stack.into(),
     };
     Ok((
         header.0.clone(),
@@ -609,7 +609,7 @@ pub fn parse_var(
             todo!()
         }
     }
-   // println!("unknown var:{}", v);
+    // println!("unknown var:{}", v);
     Err(format!("unknown var:{}", v).into())
 }
 
@@ -736,14 +736,14 @@ pub fn parse_command(
                 let opr = match op.text.as_str() {
                     "+" => Binop::Add,
                     "-" => Binop::Sub,
-                    "*" => Binop::Add,
-                    "/" => Binop::Sub,
+                    "*" => Binop::Mul,
+                    "/" => Binop::Div,
                     "==" => Binop::Equal,
                     "!=" => Binop::NotEqual,
                     ">" => Binop::Greater,
                     "<" => Binop::Less,
                     "or" => Binop::Or,
-                    "and" => Binop::Add,
+                    "and" => Binop::And,
                     _ => {
                         todo!()
                     }
