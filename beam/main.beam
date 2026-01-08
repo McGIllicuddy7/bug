@@ -1,15 +1,6 @@
-struct ll
-	value int
-	next ll
-end
+extern fn int nt_test x int: end
 fn int main:
-	list:ll = new ll
-	list.value = 10
-	list.value = list.value*2
-	list2:ll = new ll
-	list2.value = 12
-	list.next = list2
-	list3:ll = new ll
-	return list.value
+	out:int = nt_test(10);
+	return out;
 end
 

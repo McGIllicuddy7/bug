@@ -1624,6 +1624,9 @@ pub fn compile_mach_to_ir(progs: &[Program]) -> IntermediateRt {
                         compile_var(rt, to_return, p);
                         rt.data.push_instr(Ret);
                     }
+                    crate::mach::Cmd::CallNative { to_call, returned, args }=>{
+                            todo!();
+                    }
                 }
                 idx += 1;
             }

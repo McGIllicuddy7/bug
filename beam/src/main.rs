@@ -33,15 +33,15 @@ pub fn compile() -> IntermediateRt {
 }
 pub fn fast() {
     let run = true;
-    let comp = false;
+    let comp = true;
     if comp {
         let rt = compile();
         let v = rmp_serde::to_vec(&rt).unwrap();
         std::fs::write("test.bin", v).unwrap();
     }
     if run {
-        let s = include_bytes!("../test.bin");
-        let rt: IntermediateRt = rmp_serde::from_slice(s).unwrap();
+        let s = std::fs::read("test.bin").unwrap();
+        let rt: IntermediateRt = rmp_serde::from_slice(&s).unwrap();
         let mut f = fast::rt_from_intermediate_rt(rt);
         while !f.halted {
             f.step().unwrap();

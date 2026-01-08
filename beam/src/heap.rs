@@ -1,5 +1,5 @@
 use libc::c_void;
-use std::{ptr::null_mut, sync::atomic::AtomicU16};
+use std::{sync::atomic::AtomicU16};
 #[repr(C)]
 pub struct Allocation {
     pub in_use: AtomicU16,

@@ -116,6 +116,11 @@ pub enum Cmd {
         returned: Var,
         args: Rc<[Var]>,
     },
+    CallNative{
+        to_call: String,
+        returned: Var,
+        args: Rc<[Var]>,
+    },
     Return {
         to_return: Var,
     },
@@ -137,6 +142,33 @@ pub struct Frame {
     pub v_end: u64,
     pub to_return: Option<Var>,
 }
+#[derive(Clone)]
+pub struct NativeInterface{
+    pub funcs:HashMap<String,&'static dyn Fn(&[Value])->Value>,
+    pub to_load:HashSet<String>,
+}
+impl std::fmt::Debug for NativeInterface{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut s = Vec::new();
+        for i in &self.funcs{
+            s.push((i.0, i.1 as *const _ as *const ()));
+        }
+        write!(f, "{:#?}",s)
+    }
+}
+
+impl NativeInterface{
+    pub fn new()->Self{
+        let mut out = Self { funcs: HashMap::new() , to_load:HashSet::new()};
+        fn f(args:&[Value])->Value{
+            println!("testing 1 2 3{:#?}", args);
+            Value::Integer { v: 10 }
+        }
+        out.funcs.insert("nt_test".to_string(), &f);
+        out
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct Machine {
     pub cmds: Vec<Cmd>,
@@ -150,6 +182,7 @@ pub struct Machine {
     pub symbol_table: HashMap<String, usize>,
     pub stack: Vec<Value>,
     pub done: bool,
+    pub native_fns:NativeInterface,
 }
 #[derive(Clone, Debug)]
 pub struct Function {
@@ -158,11 +191,13 @@ pub struct Function {
     pub cmds: Vec<Cmd>,
     pub labels: HashMap<String, usize>,
     pub display_name: String,
+    pub is_header:bool,
 }
 #[derive(Clone, Debug)]
 pub struct Program {
     pub types: Vec<(Rc<str>, Type)>,
     pub functions: HashMap<String, Function>,
+    pub externals:HashMap<String, Function>
 }
 #[derive(Clone, Debug)]
 pub struct HeapInternal {
@@ -514,6 +549,7 @@ impl Machine {
     }
     pub fn update(&mut self) -> Result<(), Box<dyn Error>> {
         let ins = self.cmds[self.ip as usize].clone();
+        //println!("{:#?}",ins);
         self.ip += 1;
         match ins {
             Cmd::Binop { l, r, out, op } => {
@@ -825,6 +861,19 @@ impl Machine {
                     self.to_return = base.to_return;
                 } else {
                     todo!()
+                }
+            }
+            Cmd::CallNative { to_call, returned, args }=>{
+                let Some(f)= self.native_fns.funcs.get(&to_call)else {
+                    todo!()
+                };
+                let mut vals = Vec::new();
+                for i in args.iter(){
+                    vals.push(self.get_value(i.clone())?);
+                }
+                let rv = (*f)(&vals);
+                if let Ok(lv ) = self.get_l_value(returned){
+                   *lv = rv; 
                 }
             }
         }

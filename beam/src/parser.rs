@@ -4,7 +4,7 @@ use std::{
     rc::Rc,
 };
 
-use crate::mach::{self, Binop, Cmd, Function, Heap, Machine, Program, ShallowType, Type, Var};
+use crate::mach::{self, Binop, Cmd, Function, Heap, Machine, NativeInterface, Program, ShallowType, Type, Var};
 
 #[derive(Clone, Debug)]
 pub struct Token {
@@ -258,6 +258,7 @@ pub fn preprocess_file(
     let mut out = Program {
         types: default_types(),
         functions: HashMap::new(),
+        externals:HashMap::new(),
     };
     while let Some(n) = toks.next() {
         match n.as_ref() {
@@ -270,6 +271,10 @@ pub fn preprocess_file(
             }
             "struct" => {
                 skip_struct(&mut toks)?;
+            }
+            "extern"=>{
+                let _ = toks.next();
+                skip_fn(&mut toks)?;
             }
             _ => {
                 println!("{:#?}", n);
@@ -290,6 +295,9 @@ pub fn preprocess_file(
                 let strct = parse_struct(&mut toks, &out.types)?;
                 out.types.push(strct);
             }
+            "extern"=>{
+                skip_fn(&mut toks)?;
+            } 
             _ => {
                 todo!();
             }
@@ -308,6 +316,12 @@ pub fn preprocess_file(
             }
             "struct" => {
                 skip_struct(&mut toks)?;
+            }
+            "extern" => {
+                let _= toks.next();
+                let f = parse_fn_header(&mut toks, &out.types)?;
+                skip_fn(&mut toks)?;
+                out.externals.insert(f.0.to_string(), f.1);
             }
             _ => {
                 todo!();
@@ -350,6 +364,10 @@ pub fn parse_to_program(string: String, file: String) -> Result<Program, Box<dyn
         match n.as_ref() {
             "fn" => {
                 let (name, func) = parse_fn(&mut tokens, &out.types, file.clone())?;
+                if out.functions.contains_key(name.as_ref()){
+                    out.functions.remove(name.as_ref());
+                }
+                println!("f");
                 out.functions.insert(prefix.clone() + &name, func);
             }
             "import" => {
@@ -357,6 +375,10 @@ pub fn parse_to_program(string: String, file: String) -> Result<Program, Box<dyn
             }
             "struct" => {
                 skip_struct(&mut tokens)?;
+            }
+            "extern"=>{
+                let _= tokens.next();
+                skip_fn(&mut tokens).unwrap();
             }
             _ => {
                 return Err(format!(
@@ -369,7 +391,7 @@ pub fn parse_to_program(string: String, file: String) -> Result<Program, Box<dyn
             }
         }
     }
-    println!("{:#?}", out);
+    println!("out:{:#?}", out);
     Ok(fixups(out)?)
 }
 
@@ -451,6 +473,7 @@ pub fn parse_fn(
             cmds,
             labels,
             display_name: header.0.to_string(),
+            is_header:false,
         },
     ))
 }
@@ -527,6 +550,7 @@ pub fn parse_fn_header(
             cmds: Vec::new(),
             labels: HashMap::new(),
             display_name: t.to_string(),
+            is_header:true
         },
     ))
 }
@@ -829,6 +853,7 @@ pub fn fixups(p: Program) -> Result<Program, String> {
     let mut out = Program {
         types: p.types.clone(),
         functions: HashMap::new(),
+        externals:HashMap::new(),
     };
     for i in &p.functions {
         let f = function_fixups(&p, i.1)?;
@@ -840,8 +865,8 @@ pub fn fixups(p: Program) -> Result<Program, String> {
 pub fn function_fixups(p: &Program, f: &Function) -> Result<Function, String> {
     let mut out = f.clone();
     out.cmds.clear();
-    for i in &f.cmds {
-        match i {
+    for mut i in f.cmds.clone() {
+        match i.clone() {
             Cmd::Binop {
                 l,
                 r,
@@ -892,7 +917,15 @@ pub fn function_fixups(p: &Program, f: &Function) -> Result<Function, String> {
                         to: _,
                         name,
                     } => {
-                        let f = &p.functions[name.as_ref()];
+                        let f = if !p.functions.contains_key(name.as_ref()){
+                           &p.externals[name.as_ref()]
+                                
+                        }else{
+                            &p.functions[name.as_ref()]
+                        };
+                        if !p.functions.contains_key(name.as_ref()){
+                            i = Cmd::CallNative { to_call: name.as_ref().to_owned(), returned: returned.clone(), args: args.clone()};
+                        }
                         let from: Vec<Type> =
                             f.arguments.iter().map(|i| i.1.as_type(&p.types)).collect();
                         let to = f.return_type.as_type(&p.types);
@@ -923,6 +956,9 @@ pub fn function_fixups(p: &Program, f: &Function) -> Result<Function, String> {
                     todo!()
                 }
             }
+            Cmd::CallNative { to_call:_, returned:_, args:_ }=>{
+                println!("should validate");
+            } 
         }
         out.cmds.push(i.clone());
     }
@@ -941,6 +977,7 @@ pub fn link(progs: &[Program]) -> mach::Machine {
         symbol_table: HashMap::new(),
         stack: Vec::new(),
         done: false,
+        native_fns:NativeInterface::new()
     };
     for _ in 0..8 {
         out.cmds.push(Cmd::Jmp {
@@ -950,6 +987,10 @@ pub fn link(progs: &[Program]) -> mach::Machine {
     }
     for i in progs {
         for j in &i.functions {
+            if j.1.is_header{
+                println!("j:{:#?}", j);
+                continue;
+            }
             if j.1.display_name == "main" {
                 out.ip = out.cmds.len() as u64;
             }
@@ -964,6 +1005,9 @@ pub fn link(progs: &[Program]) -> mach::Machine {
         }
         for j in &i.types {
             out.type_table.push((j.0.clone(), j.1.clone()));
+        }
+        for j in &i.externals{
+            out.native_fns.to_load.insert(j.0.clone());
         }
     }
     for i in &mut out.cmds {
